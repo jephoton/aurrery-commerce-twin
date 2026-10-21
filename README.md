@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Autonomous Commerce Lab
 
-## Getting Started
+**Simulate before you transact.** A digital twin of a subscription business tests retention and pricing strategies under uncertainty, an AI agent recommends one with its trade-offs, and only after the merchant approves the exact payload is the change executed through the PayPal Subscriptions API (Sandbox) and read back from PayPal.
 
-First, run the development server:
+Built for the PayPal AI Hackathon (2026).
+
+## The loop
+
+1. **Twin from data.** Segment churn, payment-failure churn, acquisition and segment transitions are Beta/normal posteriors estimated from 18 months of subscriber history. Parameters history can't identify (price sensitivity, discount effect, annual uptake) are explicit priors, labelled as assumptions.
+2. **Strategies.** Targeted retention discounts, list-price changes and annual prepay plans, each bounded by server-side guardrails.
+3. **Monte Carlo comparison.** 1,000 runs per strategy over 12 months. Every strategy sees the same parameter draws and random streams (common random numbers), so paired differences against "do nothing" isolate the intervention. Output: median and 80% interval of value change, and the probability of doing worse than baseline.
+4. **Approval.** A recommended action becomes a proposal bound to a SHA-256 hash of its exact PayPal payload. Approval moves `proposed → approved`; execution atomically claims `approved → executing`, so it runs at most once.
+5. **PayPal execution.** `PATCH /v1/billing/subscriptions/{id}` overrides the regular-cycle price for each targeted sandbox subscription. This is merchant-side; PayPal does not require buyer consent for it, and billing within 10 days is unaffected. Each subscription is then read back with `GET` and the observed price is recorded.
+6. **Feedback.** Observed outcomes update the discount-effect posterior (Gamma–Poisson rate ratio).
+
+Simulated numbers are always labelled *simulated*; values read back from PayPal are labelled *observed*. The demo merchant (Ridgeline Roasters) and its history are synthetic; the PayPal Sandbox calls are real.
+
+## Quick start
+
+Requires Node.js 24+.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # add PayPal Sandbox + Anthropic credentials
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The twin and simulations work without credentials. To execute through PayPal:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Create a Sandbox REST app at developer.paypal.com and put its client ID and secret in `.env.local`.
+2. Run `npm run paypal:setup`. This creates the catalog product, a $24/month plan and four pilot subscriptions, and prints an approval link for each.
+3. Open each link signed in as a **sandbox personal** account so the subscriptions become `ACTIVE`, then run `npm run paypal:sync`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Development
 
-## Learn More
+```bash
+npm test             # simulation, calibration and approval state-machine tests
+npm run typecheck
+npm run lint
+npm run twin:inspect # print a strategy comparison from the command line
+```
 
-To learn more about Next.js, take a look at the following resources:
+See [docs/architecture.md](docs/architecture.md) and [docs/current-state.md](docs/current-state.md).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tools used
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **PayPal Subscriptions API** (Sandbox) via the official `@paypal/paypal-server-sdk`; Catalog Products REST API for setup.
+- **Anthropic Claude** for the strategy agent (in progress), which calls the simulator through structured tools and cannot execute payments itself.
+- **AG Grid Community** for the scenario comparison grid.
+- Next.js, TypeScript, Zod, Node's built-in SQLite, Vitest.
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT, see [LICENSE](LICENSE).
