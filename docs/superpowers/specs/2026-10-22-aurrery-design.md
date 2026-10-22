@@ -75,7 +75,7 @@ The hero path is never cut.
 - **Synthetic corpus:** about 200 messages, generated once and committed as a fixture labelled *synthetic*. Each has a hidden ground-truth label so the UI can report classifier agreement. Each of the four sandbox pilot subscriptions is linked to a message, so the PayPal action targets exactly the subscribers the AI flagged. The pilot mix is two price-driven cancel-intent, one cancel-intent for another reason, and one core, so the targeting is visibly selective (two of four).
 
 ### CSV import
-- **History (required):** one row per month × segment with `month, segment, active_start, voluntary_cancels, involuntary_cancels, moved_out, moved_to_price_sensitive, new_signups`. Unit economics are entered in a form.
+- **History (required):** one row per month × segment with `month, segment, active_start, voluntary_cancels, involuntary_cancels, moved_to_core, moved_to_price_sensitive, moved_to_at_risk, moved_to_cancel_intent, new_signups` (amended 2026-10-22: `at_risk` now has two exits). Unit economics are entered in a form.
 - **Feedback (optional):** `segment, text`. Without it, reason targeting is unavailable and the agent says so.
 - **Validation:** known segments, non-negative integers, cancels ≤ active, at least 6 months of history. Errors are reported per row; the current twin is unchanged on failure. A template and sample file can be downloaded.
 
