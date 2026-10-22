@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. Execution is **paused after M1 Task 5c** for a handoff._
+_Last material update: 2026-10-22. Execution resumed; **M1 Task 6 is implemented, with reviews pending**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -17,9 +17,15 @@ _Last material update: 2026-10-22. Execution is **paused after M1 Task 5c** for 
 | `main` | Create Next App scaffold only | yes (foundation not merged) |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3) | **no** |
-| `feat/m1-twin-v2` | branched from the M0 tip; M1 Tasks 4–5c, plus docs | **no**; **resume here** |
+| `feat/m1-twin-v2` | branched from the M0 tip; M1 Tasks 4–6, plus docs | **no**; **continue here** |
 
-Verified at the `feat/m1-twin-v2` tip: `npm test` (35 passing), `npm run typecheck`, `npm run lint`, and `npm run build` all pass, and the working tree is clean.
+Task 6 verification: `npm test` (46 passing), `npm run typecheck`, and `npm run lint` pass. The build last passed after Task 5c; it was not rerun for the pure stress-test module. Test output still includes the Vite config-format warning and Node's experimental SQLite warning.
+
+## M1 Task 6 implementation (reviews pending)
+
+`src/twin/stress.ts` exports `stressParams` and `stressTest`. The pure transform moves intervention-specific assumption means adversely by 0.8416 standard deviations, preserving Normal/Gamma spread and Beta concentration. This approximates an adverse 80th/20th percentile scenario; Gamma and Beta shifts are not exact quantiles. Discounts have weaker retention and more post-offer churn; annual uptake falls; price sensitivity rises for increases and falls for cuts. Baseline and unchanged list prices produce no shifts.
+
+`stressTest` runs base and stressed comparisons with the same options and seed, each against its own do-nothing baseline. It only shifts parameters explicitly marked as assumptions, retaining observed or estimated evidence (including calibrated reason-specific discount effects); exact parameter provenance takes precedence over group provenance. Historical churn, transitions, acquisition estimates and reason shares remain unchanged. Returned explanations list only shifts actually made. Eleven new tests cover the transforms, immutability, calibration preservation and adverse strategy comparisons. Spec-compliance and code-quality reviews are the next checkpoint.
 
 ## Done (each task passed a spec-compliance review and a code-quality review)
 
@@ -48,7 +54,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 ## Next steps (in order)
 
 1. **Finish M1** on `feat/m1-twin-v2`:
-   - **Task 6:** stress test. Plan text unchanged, except every `targeted_discount` literal needs `campaignMonths`.
+   - **Task 6:** implementation complete; run spec-compliance and code-quality reviews, then address any findings.
    - **Task 7:** proposals target by reason, plus the carry-forward items in the plan: `campaignMonths` in the action, executing only today's pilots, a UI note, validating reason on read, and the calibration decision.
    - **Task 8:** story check and docs, using Amendment 2's acceptance criteria.
    - Same process as before: implementer, then spec review, then code-quality review. Update this file after each task.
