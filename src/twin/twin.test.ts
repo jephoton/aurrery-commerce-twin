@@ -3,8 +3,8 @@ import { buildDemoTwin, DEMO_TRUTH } from "@/merchant/demo";
 import { betaMean, betaSd, updateDiscountEffect } from "./calibrate";
 import { BASELINE, InterventionSchema, type Strategy } from "./interventions";
 import { Rng } from "./rng";
-import { compareStrategies, runOnce, sampleParams, tailValue, type TailCohort } from "./simulate";
-import { SEGMENTS, type SegmentId } from "./types";
+import { compareStrategies, runOnce, sampleParams, tailValue, tailValuer, type TailCohort } from "./simulate";
+import { REASONS, SEGMENTS, type SegmentId } from "./types";
 
 const { twin, history } = buildDemoTwin();
 const FAST = { runs: 200, horizonMonths: 12, seed: 7 };
@@ -182,7 +182,7 @@ describe("guardrails", () => {
 describe("tail value", () => {
   const s = sampleParams(twin.params, new Rng(1));
   const list = twin.params.listPrice;
-  const cohort = (segment: SegmentId): TailCohort => ({ segment, reason: "other", plan: "monthly", monthsLeft: 0, offer: false, price: list });
+  const cohort = (segment: SegmentId): TailCohort => ({ segment, reason: "other", plan: "monthly", monthsLeft: 0, offer: false, price: list, rebound: false });
 
   it("counts the recovery a cancel-intent subscriber may make after the horizon", () => {
     const withMoves = tailValue(twin.params, s, cohort("cancel_intent"), list);
@@ -197,5 +197,36 @@ describe("tail value", () => {
   it("charges fulfilment without revenue for prepaid annual months", () => {
     const annual: TailCohort = { ...cohort("core"), plan: "annual", monthsLeft: 6, price: list * 12 };
     expect(tailValue(twin.params, s, annual, list)).toBeLessThan(tailValue(twin.params, s, cohort("core"), list));
+  });
+
+  it("values an offer cohort lower when the post-offer churn spike is larger", () => {
+    const offer: TailCohort = { ...cohort("at_risk"), offer: true, monthsLeft: 3, price: list * 0.8 };
+    const calm = tailValue(twin.params, { ...s, postOfferMultiplier: 1 }, offer, list);
+    const spike = tailValue(twin.params, { ...s, postOfferMultiplier: 2 }, offer, list);
+    expect(spike).toBeLessThan(calm);
+  });
+
+  it("per-run valuer matches the reference implementation", () => {
+    for (const seed of [1, 2, 3]) {
+      const sp = sampleParams(twin.params, new Rng(seed));
+      for (const listPrice of [20, 24, 27]) {
+        const valuer = tailValuer(twin.params, sp, listPrice);
+        for (const segment of SEGMENTS) {
+          for (const reason of REASONS) {
+            const base = { segment, reason, plan: "monthly", monthsLeft: 0, offer: false, price: listPrice, rebound: false } as const;
+            const shapes: TailCohort[] = [
+              base,
+              { ...base, plan: "annual", monthsLeft: 6, price: listPrice * 12 },
+              { ...base, offer: true, monthsLeft: 2, price: 18 },
+              { ...base, rebound: true },
+            ];
+            for (const shape of shapes) {
+              const expected = tailValue(twin.params, sp, shape, listPrice);
+              expect(Math.abs(valuer(shape) - expected)).toBeLessThanOrEqual(1e-9 * Math.max(1, Math.abs(expected)));
+            }
+          }
+        }
+      }
+    }
   });
 });

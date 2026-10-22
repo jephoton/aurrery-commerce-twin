@@ -320,7 +320,8 @@ export function runOnce(
 
   m.grossProfit = m.revenue - m.paymentFees - m.fulfilmentCost;
   m.endingActive = m.activeByMonth[m.activeByMonth.length - 1] ?? 0;
-  m.endingBaseValue = cohorts.reduce((sum, c) => sum + c.count * tailValue(p, s, c, listPrice), 0);
+  const tail = tailValuer(p, s, listPrice);
+  m.endingBaseValue = cohorts.reduce((sum, c) => sum + c.count * tail(c), 0);
   m.totalValue = m.grossProfit + m.endingBaseValue;
   return m;
 }
@@ -329,7 +330,7 @@ export const TAIL_MONTHS = 24;
 export const MONTHLY_DISCOUNT_RATE = 0.01;
 
 /** One month of segment moves as destination probabilities, in the same order as runOnce. */
-export function moveShares(segment: SegmentId, s: SampledParams): Partial<Record<SegmentId, number>> {
+function moveShares(segment: SegmentId, s: SampledParams): Partial<Record<SegmentId, number>> {
   switch (segment) {
     case "new":
       return { core: s.newGraduation * (1 - s.newToPriceSensitive), price_sensitive: s.newGraduation * s.newToPriceSensitive };
@@ -348,18 +349,31 @@ export function moveShares(segment: SegmentId, s: SampledParams): Partial<Record
   }
 }
 
-export type TailCohort = Pick<Cohort, "segment" | "reason" | "plan" | "monthsLeft" | "offer" | "price">;
+export type TailCohort = Pick<Cohort, "segment" | "reason" | "plan" | "monthsLeft" | "offer" | "price" | "rebound">;
+
+/** Tail month in which the post-offer churn spike applies, or 0 for none. */
+function reboundMonth(c: TailCohort): number {
+  if (c.plan !== "monthly") return 0;
+  if (c.rebound) return 1;
+  return c.offer && c.monthsLeft > 0 ? c.monthsLeft + 1 : 0;
+}
 
 /**
- * Expected discounted margin of one subscriber over the TAIL_MONTHS after the horizon. Propagates
- * expected subscriber mass across segments with the same churn and moves as runOnce, so a saved
- * cancel-intent subscriber is credited with the recoveries they may make. Prepaid annual months
- * owe fulfilment but bring no revenue, churn, or moves; annual subscribers become core afterwards.
+ * Reference implementation: expected discounted margin of one subscriber over the TAIL_MONTHS after
+ * the horizon. Propagates expected subscriber mass across segments with the same churn and moves
+ * as runOnce, so a saved cancel-intent subscriber is credited with the recoveries they may make.
+ * Prepaid annual months owe fulfilment but bring no revenue, churn, or moves; annual subscribers
+ * become core afterwards. The post-offer churn spike applies in the month after an offer ends.
+ *
+ * Known differences from runOnce: the annual expiry month skips that month's moves, and offer
+ * relative risk uses the cohort's fixed reason (runOnce re-splits reasons for subscribers entering
+ * cancel_intent). The simulation uses the faster tailValuer, which gives the same values.
  */
 export function tailValue(p: TwinParams, s: SampledParams, c: TailCohort, listPrice: number): number {
   const fulfilment = p.unitCost + p.shippingCost;
   const margin = (price: number) => price * (1 - p.paymentFeeRate) - p.paymentFeeFixed - fulfilment;
   const emptyMass = () => Object.fromEntries(SEGMENTS.map((seg) => [seg, 0])) as Record<SegmentId, number>;
+  const spike = reboundMonth(c);
   let mass = emptyMass();
   mass[c.plan === "annual" ? "core" : c.segment] = 1;
   let value = 0;
@@ -376,7 +390,7 @@ export function tailValue(p: TwinParams, s: SampledParams, c: TailCohort, listPr
     for (const seg of SEGMENTS) {
       if (mass[seg] === 0) continue;
       const effect = onOffer ? s.offerRelativeRisk[c.reason] : Math.pow(listPrice / p.referencePrice, s.elasticity[seg]);
-      const hazard = Math.min(0.95, s.churn[seg] * effect);
+      const hazard = Math.min(0.95, s.churn[seg] * effect * (k === spike ? s.postOfferMultiplier : 1));
       const surviving = mass[seg] * (1 - hazard) * (1 - s.involuntaryChurn);
       let staying = surviving;
       for (const [to, share] of Object.entries(moveShares(seg, s)) as [SegmentId, number][]) {
@@ -388,6 +402,103 @@ export function tailValue(p: TwinParams, s: SampledParams, c: TailCohort, listPr
     mass = next;
   }
   return value;
+}
+
+/** One tail month's transition matrix, row-major [from * n + to], for survivors only. */
+function stepMatrix(p: TwinParams, s: SampledParams, listPrice: number, offerRisk: number | null, spike: number): Float64Array {
+  const n = SEGMENTS.length;
+  const matrix = new Float64Array(n * n);
+  SEGMENTS.forEach((seg, i) => {
+    const effect = offerRisk ?? Math.pow(listPrice / p.referencePrice, s.elasticity[seg]);
+    const survive = (1 - Math.min(0.95, s.churn[seg] * effect * spike)) * (1 - s.involuntaryChurn);
+    let staying = 1;
+    for (const [to, share] of Object.entries(moveShares(seg, s)) as [SegmentId, number][]) {
+      matrix[i * n + SEGMENTS.indexOf(to)] += survive * share;
+      staying -= share;
+    }
+    matrix[i * n + i] += survive * staying;
+  });
+  return matrix;
+}
+
+/**
+ * Per-run tail valuer giving the same values as tailValue. It builds the one-month transition
+ * matrices once and backward-recurses V[n][segment], the value of a list-price monthly subscriber
+ * with n months left, so each cohort costs a few vector operations instead of a 24-month walk.
+ */
+export function tailValuer(p: TwinParams, s: SampledParams, listPrice: number): (c: TailCohort) => number {
+  const n = SEGMENTS.length;
+  const d = 1 / (1 + MONTHLY_DISCOUNT_RATE);
+  const fulfilment = p.unitCost + p.shippingCost;
+  const margin = (price: number) => price * (1 - p.paymentFeeRate) - p.paymentFeeFixed - fulfilment;
+  const listMargin = margin(listPrice);
+  const step = stepMatrix(p, s, listPrice, null, 1);
+  const reboundStep = stepMatrix(p, s, listPrice, null, s.postOfferMultiplier);
+  const offerSteps: Partial<Record<ReasonId, Float64Array>> = {};
+
+  const times = (mass: ArrayLike<number>, matrix: Float64Array) => {
+    const out = new Float64Array(n);
+    for (let i = 0; i < n; i++) if (mass[i]) for (let j = 0; j < n; j++) out[j] += mass[i] * matrix[i * n + j];
+    return out;
+  };
+  const dot = (a: ArrayLike<number>, b: ArrayLike<number>) => {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += a[i] * b[i];
+    return sum;
+  };
+  const total = (a: ArrayLike<number>) => {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += a[i];
+    return sum;
+  };
+
+  const values: Float64Array[] = [new Float64Array(n)];
+  for (let k = 1; k <= TAIL_MONTHS; k++) {
+    const cur = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      let ahead = 0;
+      for (let j = 0; j < n; j++) ahead += step[i * n + j] * values[k - 1][j];
+      cur[i] = d * (listMargin + ahead);
+    }
+    values.push(cur);
+  }
+
+  /** Value of `mass` entering a rebound month at list price with `months` tail months left, scaled to now. */
+  const reboundValue = (mass: Float64Array, months: number) =>
+    d * (total(mass) * listMargin + dot(times(mass, reboundStep), values[months - 1]));
+  const unit = (segment: SegmentId) => {
+    const mass = new Float64Array(n);
+    mass[SEGMENTS.indexOf(segment)] = 1;
+    return mass;
+  };
+
+  return (c) => {
+    if (c.plan === "annual") {
+      const owed = Math.min(c.monthsLeft, TAIL_MONTHS);
+      let value = 0;
+      let factor = 1;
+      for (let k = 1; k <= owed; k++) {
+        factor *= d;
+        value -= factor * fulfilment;
+      }
+      return value + factor * values[TAIL_MONTHS - owed][SEGMENTS.indexOf("core")];
+    }
+    if (!c.offer || c.monthsLeft === 0) {
+      return c.rebound ? reboundValue(unit(c.segment), TAIL_MONTHS) : values[TAIL_MONTHS][SEGMENTS.indexOf(c.segment)];
+    }
+    const offerStep = (offerSteps[c.reason] ??= stepMatrix(p, s, listPrice, s.offerRelativeRisk[c.reason], 1));
+    const offerMargin = margin(c.price);
+    const months = Math.min(c.monthsLeft, TAIL_MONTHS);
+    let mass = unit(c.segment);
+    let value = 0;
+    let factor = 1;
+    for (let k = 1; k <= months; k++) {
+      factor *= d;
+      value += factor * total(mass) * offerMargin;
+      mass = times(mass, offerStep);
+    }
+    return value + factor * (months < TAIL_MONTHS ? reboundValue(mass, TAIL_MONTHS - months) : 0);
+  };
 }
 
 export function percentile(sorted: number[], q: number): number {
