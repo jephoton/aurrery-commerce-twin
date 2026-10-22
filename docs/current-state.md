@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. All four registered PayPal pilots are ACTIVE at $24; price override and restoration are verified on Pilot D. Aurrery runs on port 3001. Merge/push is the final integration step; pause before M2 at the user's request**._
+_Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. All four registered PayPal pilots are ACTIVE at $24; price override and restoration are verified on Pilot D. Aurrery runs on port 3001. M0/M1 are merged and pushed; the user has resumed M2 after adding both AI provider keys**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -14,10 +14,10 @@ _Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. All fo
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `main` | Create Next App scaffold only | yes (foundation not merged) |
+| `main` | M0/M1, sandbox verification and reviewed recovery fixes | yes; resume M2 from here |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
-| `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3) | **no** |
-| `feat/m1-twin-v2` | branched from the M0 tip; M1 Tasks 4–8, plus docs | **no**; **continue here** |
+| `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
+| `feat/m1-twin-v2` | M0/M1 and final sandbox acceptance | yes; merged into main |
 
 Task 8 verification: `npm run twin:inspect` passes Amendment 2; `npm test` (53 passing across 5 files), `npm run typecheck`, `npm run lint`, and `npm run build` pass. Tests retain the Vite config-format warning and Node experimental SQLite warning; the build also prints the SQLite warning. Final integration verification passes all 75 tests, typecheck, lint and production build. The live PayPal override/restore check passed on Pilot D; all four registered pilots are now ACTIVE.
 
@@ -69,7 +69,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
    - The old A remains an unregistered pending subscription for diagnosis; do not use its looping approval link. Do not recreate B/C/D. Historical proposals retain original targets; create fresh proposals for the current registry.
    - Credentials, ledger, candidate history and approval links are ignored local state and do not transfer through Git. New machines need local credentials and their own setup or a securely transferred ledger.
    - The original cohort's earlier 404s remain unexplained. No expiration duration or TTL has been established.
-3. **Merge and push M0/M1 into main**, preserving the working branch refs for handoff. Then **pause before M2**, as explicitly requested by the user. Do not start provider evaluation or implementation yet.
+3. **Integration complete.** Main fast-forwarded to the tested M0/M1 tree; all 75 tests passed again on main. Main and both working branch refs were pushed and verified on origin. LICENSE is now on main. The user subsequently resumed M2 after adding provider keys.
 4. **M2: Signals: feedback corpus and classifier.** The user approved evaluating **Gemini first, then Groq**, before selecting the default provider for M2/M3. Follow [decision 0003](decisions/0003-ai-provider-evaluation.md) and the [free API research](research/free-ai-api-options.md). Anthropic is no longer required; evaluation and provider implementation remain pending. Measure actual quotas, classification quality and tool-call behavior; verify the full agent loop in M3.
 5. **M3: Agent: tool loop and streamed timeline.**
 6. **M4: Product UI: headline card, orbit language, polish.**
@@ -128,4 +128,8 @@ The current cohort was created with http://localhost:3000 callbacks, which PayPa
 
 The original recovered A remained APPROVAL_PENDING and returned to checkout login after Agree and subscribe, including in Incognito. The cause was not established. A single explicit replacement used request ID `aurrery-ridgeline-sub-0-v2`, the same plan and pilot-0 custom ID, and a port-3001 callback. The user completed this fresh checkout. GET then verified ACTIVE on the expected plan at $24 before an atomic transaction replaced only A's registry ID and recorded its active request ID/callback. The final sync confirmed all four registered pilots ACTIVE at $24. The original pending A is preserved only in ignored diagnostic history.
 
-The core PayPal operation is proven on D: PATCH replace returned 204, GET showed 23.45, restore returned 204, and independent GET showed ACTIVE at 24.0. The override flag remains true after restoring price. See decision 0001 for exact request/read-back shape and debug IDs. M0 acceptance is complete. The user explicitly requested a pause before M2.
+The core PayPal operation is proven on D: PATCH replace returned 204, GET showed 23.45, restore returned 204, and independent GET showed ACTIVE at 24.0. The override flag remains true after restoring price. See decision 0001 for exact request/read-back shape and debug IDs. M0 acceptance is complete. The user paused before M2, then resumed after adding provider keys.
+
+## M2 preparation
+
+Both provider credentials are present locally (values never printed). The Gemini credential is named `GOOGLE_GENERATIVE_AI_API_KEY`; support it as an alias for `GEMINI_API_KEY`. Authenticated model-list reads returned HTTP 200: Gemini exposes `gemini-3.8-flash` with generateContent and Groq exposes active `openai/gpt-oss-120b`. These reads establish authentication/model visibility only, not inference access, free-tier quotas or classification quality. No paid billing or fallback was enabled. A focused M2 design addendum is being prepared before implementation.
