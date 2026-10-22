@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. Execution resumed; **M1 Tasks 6 and 7 passed independent spec-compliance and code-quality reviews; Task 8 story and verification are complete, with independent reviews pending**._
+_Last material update: 2026-10-22. **M1 is complete. Tasks 6–8 passed independent spec-compliance and code-quality reviews, including a final review across the continuation. M0 sandbox setup succeeded; four buyer approvals are pending before live override verification**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -40,6 +40,7 @@ Task 8 verification: `npm run twin:inspect` passes Amendment 2; `npm test` (53 p
 | M1-5c | Save-offer campaigns (`campaignMonths`), one offer per subscriber, `discountedSubscribers`; exact tests for alignment of random numbers, counts and month boundaries | `bd61cc9`, `edbe0d1` |
 | M1-6 | Assumptions-only adverse stress transform, paired simulations and calibration preservation | `f3de7b7` |
 | M1-7 | Reason-targeted pilots, hashed campaign context, approval display and aggregate calibration policy | `440cbdd`, `6ae1208` |
+| M1-8 | Canonical starter comparison, adverse story checks and updated handoff; final reviews passed | `625f4f4` |
 
 ## Current honest results (1,000 runs, value change vs doing nothing)
 
@@ -62,10 +63,11 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 
 ## Next steps (in order)
 
-1. **Finish M1 Task 8 independent reviews** on `feat/m1-twin-v2`. Tasks 6 and 7 passed spec-compliance and code-quality reviews. Task 8 implementation, story check and verification are done; both reviews are pending.
-2. **Finish M0 Task 3, Step 4 onward.** Credentials are being configured in ignored `.env.local`. A Sandbox REST app of type **Merchant** needs a sandbox **business** account; a sandbox **personal** account approves the pilots.
-   - Run `npm run paypal:setup`, approve all 4 links as the personal account, then run `npm run paypal:sync` and `npm run paypal:check`.
+1. **M1 is complete** on `feat/m1-twin-v2`; all task reviews and the final review passed. Independent final verification also passed all 53 tests, typecheck, lint and production build; no personal home-directory paths were found in tracked files.
+2. **Finish M0 Task 3, Step 4 onward.** Credentials are present in ignored `.env.local`. `npm run paypal:setup` succeeded: one product, an active $24 monthly plan, and four subscriptions in `APPROVAL_PENDING`, all registered in the local ledger. Approval links were returned to the user; they are not stored in tracked docs.
+   - Approve all 4 links as the sandbox **personal** account, then run `npm run paypal:sync` and `npm run paypal:check`. The check defaults to loyal Pilot D; sync again afterward to verify its restored $24 price. Do not rerun setup just to poll approvals.
    - Record the verified override/revert request shape in [decision 0001](decisions/0001-scenario-and-paypal-action.md) only after the sandbox check succeeds. This live check remains incomplete.
+   - Credentials and the SQLite ledger are local ignored state; Git does not transfer them to another machine. Keep credentials and approval links out of tracked files.
 3. **Merge and push M0/M1 into `main`** after the check and reviews (also making LICENSE visible on GitHub). M0 and M1 remain local and unpushed.
 4. **M2: Signals: feedback corpus and classifier.**
 5. **M3: Agent: tool loop and streamed timeline.**
@@ -109,4 +111,4 @@ The four-pilot regression cohort proves the price hero reaches A+B at $18.00; `a
 
 Task 7 passed independent spec-compliance and code-quality reviews. Task 8 subsequently verified all 53 tests, typecheck, lint, production build and the canonical story check. The Vite config-format and experimental SQLite warnings remain unchanged. Browser UI verification remains outstanding.
 
-See [decision 0002](decisions/0002-reason-specific-calibration.md) for the calibration rationale and campaign execution boundary. No future webhook or campaign execution was added. Tasks 6 and 7 passed independent spec and quality reviews. Task 8 awaits both independent reviews.
+See [decision 0002](decisions/0002-reason-specific-calibration.md) for the calibration rationale and campaign execution boundary. No future webhook or campaign execution was added. Tasks 6–8 passed independent spec and quality reviews; the final review found no blocking issues.

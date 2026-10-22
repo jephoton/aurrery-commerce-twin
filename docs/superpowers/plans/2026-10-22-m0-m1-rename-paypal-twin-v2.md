@@ -1135,7 +1135,7 @@ git commit -m "feat(ledger): target proposal pilots by segment and leaving reaso
 
 ### Task 8: Story check and docs
 
-Status: implementation and verification complete (53 tests, typecheck, lint, build and canonical story check). **Independent spec-compliance and code-quality reviews pending.** Step 2 uses Amendment 2 below, which supersedes the original numerical thresholds; all revised checks pass. Current results are in `docs/current-state.md`.
+Status: complete (53 tests, typecheck, lint, build and canonical story check); **independent spec-compliance and code-quality reviews passed**, including a final review across Tasks 6–8. Step 2 uses Amendment 2 below, which supersedes the original numerical thresholds; all revised checks pass. Current results are in `docs/current-state.md`.
 
 **Files:** modify `scripts/inspect-twin.ts`, `docs/current-state.md`, `docs/architecture.md`.
 
