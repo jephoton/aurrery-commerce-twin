@@ -908,9 +908,11 @@ git commit -m "feat(twin): target discounts by leaving reason with reason-specif
 
 ### Task 6: Stress test
 
+Status: complete; independent spec-compliance and code-quality reviews passed (`f3de7b7`).
+
 **Files:** create `src/twin/stress.ts`; modify `src/twin/twin.test.ts`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `src/twin/twin.test.ts`, add `import { stressTest } from "./stress";` and append:
 
@@ -935,12 +937,12 @@ describe("stress test", () => {
 });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `npx vitest run src/twin/twin.test.ts -t "stress"`
 Expected: FAIL with `Failed to resolve import "./stress"`.
 
-- [ ] **Step 3: Implement the stress test**
+- [x] **Step 3: Implement the stress test**
 
 Create `src/twin/stress.ts`:
 
@@ -1027,12 +1029,12 @@ export function stressTest(twin: MerchantTwin, strategy: Strategy, options: Part
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test && npm run typecheck && npm run lint`
 Expected: all pass (25 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -1041,9 +1043,11 @@ git commit -m "feat(twin): add stress test shifting assumptions to unfavourable 
 
 ### Task 7: Proposals target by reason
 
+Status: complete; independent spec-compliance and code-quality reviews passed (`440cbdd`, `6ae1208`).
+
 **Files:** modify `src/ledger/proposals.ts`, `src/ledger/proposals.test.ts`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `src/ledger/proposals.test.ts`, replace the two `registerSandboxSubscriber` lines with the full pilot cohort:
 
@@ -1090,12 +1094,12 @@ Replace the test `"targets only subscriptions in the strategy's segment, at the 
   });
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `npx vitest run src/ledger/proposals.test.ts`
 Expected: FAIL. The targets include `I-OTHER000001` and `action.reason` is undefined.
 
-- [ ] **Step 3: Add the reason to the action and the target filter**
+- [x] **Step 3: Add the reason to the action and the target filter**
 
 In `src/ledger/proposals.ts`, add to `PriceOverrideActionSchema` after `segment`:
 
@@ -1117,12 +1121,12 @@ In `buildAction`, replace the `targets` computation and the `NO_TARGETS` throw w
 
 Add `reason: iv.reason,` to the object passed to `PriceOverrideActionSchema.parse`, after `segment: iv.segment,`.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test && npm run typecheck && npm run lint`
 Expected: all pass (26 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -1131,9 +1135,11 @@ git commit -m "feat(ledger): target proposal pilots by segment and leaving reaso
 
 ### Task 8: Story check and docs
 
+Status: implementation and verification complete (53 tests, typecheck, lint, build and canonical story check). **Independent spec-compliance and code-quality reviews pending.** Step 2 uses Amendment 2 below, which supersedes the original numerical thresholds; all revised checks pass. Current results are in `docs/current-state.md`.
+
 **Files:** modify `scripts/inspect-twin.ts`, `docs/current-state.md`, `docs/architecture.md`.
 
-- [ ] **Step 1: Make the inspect script print the story**
+- [x] **Step 1: Make the inspect script print the story**
 
 Replace `scripts/inspect-twin.ts` with:
 
@@ -1166,7 +1172,7 @@ for (const strategy of STARTER_STRATEGIES) {
 }
 ```
 
-- [ ] **Step 2: Run it and check the story**
+- [x] **Step 2: Run it and check the story**
 
 Run: `npm run twin:inspect`
 Expected:
@@ -1176,7 +1182,7 @@ Expected:
 
 If the precision discount's P(worse) is above about 0.3, **stop**. Record the output in `docs/current-state.md` and revisit the story with Jethro; do not tune parameters to force it.
 
-- [ ] **Step 3: Update the handoff docs**
+- [x] **Step 3: Update the handoff docs**
 
 In `docs/current-state.md`, under "Done", add:
 
@@ -1193,7 +1199,7 @@ In `docs/architecture.md`, replace the "Model summary" paragraph with:
 Monthly cohorts by segment (`new`, `core`, `price_sensitive`, `at_risk`, `cancel_intent`) × leaving reason (`price`, `other`) × plan (monthly or annual) × discount state. Each month: acquisition (Poisson, price-elastic, split by reason), billing and fulfilment, voluntary churn (segment hazard × price elasticity, or × the reason's discount relative risk), involuntary churn, discount and annual countdown (with post-discount rebound), and segment transitions (including at-risk ⇄ cancel-intent). Reason affects discount response and targeting, not baseline churn. The decision metric is **total value**: 12-month gross profit plus the discounted margin of the remaining base over the next 24 months. `stressTest` reruns a strategy with its assumed parameters at their unfavourable 80th percentile.
 ```
 
-- [ ] **Step 4: Final verification and commit**
+- [x] **Step 4: Final verification and commit**
 
 Run: `npm test && npm run typecheck && npm run lint && npm run build`
 Expected: 26 tests pass; no errors; build succeeds.
