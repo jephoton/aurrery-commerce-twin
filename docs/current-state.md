@@ -1,76 +1,80 @@
-# Current state
+# Current state (handoff)
 
-_Last material update: 2026-10-22._
+_Last material update: 2026-10-22. Execution is **paused after M1 Task 5c** for a handoff._
 
-Project: **Aurrery** (repo `jephoton/aurrery-commerce-twin`, public). Design: `docs/superpowers/specs/2026-10-22-aurrery-design.md`. Roadmap: `docs/superpowers/plans/2026-10-22-aurrery-roadmap.md`. Active task plan: `docs/superpowers/plans/2026-10-22-m0-m1-rename-paypal-twin-v2.md`, including its amendment at the bottom.
+**Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
+
+**Read in this order:**
+1. `docs/superpowers/specs/2026-10-22-aurrery-design.md`: the design, including §3a, the story revision.
+2. `docs/superpowers/plans/2026-10-22-aurrery-roadmap.md`: milestones in order.
+3. `docs/superpowers/plans/2026-10-22-m0-m1-rename-paypal-twin-v2.md`: the active task plan. Read its two amendments and the "Task 5c as built" and "Carry-forward for Task 7" notes at the bottom.
+4. `docs/architecture.md`: modules and the model.
 
 ## Branches
 
-| Branch | Contents | Status |
+| Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `main` | Create Next App scaffold only | pushed; foundation not merged yet |
-| `feat/digital-twin-foundation` | foundation: twin engine, ledger, PayPal adapter, API, UI, docs, spec, roadmap | pushed |
-| `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3) | local, not pushed |
-| `feat/m1-twin-v2` | branched from the M0 tip; M1 work | local, not pushed; **current** |
+| `main` | Create Next App scaffold only | yes (foundation not merged) |
+| `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
+| `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3) | **no** |
+| `feat/m1-twin-v2` | branched from the M0 tip; M1 Tasks 4–5c, plus docs | **no**; **resume here** |
 
-## Done
+Verified at the `feat/m1-twin-v2` tip: `npm test` (35 passing), `npm run typecheck`, `npm run lint`, and `npm run build` all pass, and the working tree is clean.
 
-- **Foundation:** cohort Monte Carlo twin with common random numbers and the total-value metric; synthetic demo merchant estimated from generated history; SQLite ledger with hash-bound, execute-once approvals; sandbox-only PayPal adapter with read-back; API routes; dashboard with AG Grid.
-- **M0 Task 1:** renamed to Aurrery (package, UI, README, PayPal request-ID prefixes `aurrery-ridgeline-*`).
-- **M0 Task 2:** each pilot sandbox subscription has a segment and a leaving reason. The pilot cohort is 2 cancel-intent/price, 1 cancel-intent/other, 1 core/other. The ledger migrates older databases.
-- **M0 Task 3, Steps 1–3:** `npm run paypal:check` tooling, made safe to re-run after review:
-  - defaults to the core pilot
-  - refuses if a subscription is stuck at the test price
-  - fails loudly if the restore fails
-  - tries `add` only after a 400/422 on `replace`
-- **M1 Task 4:** `cancel_intent` segment with at-risk ⇄ cancel-intent transitions, estimated from history with destination-level `movedTo`. Estimators are checked against exact exposure counts.
-- **M1 Task 5:** leaving reasons (`price`/`other`) on cohorts, reason-specific discount effect (Gamma priors), re-split of reasons on entry to cancel intent, and a per-reason Bayesian update with matching provenance keys. Targeting by `reason: "price"` is only allowed for `cancel_intent`, because reasons are only known in the cancel flow. Deterministic tests check that targeting is exact.
+## Done (each task passed a spec-compliance review and a code-quality review)
 
-- **M1 Task 5b:** the value of subscribers still active at month 12 now follows their expected segment moves over the next 24 months, so saved cancel-intent subscribers are credited with likely recoveries. It includes the extra churn when a discount ends.
-  - It's computed with a fast per-run valuer, checked against a simple reference implementation across 80,000 random cases.
-  - A full 1,000-run comparison of 7 strategies takes about 2.6s.
+| Task | What | Key commits |
+| --- | --- | --- |
+| M0-1 | Renamed to Aurrery; PayPal request-ID prefixes are now `aurrery-ridgeline-*` | `d4a1c81` |
+| M0-2 | Pilot sandbox subscriptions carry a segment and a reason; the ledger migrates older databases; 4-member pilot cohort | `94bf2cd` |
+| M0-3 (Steps 1–3) | `npm run paypal:check` tooling, safe to re-run (defaults to the core pilot, refuses a stuck test price, fails loudly on a failed restore) | `625ca41`, `5c1673c` |
+| M1-4 | `cancel_intent` segment with escalation and de-escalation, estimated from `movedTo` history; estimators pinned by exact tests | `5fffb48`, `41f65ae` |
+| M1-5 | Leaving reasons; per-reason discount effect; price-reason targeting limited to cancel intent; per-reason Bayesian update | `da4bdc5`, `dbac210` |
+| M1-5b | Month-12 subscribers valued with their expected segment moves and the post-discount spike; fast per-run valuer | `065cae4`, `c9841d4` |
+| M1-5c | Save-offer campaigns (`campaignMonths`), one offer per subscriber, `discountedSubscribers`; exact tests for alignment of random numbers, counts and month boundaries | `bd61cc9`, `edbe0d1` |
 
-All checks pass on `feat/m1-twin-v2` (29 tests, typecheck, lint).
+## Current honest results (1,000 runs, value change vs doing nothing)
 
-## In progress
+| Strategy | Median Δ value | Chance worse than doing nothing |
+| --- | --- | --- |
+| Broad at-risk 20%, 6-month campaign | −$1,425 | 0.76 |
+| Cancel-flow save offer (price-driven, 25%, 6-month campaign) | +$105 | 0.42 |
+| Annual prepay at 15% off | +$10,357 | 0.00 |
+| Cut list price to $22 | −$56,757 | 1.00 |
+| Raise list price to $27 | +$62,695 | 0.00 (assumption-driven) |
 
-- **M0 Task 3, Step 4 onward:** blocked on Jethro creating the PayPal Sandbox REST app (Merchant type). The dashboard errored without a sandbox business account selected. Then `npm run paypal:setup`, approve the 4 pilots as a sandbox personal account, then `paypal:sync` and `paypal:check`.
-- **M1 Tasks 5c–8,** in this order:
-  - **5c:** save-offer campaigns (`campaignMonths`). Entrants to the targeted segment also get the discount. The hero-versus-broad comparison test lives here.
-  - **6:** stress test.
-  - **7:** proposals target by reason, plus validating reasons read from the ledger.
-  - **8:** story check and docs.
+Story decision (Jethro): a **two-part payoff**. The save offer is the tactical move and the annual plan is the strategic lever, both executed via PayPal. M7 (annual plan) is now part of the hero path; M6 (CSV) is the only cut candidate.
 
-## Decisions made during M1
+## Next steps (in order)
 
-- **Hero action is an ongoing save-offer policy,** not a one-off (Jethro, 2026-10-22). A one-off discount to the ~18 subscribers in cancel intent at month 0 is noise-level. In PayPal, approving executes for today's matching pilots; later entrants need their own proposals.
-- **Leaving reasons are assessed when someone tries to cancel,** so entrants to cancel intent take that segment's reason mix.
-- **No tuning of parameters to make the story work.** If the precision campaign doesn't beat the broad one under honest assumptions, stop and revisit the story.
-  - The one prior change so far went *against* the hero. After review, the "other"-reason discount prior was tightened from Gamma(20, 22.2) to Gamma(72.25, 85), because the old prior gave a ~29% chance that a discount raises churn. That makes the broad discount look better.
-  - One-off results after Task 5 (400 runs), median Δ value:
-    - Broad at-risk discount: about −$350, worse than doing nothing about 62% of the time.
-    - Hero: about +$14 to +$50, worse about 45% of the time.
+1. **Finish M1** on `feat/m1-twin-v2`:
+   - **Task 6:** stress test. Plan text unchanged, except every `targeted_discount` literal needs `campaignMonths`.
+   - **Task 7:** proposals target by reason, plus the carry-forward items in the plan: `campaignMonths` in the action, executing only today's pilots, a UI note, validating reason on read, and the calibration decision.
+   - **Task 8:** story check and docs, using Amendment 2's acceptance criteria.
+   - Same process as before: implementer, then spec review, then code-quality review. Update this file after each task.
+2. **Finish M0 Task 3, Step 4 onward.** This needs Jethro: create the PayPal Sandbox REST app (type **Merchant**) with a sandbox **business** account selected; create a sandbox **personal** account too.
+   - The app creation failed earlier, probably because no business account was selected.
+   - Then run `npm run paypal:setup`, approve the 4 links as the personal account, and run `npm run paypal:sync` and `npm run paypal:check`.
+   - Act on the result per the plan, then record the verified request shape in `docs/decisions/0001-*.md`.
+3. **Merge and push.** Merge M0 and M1 into `main` (this also makes the LICENSE visible on GitHub), then push.
+4. **M2 onward,** per the roadmap: signals and classifier, agent, UI, hosting, then M7 annual plan, M6 CSV, and submission.
 
-    Both are noise-level, which is why Task 5c's campaigns are needed.
-- **Story revised to a two-part payoff** (Jethro, 2026-10-22, after Task 5c's honest results).
-  - The cancel-flow save offer is the tactical move: median +$129, worse than doing nothing 40% of the time, about 37 subscribers discounted.
-  - The annual plan is the strategic lever: +$10,357, never worse in the runs.
-  - The broad at-risk campaign loses: −$1,441, worse 75% of the time.
-  - Both actions execute via PayPal, so M7 (annual plan) is now part of the hero path and CSV import (M6) is the only cut candidate.
-  - The price rise (+$62,695) is shown but flagged as assumption-driven and touching every subscriber.
-- **Open question for Task 7:** outcomes from an at-risk `"any"` discount can't be labelled with a reason, so decide whether to skip or pool them in calibration.
+## Known issues and follow-ups
 
-## Not yet verified
+- **The hero proposal targets the wrong pilots until Task 7.** `buildAction` doesn't filter by reason yet, so the hero would also discount Pilot C ("other" reason). Don't approve hero proposals before Task 7 lands.
+- **The UI is unverified.** It hasn't been checked in a browser since the foundation. `STARTER_STRATEGIES` now contains campaign strategies.
+- **Optional test improvements from the 5c review:**
+  - decouple test (d) from the `m0:acq` stream key, using `runOnce(...).newSubscribers`;
+  - add a move-entrant boundary check (cancel_intent/"any": campaign 1 should match campaign 0);
+  - add a horizon-cap test.
+- **Assumption-driven priors:** price sensitivity, discount effect (which doesn't scale with discount depth), annual uptake and price-reason shares are all priors. Price-reason shares should come from the M2 classifier.
+- **Reason shares drift over the horizon** for segments other than cancel intent (documented).
+- **`node:sqlite` is experimental in Node 24** (prints a warning). Hosting needs a persistent disk or a re-seed step.
+- **Don't change the `aurrery-ridgeline-*` request-ID prefixes** after the first real PayPal setup run; that would create duplicates.
 
-- The PATCH price override against the real sandbox: `replace` vs `add`, and whether `GET ?fields=plan` shows the override.
-- The UI has not been checked in a browser.
+## Decisions log (M1)
 
-## Next steps
-
-M1 Tasks 5c–8, then finish M0 Task 3, then M2 (feedback corpus and classifier). See the roadmap.
-
-## Known risks
-
-- Price sensitivity, discount effect, annual uptake and price-reason shares are priors, so results that depend on them are assumption-driven. The UI labels them and the agent must say so.
-- `node:sqlite` is experimental in Node 24 (prints a warning). Hosted deployments need a persistent disk or a re-seed step.
-- `main` on GitHub shows only the scaffold until the foundation is merged. GitHub detects the license only on the default branch, and the hackathon wants it visible.
+- **Hero is an ongoing save-offer policy,** not a one-off. In PayPal, approval executes for today's matching pilots; later entrants need their own proposals.
+- **Reasons are assessed in the cancel flow,** so only cancel intent supports price targeting.
+- **No tuning of parameters for the story.** The only prior change, tightening the "other"-reason discount prior after review, made the broad strategy look *better*.
+- **Two-part payoff story** (see the spec, §3a).
