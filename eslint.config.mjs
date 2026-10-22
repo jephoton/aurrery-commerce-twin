@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local ledger, evaluation outputs and scratch helpers are not source files.
+    "data/**",
   ]),
 ]);
 

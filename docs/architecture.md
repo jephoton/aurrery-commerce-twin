@@ -11,13 +11,14 @@
 | Ledger | `src/ledger/` | SQLite (`node:sqlite`): sandbox subscribers, proposals state machine, executions, observations, audit events, kv settings. | twin types |
 | PayPal | `src/paypal/` | Sandbox-only SDK client, typed wrappers (`getSubscription`, `overrideSubscriptionPrice`), error normalisation. | SDK |
 | Execution | `src/execution/` | Runs an approved proposal: claim → PATCH each target → GET read-back → record → finish. | ledger, paypal |
+| Signals | `src/signals/` | Frozen synthetic feedback, isolated Gemini/Groq transport, validated batch classification and optional accepted-only cache. Evidence/evaluation integration follows. | twin types, ledger |
 | Agent | `src/agent/` (next) | Provider-independent tool-use loop: read state, propose strategies, call simulator, recommend, create proposal. **No execute tool.** | twin, ledger |
 | API | `src/app/api/` | Thin route handlers with Zod validation. | all above |
 | UI | `src/app/page.tsx`, `src/components/` | Dashboard: KPIs, objective, AG Grid comparison, fan chart, assumptions, approval, execution, pilot cohort. | API |
 
 ## Key invariants
 
-AI provider selection is pending evaluation: Gemini first, then Groq, using the same classifier fixture and a tool-call smoke test before choosing the M2/M3 default. See [decision 0003](decisions/0003-ai-provider-evaluation.md). The classifier and agent have not been implemented; no provider runtime has changed.
+AI provider selection is pending evaluation: Gemini first, then Groq, using the same classifier fixture and a tool-call smoke test before choosing the M2/M3 default. See [decision 0003](decisions/0003-ai-provider-evaluation.md). The server-only classifier supports both explicit providers; live evaluation and the agent loop remain pending. No default merchant or UI path invokes classification automatically.
 
 - Only `POST /api/proposals/{id}/approve` reaches PayPal. It requires the proposal's action hash, and execution is claimed atomically (`UPDATE … WHERE status='approved'`), so it happens at most once.
 - Proposal predictions are recomputed server-side; client numbers are never trusted.
@@ -65,6 +66,18 @@ Means shift adversely by 0.8416 standard deviations, approximating an adverse 80
 `scripts/inspect-twin.ts` builds the demo twin and uses the exported merchant starter strategies without model overrides. It prints initial cohorts, churn means, simulation options, value-change p10/p50/p90, downside probability, mean discount cost and stress explanations. Defaults are 1,000 runs, 12 months and seed `20261113`, repeatable with unchanged code/data. Verified base → stressed median Δ values: broad campaign −$1,425 → −$2,510; price-driven cancel save +$105 → −$91; annual prepay +$10,357 → +$5,006; list $22 −$56,757 → −$76,611; list $27 +$62,695 → +$28,669. Full intervals and probabilities are in `docs/current-state.md`.
 
 The two-part hero story pairs the modest tactical save offer with annual prepay as the strategic lever. The current approval path executes today's price-override pilots; annual-plan execution remains required M7 work. Legacy proposals without reason/campaign fields have no migration and may display incorrect fallback/undefined metadata; new proposals carry both. Full browser UI verification remains outstanding.
+
+## Feedback classification boundary (M2)
+
+<!-- Generated handoff: M2 Task 2 implementation; independent reviews pending. -->
+
+`src/signals/contracts.ts` and the frozen `feedback-corpus-v1` fixture define observed feedback and the strict prediction contract. `corpus.ts` projects only ID, text, source and known segment for providers. Hidden labels are loaded separately for evaluation; classification never uses them or pilot identity.
+
+`prompt.ts` contains the shared `feedback-v1` instructions and JSON schema (`classification-v1`). `providers.ts` builds Gemini/Groq structured classification requests and normalizes successful envelopes to unknown JSON. `transport.ts` is the reusable server-only fetch boundary for classification and the later separate read-only tool smoke: explicit provider/model, bounded response bytes/output, a 60-second attempt limit including body reads, at most one transient retry, and no automatic fallback. Auth/model/request errors and quota stop the provider run. Errors contain safe categories, status, retry count and allowlisted quota evidence; raw bodies, request objects and exception messages are excluded.
+
+`classify.ts` exports `validateBatch(inputs, raw)` and `classifyFeedback(inputs, { provider, cache?, onProgress? })`. Validation preserves valid members of partial batches while rejecting duplicates, missing/invalid predictions, unknown IDs and confidence below 0.70. `schemaValidCount` counts known, unique, schema-valid predictions before confidence filtering. Unknown IDs are diagnostics, never feedback entries. Classification processes pending inputs sequentially in batches of 20 and returns ordered accepted/unclassified records, diagnostics, coverage counts, attempted batches, safe failures and per-attempt/aggregate latency, usage and retry metrics. A terminal failure preserves accepted results and marks remaining inputs unclassified.
+
+Evaluation is fresh by default. Explicit `cache: true` enables the accepted-only SQLite cache in its own `feedback_prediction_cache` ledger table; an injected `PredictionCache` is also supported. Keys hash all four input fields plus provider, model and prompt/schema versions. Reads and writes validate prediction ID/schema/confidence. Cache hits are reported separately and all-hit runs make no provider POST. This layer does not change the merchant/twin or PayPal registry; evidence, scoring and evaluation commands follow in later M2 tasks.
 
 ## Commands
 

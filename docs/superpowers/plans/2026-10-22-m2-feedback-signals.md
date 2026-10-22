@@ -46,9 +46,11 @@ export const MIN_CONFIDENCE = 0.70;
 
 ## Task 2: Provider transport, validation and cache
 
+Implemented; independent spec and quality reviews pending. HTTP transport is split into `src/signals/transport.ts` so provider request/envelope handling stays separate from retry, timeout and safe metrics.
+
 **Files:** `src/signals/providers.ts`, `prompt.ts`, `classify.ts`, `cache.ts`, `providers.test.ts`, `classify.test.ts`; `.env.example`.
 
-- [ ] Write and observe failures for fetch envelope shapes, Gemini key alias, bounded retries and sanitized errors. Test classification missing/duplicate/unknown IDs, low confidence, malformed batches, valid members of partial batches, batches of 20, accepted-only caching, corrupted cache, and provider/model/prompt/schema/input cache separation. Tests use injected transport/sleep, never credentials or live inference.
+- [x] Write and observe failures for fetch envelope shapes, Gemini key alias, bounded retries and sanitized errors. Test classification missing/duplicate/unknown IDs, low confidence, malformed batches, valid members of partial batches, batches of 20, accepted-only caching, corrupted cache, and provider/model/prompt/schema/input cache separation. Tests use injected transport/sleep, never credentials or live inference.
 
 ```ts
 // Duplicate IDs fail closed; another valid item in the same batch survives.
@@ -62,7 +64,7 @@ expect(result.accepted.map(x => x.id)).toEqual(['b']);
 expect(result.unclassified.find(x => x.id === 'a')?.cause).toBe('duplicate');
 ```
 
-- [ ] Implement explicit Gemini/Groq adapters using documented REST structured output, shared schema/prompt, 60-second per-request timeout and bounded output. Preserve response usage and allowlisted quota headers only. Transport returns parsed unknown payload plus sanitized metrics; body parsing errors never expose request credentials. A provider failure contains provider/model, status/category, retry count and safe quota evidence, never the raw request/error message.
+- [x] Implement explicit Gemini/Groq adapters using documented REST structured output, shared schema/prompt, 60-second per-request timeout and bounded output. Preserve response usage and allowlisted quota headers only. Transport returns parsed unknown payload plus sanitized metrics; body parsing errors never expose request credentials. A provider failure contains provider/model, status/category, retry count and safe quota evidence, never the raw request/error message.
 
 ```ts
 const key = createHash('sha256').update(JSON.stringify({
@@ -73,9 +75,10 @@ const key = createHash('sha256').update(JSON.stringify({
 // Classification evaluation sets useCache:false, while normal reuse is explicit.
 ```
 
-- [ ] Permit at most one retry for a timeout/network error or HTTP 5xx; bounded Retry-After is at most 10 seconds. Authentication/model errors and HTTP 429 end that provider run, marking remaining inputs unclassified. Preserve accepted results from preceding batches. Do not retry JSON validation failures, switch models/providers or wait for quota reset. Report attempted batches, schema-valid count before confidence filtering, accepted/unclassified results, cache hits, duration, usage, retries and failure/quota evidence.
+- [x] Permit at most one retry for a timeout/network error or HTTP 5xx; bounded Retry-After is at most 10 seconds. Authentication/model errors and HTTP 429 end that provider run, marking remaining inputs unclassified. Preserve accepted results from preceding batches. Do not retry JSON validation failures, switch models/providers or wait for quota reset. Report attempted batches, schema-valid count before confidence filtering, accepted/unclassified results, cache hits, duration, usage, retries and failure/quota evidence.
 
-- [ ] Add env placeholders: `GEMINI_API_KEY`, alias comment `GOOGLE_GENERATIVE_AI_API_KEY`, `GROQ_API_KEY`, explicit optional model/provider configuration. Leave PayPal config untouched. Run task tests/typecheck/lint; update handoff and commit `feat(signals): classify feedback with isolated provider caches`. Complete both reviews before Task 3.
+- [x] Add env placeholders: `GEMINI_API_KEY`, alias comment `GOOGLE_GENERATIVE_AI_API_KEY`, `GROQ_API_KEY`, explicit optional model/provider configuration. Leave PayPal config untouched. Run task tests/typecheck/lint; update handoff and commit `feat(signals): classify feedback with isolated provider caches`.
+- [ ] Complete independent spec and quality reviews before Task 3. Implementation verification: 40 focused tests / 137 total tests, typecheck and lint pass. The global ESLint ignore now excludes already ignored local `data/**` helpers/evaluation artifacts.
 
 ## Task 3: Evidence projection, scoring and pilot eligibility
 
