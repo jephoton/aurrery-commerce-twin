@@ -14,8 +14,8 @@ Each milestone ends with working, tested software, committed on its own branch a
 | M4 | Product UI: headline card, orbit language, polish | M3 |
 | M5 | Hosting and observed loop: Render, webhooks, revert, reset | M4 |
 | ✱ | **Checkpoint: cut decision** | after M5 |
-| M6 | CSV import *(cut line 2)* | M5 |
-| M7 | Annual-plan execution *(cut line 1)* | M5 |
+| M6 | CSV import *(the only cut candidate)* | M5 |
+| M7 | Annual-plan execution *(hero path; not cuttable)* | M5 |
 | M8 | Submission: repo, write-up, video, QA | all kept milestones |
 
 ## M0: Rename and PayPal check
@@ -70,7 +70,7 @@ Each milestone ends with working, tested software, committed on its own branch a
 **Done when:** the hosted URL runs the full flow end to end; a webhook from a sandbox event appears as an observation.
 
 ## ✱ Checkpoint (after M5)
-If the remaining time looks too short for both M6 and M7: cut M7 first (the annual plan stays simulate-only, with its PayPal route explained in the UI), then M6. The hero path is never cut.
+If time is short, cut M6 (CSV import). M7 (annual-plan execution) became part of the hero path on 2026-10-22, so it is never cut, and M7 may be done before M6.
 
 ## M6: CSV import
 **Goal:** "works on your data".

@@ -52,6 +52,12 @@ All checks pass on `feat/m1-twin-v2` (29 tests, typecheck, lint).
     - Hero: about +$14 to +$50, worse about 45% of the time.
 
     Both are noise-level, which is why Task 5c's campaigns are needed.
+- **Story revised to a two-part payoff** (Jethro, 2026-10-22, after Task 5c's honest results).
+  - The cancel-flow save offer is the tactical move: median +$129, worse than doing nothing 40% of the time, about 37 subscribers discounted.
+  - The annual plan is the strategic lever: +$10,357, never worse in the runs.
+  - The broad at-risk campaign loses: −$1,441, worse 75% of the time.
+  - Both actions execute via PayPal, so M7 (annual plan) is now part of the hero path and CSV import (M6) is the only cut candidate.
+  - The price rise (+$62,695) is shown but flagged as assumption-driven and touching every subscriber.
 - **Open question for Task 7:** outcomes from an at-risk `"any"` discount can't be labelled with a reason, so decide whether to skip or pool them in calibration.
 
 ## Not yet verified

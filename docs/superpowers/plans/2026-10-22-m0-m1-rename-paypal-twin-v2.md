@@ -1279,3 +1279,14 @@ Same as the original Task 5, with these changes:
 **Task 7 additions:**
 - The proposal action gains `campaignMonths`, for display and audit. Execution still targets only today's matching pilots; later entrants require their own proposals.
 - `listSandboxSubscribers` validates `reason` on read with `z.enum(REASONS)` and falls back to `"other"` with a console warning.
+
+## Amendment 2 (after Task 5c): two-part story; Task 8 acceptance revised
+
+With honest assumptions, the save offer is a modest win: median +$129, worse than doing nothing 40% of the time. The broad campaign is −$1,441 and worse 75% of the time, and the annual plan is +$10,357. Jethro chose a **two-part payoff**: the save offer is the tactical move and the annual plan is the strategic lever, both executed via PayPal. M7 (annual-plan execution) is now part of the hero path.
+
+Task 8 Step 2's expected output is replaced by:
+- the save offer's median ΔValue is above the broad campaign's, and its chance of doing worse is lower;
+- the annual plan's median ΔValue is positive;
+- each strategy's stressed value is at most its base value.
+
+The numbers are recorded as they are. If any of these fail, stop and report; don't tune.

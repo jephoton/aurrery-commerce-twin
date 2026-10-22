@@ -19,9 +19,15 @@
 
 1. **Hook (0:00–0:20):** "Churn is up. The obvious move is a discount. Is it worth it?" A headline card shows the merchant's state.
 2. **AI reads signals (0:20–0:45):** the agent classifies about 200 cancel-survey and support messages into intent and reason, finding price-driven, cancel-intent subscribers.
-3. **First instinct, then correction (0:45–1:25):** the agent tries a broad at-risk discount and the twin shows it is about break-even. The agent narrows it to price-driven cancel intent, and the twin shows a clear gain with a low chance of doing worse than baseline. The annual plan is checked as an alternative.
+3. **First instinct, then correction (0:45–1:25):** the agent tries the merchant's instinct, a broad at-risk discount. The twin shows it loses value about 75% of the time. The agent then finds two moves (story revised 2026-10-22 after honest results; see §3a):
+   - **Tactical:** a cancel-flow save offer for price-driven leavers. It's cheap and more likely to help than hurt.
+   - **Strategic:** an annual prepay plan, the big lever.
+
+   The price rise is shown, but flagged as assumption-driven and touching every subscriber.
 4. **Trade-offs (1:25–1:50):** AG Grid comparison, trajectory fan chart, and which assumptions the result depends on. The agent explains the key sensitivity.
-5. **Approval and PayPal (1:50–2:20):** the exact payload is shown and approved. Sandbox subscription prices are overridden, then each subscription is read back from PayPal and marked *observed*.
+5. **Approval and PayPal (1:50–2:20):** both exact payloads are shown and approved.
+   - **Save offer:** price overrides on the matching sandbox subscriptions, read back from PayPal and marked *observed*.
+   - **Annual plan:** created in PayPal, and an approval link is sent to subscribers. A sandbox buyer approves one, and it reads back on the annual plan.
 6. **Generality and close (2:20–2:40):** a different merchant's CSV is uploaded, the twin re-estimates, and a different recommendation comes back. Close on the tagline.
 
 ## 3. Scope
@@ -30,17 +36,28 @@
 - one deep case (Ridgeline)
 - CSV import
 - the agent with four roles
-- two PayPal actions (precision discount as the hero; annual plan secondary)
+- two PayPal actions, both part of the hero path: the cancel-flow save offer (merchant-side price override) and the annual prepay plan (plan creation plus buyer-approved switch)
 - revert action, webhooks for observed outcomes, feedback update
 - hosted demo plus local setup instructions
 
 **Out:** multiple preset merchants, an auto-execute mode, live (non-sandbox) payments, ML model training, multi-agent orchestration.
 
-**Cut lines.** Checkpoint after the hosting milestone (M5 in the roadmap). If time is short, cut in this order:
-1. Annual-plan *execution*: it stays a simulated strategy, with its PayPal route explained in the UI.
-2. CSV import.
+**Cut lines.** Checkpoint after the hosting milestone (M5 in the roadmap). If time is short, cut CSV import. Annual-plan execution is part of the hero path since 2026-10-22, so it is no longer a cut candidate.
 
 The hero path is never cut.
+
+### 3a. Story revision (2026-10-22)
+
+M1 results with honest assumptions (1,000 runs, total value vs doing nothing):
+
+| Strategy | Median Δ value | Chance worse than doing nothing |
+| --- | --- | --- |
+| Broad at-risk discount, 6-month campaign | −$1,441 | 0.75 |
+| Price-driven cancel-flow save offer, 6-month campaign | +$129 | 0.40 |
+| Annual prepay at 15% off | +$10,357 | 0.00 |
+| Raise list price to $27 | +$62,695 | 0.00 (assumption-driven) |
+
+The save offer beats the broad discount but is only a modest win. So the hero is a **two-part payoff**: the save offer as the tactical move and the annual plan as the strategic lever, both executed via PayPal. Nothing was tuned to reach this.
 
 ## 4. Architecture (modular monolith, Next.js 16, TypeScript)
 
