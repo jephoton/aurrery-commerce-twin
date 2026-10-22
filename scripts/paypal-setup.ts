@@ -12,7 +12,7 @@ import { setupPilots, syncPilots } from "@/paypal/setup";
 import { paypal, toFailure } from "@/paypal/client";
 
 const SANDBOX_API = "https://api-m.sandbox.paypal.com";
-const RETURN_URL = process.env.APP_URL ? `${process.env.APP_URL}/?paypal=approved` : "http://localhost:3000/?paypal=approved";
+const RETURN_URL = process.env.APP_URL ? `${process.env.APP_URL}/?paypal=approved` : "http://localhost:3001/?paypal=approved";
 
 async function accessToken(): Promise<string> {
   const basic = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString("base64");

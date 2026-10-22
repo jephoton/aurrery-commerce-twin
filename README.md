@@ -22,10 +22,12 @@ Requires Node.js 24+.
 ```bash
 npm install
 cp .env.example .env.local   # add PayPal Sandbox credentials; AI setup is pending
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3001
 ```
 
 The twin and simulations work without credentials. To execute through PayPal:
+
+Local development and `npm start` use port **3001**, leaving port 3000 available for other apps. Before creating a new pilot cohort, set `APP_URL` to the address where Aurrery runs; the example and setup fallback use `http://localhost:3001`. PayPal stores the return URL when each subscription is created. Changing local configuration does not rewrite existing approval links. A legacy link may still return to port 3000; open Aurrery on port 3001 afterward and use `paypal:sync` to check approval. The redirect alone is not proof of approval.
 
 1. Create a Sandbox REST app at developer.paypal.com and put its client ID and secret in `.env.local`.
 2. Run `npm run paypal:setup`. This creates the catalog product, a $24/month plan and four pilot subscriptions, and prints an approval link for each.
@@ -34,6 +36,8 @@ The twin and simulations work without credentials. To execute through PayPal:
 Rerun `npm run paypal:setup` to read the current pilot statuses and reprint pending approval links. Healthy subscriptions, including `ACTIVE` pilots, are reused without creating subscriptions. New subscriptions are read back successfully before they enter the ledger or their approval links are printed. Sync exits nonzero if any subscription cannot be read.
 
 If a registered pilot returns HTTP 404, setup stops by default. To explicitly recover confirmed missing pilots, run `npm run paypal:setup -- --recover-missing`. This replays each missing pilot's original request ID and body, verifies the returned subscription with GET, then replaces only that pilot's ledger ID in place, preserving its order and metadata. Keep the original plan settings and `APP_URL` unchanged so the replay body stays identical. Other read failures never trigger recovery. Do not change the `aurrery-ridgeline-*` request IDs or clear the ledger to retry. Historical proposals retain their original target IDs; create a fresh proposal for recovered pilots.
+
+For a legacy cohort created with the old port-3000 default, preserve `APP_URL=http://localhost:3000` for recovery rather than silently changing its original request body. New cohorts should use port 3001.
 
 ## Development
 
