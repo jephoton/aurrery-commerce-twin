@@ -12,9 +12,11 @@
 
 ## Task 1: Corpus and classification contracts
 
+Completed in `5337fcc`; independent spec and quality reviews passed (22 focused tests).
+
 **Files:** `src/signals/contracts.ts`, `corpus.ts`, `fixtures/feedback.json`, `fixtures/truth.json`, `corpus.test.ts`.
 
-- [ ] Write and run failing fixture/contract tests. Assert 200 unique IDs and texts; all five known segments; a matching truth label for each ID; four stable pilot mappings; no truth/pilot identity in model input; confidence bounds; strict object validation. Include mixed reasons, negation and adversarial messages.
+- [x] Write and run failing fixture/contract tests. Assert 200 unique IDs and texts; all five known segments; a matching truth label for each ID; four stable pilot mappings; no truth/pilot identity in model input; confidence bounds; strict object validation. Include mixed reasons, negation and adversarial messages.
 
 ```ts
 expect(corpus).toHaveLength(200);
@@ -27,7 +29,7 @@ expect(toModelInput(corpus[0])).toEqual({
 });
 ```
 
-- [ ] Implement contracts and a static 200-message synthetic corpus with separate truth. Keep fixtures fixed before either live evaluation. Pilot texts: A `honestly it's just too expensive right now`; B `can't justify $24 a month anymore`; C `moving abroad next month`; D `loyal, 14 months`. The first three use cancel_flow/cancel_intent, D support/core. Truth: A/B cancel+price, C cancel+other, D stay+other. Pilot index is local metadata, removed by toModelInput.
+- [x] Implement contracts and a static 200-message synthetic corpus with separate truth. Keep fixtures fixed before either live evaluation. Pilot texts: A `honestly it's just too expensive right now`; B `can't justify $24 a month anymore`; C `moving abroad next month`; D `loyal, 14 months`. The first three use cancel_flow/cancel_intent, D support/core. Truth: A/B cancel+price, C cancel+other, D stay+other. Pilot index is local metadata, removed by toModelInput.
 
 ```ts
 export const IntentSchema = z.enum(['cancel', 'considering_cancel', 'stay']);
@@ -40,7 +42,7 @@ export const SCHEMA_VERSION = 'classification-v1';
 export const MIN_CONFIDENCE = 0.70;
 ```
 
-- [ ] Run `npx vitest run src/signals/corpus.test.ts` and `npm run typecheck`. Update handoff, commit `feat(signals): add synthetic feedback corpus and contracts`. Independent spec review then quality review; fix/re-review before Task 2.
+- [x] Run `npx vitest run src/signals/corpus.test.ts` and `npm run typecheck`. Update handoff, commit `feat(signals): add synthetic feedback corpus and contracts`. Independent spec review then quality review; fix/re-review before Task 2.
 
 ## Task 2: Provider transport, validation and cache
 
