@@ -3,6 +3,10 @@
 export const SEGMENTS = ["new", "core", "price_sensitive", "at_risk"] as const;
 export type SegmentId = (typeof SEGMENTS)[number];
 
+/** Main reason a subscriber would leave. Affects how they respond to a discount, not their baseline churn. */
+export const REASONS = ["price", "other"] as const;
+export type ReasonId = (typeof REASONS)[number];
+
 /** Uncertain rate in [0, 1]. Posterior or prior over a monthly probability. */
 export interface BetaDist {
   alpha: number;

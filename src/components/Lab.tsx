@@ -29,6 +29,7 @@ interface PayPalStatus {
     subscriptionId: string;
     label: string;
     segment: string;
+    reason: string;
     live?: { status: string; regularPrice: string | null; planOverridden: boolean; nextBillingTime: string | null };
     error?: string;
   }[];
@@ -338,7 +339,10 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
               {paypal.subscriptions.map((s) => (
                 <tr key={s.subscriptionId} className="border-t border-border">
                   <td className="py-2">{s.label}</td>
-                  <td>{s.segment.replace("_", " ")}</td>
+                  <td>
+                    {s.segment.replaceAll("_", " ")}
+                    {s.reason === "price" && <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-800">price</span>}
+                  </td>
                   <td className="font-mono">{s.subscriptionId}</td>
                   <td>{s.live?.status ?? s.error ?? "—"}</td>
                   <td>{s.live ? (s.live.regularPrice ? `$${s.live.regularPrice}${s.live.planOverridden ? " (override)" : ""}` : `$${summary.listPrice.toFixed(2)} (plan)`) : "—"}</td>

@@ -7,6 +7,7 @@ import {
   claimForExecution,
   createProposal,
   finishExecution,
+  listSandboxSubscribers,
   ProposalError,
   registerSandboxSubscriber,
   rejectProposal,
@@ -20,8 +21,8 @@ const strategy: Strategy = {
 };
 const result = compareStrategies(twin, [strategy], { runs: 100 }).strategies[1];
 
-registerSandboxSubscriber({ subscriptionId: "I-ATRISK0001", label: "A", segment: "at_risk" });
-registerSandboxSubscriber({ subscriptionId: "I-CORE000001", label: "D", segment: "core" });
+registerSandboxSubscriber({ subscriptionId: "I-ATRISK0001", label: "A", segment: "at_risk", reason: "price" });
+registerSandboxSubscriber({ subscriptionId: "I-CORE000001", label: "D", segment: "core", reason: "other" });
 
 const propose = () => createProposal({ objective: "reduce churn", strategy, result, listPrice: twin.params.listPrice });
 const code = (f: () => unknown) => {
@@ -34,6 +35,13 @@ const code = (f: () => unknown) => {
 };
 
 describe("proposal lifecycle", () => {
+  it("stores each pilot subscription's reason", () => {
+    expect(listSandboxSubscribers().map((s) => [s.subscriptionId, s.reason])).toEqual([
+      ["I-ATRISK0001", "price"],
+      ["I-CORE000001", "other"],
+    ]);
+  });
+
   it("targets only subscriptions in the strategy's segment, at the discounted price", () => {
     const p = propose();
     expect(p.action.targets).toEqual(["I-ATRISK0001"]);

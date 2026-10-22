@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS sandbox_subscribers (
   subscription_id TEXT PRIMARY KEY,
   label TEXT NOT NULL,
   segment TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT 'other',
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS proposals (
@@ -73,6 +74,9 @@ export function ledger(): DatabaseSync {
     db = new DatabaseSync(path);
     db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
     db.exec(SCHEMA);
+    // Ledgers created before pilot reasons existed.
+    const columns = db.prepare("PRAGMA table_info(sandbox_subscribers)").all().map((c) => String(c.name));
+    if (!columns.includes("reason")) db.exec("ALTER TABLE sandbox_subscribers ADD COLUMN reason TEXT NOT NULL DEFAULT 'other'");
   }
   return db;
 }

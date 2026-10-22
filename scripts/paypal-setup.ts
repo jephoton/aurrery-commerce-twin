@@ -16,12 +16,14 @@ import { recordObservation } from "@/execution/execute";
 const SANDBOX_API = "https://api-m.sandbox.paypal.com";
 const RETURN_URL = process.env.APP_URL ? `${process.env.APP_URL}/?paypal=approved` : "http://localhost:3000/?paypal=approved";
 
+// Two price-driven cancel-intent subscribers, one leaving for another reason, one loyal: the
+// hero action should visibly target two of the four.
 const PILOT_COHORT = [
-  { label: "Pilot A (skipped 2 deliveries)", segment: "at_risk" },
-  { label: "Pilot B (paused last month)", segment: "at_risk" },
-  { label: "Pilot C (opened cancel flow)", segment: "at_risk" },
-  { label: "Pilot D (loyal, 14 months)", segment: "core" },
-];
+  { label: "Pilot A: \"honestly it's just too expensive right now\"", segment: "cancel_intent", reason: "price" },
+  { label: "Pilot B: \"can't justify $24 a month anymore\"", segment: "cancel_intent", reason: "price" },
+  { label: "Pilot C: \"moving abroad next month\"", segment: "cancel_intent", reason: "other" },
+  { label: "Pilot D: loyal, 14 months", segment: "core", reason: "other" },
+] as const;
 
 async function accessToken(): Promise<string> {
   const basic = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString("base64");
@@ -102,7 +104,7 @@ async function setup() {
       },
     });
     const sub = res.result;
-    registerSandboxSubscriber({ subscriptionId: sub.id!, label: member.label, segment: member.segment });
+    registerSandboxSubscriber({ subscriptionId: sub.id!, label: member.label, segment: member.segment, reason: member.reason });
     const approve = sub.links?.find((l) => l.rel === "approve")?.href;
     console.log(`\n${member.label} [${member.segment}] ${sub.id} ${sub.status}\n  approve as a sandbox buyer: ${approve}`);
   }
@@ -117,7 +119,7 @@ async function sync() {
       continue;
     }
     recordObservation(r.value, "paypal.sync");
-    console.log(s.subscriptionId, s.segment.padEnd(16), r.value.status.padEnd(18), "price", r.value.regularPrice ?? "(plan default)", "overridden", r.value.planOverridden, "next", r.value.nextBillingTime);
+    console.log(s.subscriptionId, `${s.segment}/${s.reason}`.padEnd(22), r.value.status.padEnd(18), "price", r.value.regularPrice ?? "(plan default)", "overridden", r.value.planOverridden, "next", r.value.nextBillingTime);
   }
 }
 

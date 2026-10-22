@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { StrategySchema, type Strategy } from "@/twin/interventions";
 import type { StrategyResult } from "@/twin/simulate";
-import { SEGMENTS } from "@/twin/types";
+import { SEGMENTS, type ReasonId } from "@/twin/types";
 import { audit, ledger, now } from "./db";
 
 // Action proposals: the only route from a recommendation to a PayPal call.
@@ -55,19 +55,26 @@ export interface SandboxSubscriber {
   subscriptionId: string;
   label: string;
   segment: string;
+  reason: ReasonId;
 }
 
 export function listSandboxSubscribers(): SandboxSubscriber[] {
   return ledger()
-    .prepare("SELECT subscription_id, label, segment FROM sandbox_subscribers ORDER BY created_at")
+    // Insertion order: rows registered in the same millisecond must keep the cohort's order.
+    .prepare("SELECT subscription_id, label, segment, reason FROM sandbox_subscribers ORDER BY rowid")
     .all()
-    .map((r) => ({ subscriptionId: String(r.subscription_id), label: String(r.label), segment: String(r.segment) }));
+    .map((r) => ({
+      subscriptionId: String(r.subscription_id),
+      label: String(r.label),
+      segment: String(r.segment),
+      reason: String(r.reason) as ReasonId,
+    }));
 }
 
 export function registerSandboxSubscriber(s: SandboxSubscriber) {
   ledger()
-    .prepare("INSERT OR REPLACE INTO sandbox_subscribers (subscription_id, label, segment, created_at) VALUES (?, ?, ?, ?)")
-    .run(s.subscriptionId, s.label, s.segment, now());
+    .prepare("INSERT OR REPLACE INTO sandbox_subscribers (subscription_id, label, segment, reason, created_at) VALUES (?, ?, ?, ?, ?)")
+    .run(s.subscriptionId, s.label, s.segment, s.reason, now());
 }
 
 /** Translate a simulated strategy into a concrete, bounded PayPal action over real sandbox subscriptions. */
