@@ -18,6 +18,8 @@ export interface SubscriptionSnapshot {
 
 export type Result<T> = { ok: true; value: T; debugId: string | null } | { ok: false; error: PayPalFailure };
 
+export type PatchOperation = "replace" | "add";
+
 export async function getSubscription(id: string): Promise<Result<SubscriptionSnapshot>> {
   try {
     const res = await paypal().subscriptions.getSubscription({ id, fields: "plan" });
@@ -52,13 +54,14 @@ export async function overrideSubscriptionPrice(
   id: string,
   amount: string,
   billingCycleSequence = 1,
+  operation: PatchOperation = "replace",
 ): Promise<Result<{ httpStatus: number }>> {
   try {
     const res = await paypal().subscriptions.patchSubscription({
       id,
       body: [
         {
-          op: PatchOp.Replace,
+          op: operation === "add" ? PatchOp.Add : PatchOp.Replace,
           path: `/plan/billing_cycles/@sequence==${billingCycleSequence}/pricing_scheme/fixed_price`,
           value: { currency_code: "USD", value: amount },
         },

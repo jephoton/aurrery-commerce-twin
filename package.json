@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "paypal:setup": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/paypal-setup.ts setup",
     "paypal:sync": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/paypal-setup.ts sync",
-    "twin:inspect": "tsx scripts/inspect-twin.ts"
+    "twin:inspect": "tsx scripts/inspect-twin.ts",
+    "paypal:check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/paypal-check.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.137.0",
