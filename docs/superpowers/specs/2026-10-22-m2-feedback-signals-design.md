@@ -1,6 +1,6 @@
 # M2: Feedback signals and provider evaluation
 
-<!-- Generated design addendum. Status: approved by the user on 2026-10-22; implementation follows the M2 task plan. -->
+<!-- Generated design addendum. Status: approved by the user on 2026-10-22; implementation and measured acceptance are complete; Groq selected. See the M2 plan and measured report. -->
 
 This makes the approved M2 milestone concrete. It follows the product [design](2026-10-22-aurrery-design.md), [roadmap](../plans/2026-10-22-aurrery-roadmap.md) and [Gemini-then-Groq decision](../../decisions/0003-ai-provider-evaluation.md). M3's agent, streaming UI and PayPal execution remain separate work.
 

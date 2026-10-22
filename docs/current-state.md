@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. **M0/M1 are published; M2 implementation and live acceptance are complete and reviewed. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. Final integration checks and merge/push are next. Aurrery uses port 3001**._
+_Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. All 184 tests, typecheck, lint and production build pass; M3 is next. Aurrery uses port 3001**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -15,13 +15,15 @@ _Last material update: 2026-10-22. **M0/M1 are published; M2 implementation and 
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `main` | M0/M1, sandbox verification and reviewed recovery fixes | yes |
-| `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes through `e64696b`; final docs/integration pending |
+| `main` | M0/M1/M2, selected Groq provider and measured report | yes; resume M3 here |
+| `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
 | `feat/m1-twin-v2` | M0/M1 and final sandbox acceptance | yes; merged into main |
 
-Task 8 verification: `npm run twin:inspect` passes Amendment 2; `npm test` (53 passing across 5 files), `npm run typecheck`, `npm run lint`, and `npm run build` pass. Tests retain the Vite config-format warning and Node experimental SQLite warning; the build also prints the SQLite warning. Final integration verification passes all 75 tests, typecheck, lint and production build. The live PayPal override/restore check passed on Pilot D; all four registered pilots are now ACTIVE.
+Latest M2 verification: all 184 tests across 13 files, typecheck, lint and production build pass. Merged-main tests also pass. Scans of all 88 tracked files found no configured credential values or personal home-directory paths. The working tree is clean after the documentation commit.
+
+Historical M1 Task 8 verification: `npm run twin:inspect` passes Amendment 2; `npm test` (53 passing across 5 files), `npm run typecheck`, `npm run lint`, and `npm run build` pass. Tests retain the Vite config-format warning and Node experimental SQLite warning; the build also prints the SQLite warning. Final integration verification passes all 75 tests, typecheck, lint and production build. The live PayPal override/restore check passed on Pilot D; all four registered pilots are now ACTIVE.
 
 ## M1 Task 6 implementation (reviews passed)
 
@@ -190,4 +192,4 @@ The fresh run completed at 2026-10-22 15:16 UTC (23:16 SGT), with code `e64696b`
 
 Select Groq GPT-OSS 120B for M2/M3. `.env.example` and ignored local configuration now record the explicit selection. Gemini remains for explicit diagnostics, with no automatic fallback. The [measured report](research/m2-provider-evaluation.md) records all disagreement IDs, exact hashes, posterior counts and simulated round-trip results. Classified-evidence median differences are broad -$1,327, save +$88 and annual +$10,351; canonical M1 remains unchanged. Neither labels nor prompts were tuned after inference. Raw artifacts remain ignored under `data/` and do not transfer through Git; the fresh benchmark did not populate the classification cache.
 
-All four tasks passed independent spec and quality reviews. The final independent branch code review found no actionable gaps and passed all 109 signals tests. Independent final verification after the measured decision passes all 184 tests, typecheck, lint and production build. Merge/push is the remaining integration step; M3 is next afterward.
+All four tasks passed independent spec and quality reviews. The final independent branch code review found no actionable gaps and passed all 109 signals tests. Independent final verification after the measured decision passes all 184 tests, typecheck, lint and production build. Main fast-forwarded to the verified M2 tree (`726e5f9`), all 184 tests passed again on main, and both main and the M2 branch were pushed with remote refs verified. The final documentation review passed after stale status text was corrected. M3 is next.
