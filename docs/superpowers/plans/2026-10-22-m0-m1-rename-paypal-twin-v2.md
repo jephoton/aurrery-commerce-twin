@@ -1202,3 +1202,80 @@ Expected: 26 tests pass; no errors; build succeeds.
 git add -A
 git commit -m "docs: record twin v2 story check and update handoff docs"
 ```
+
+---
+
+## Amendment (after the Task 4 review): Task 5 split into 5, 5b and 5c
+
+The Task 4 quality review found three modelling problems:
+- A one-off discount to the ~18 subscribers in `cancel_intent` today is noise-level.
+- The value of subscribers still active at month 12 ignored segment moves, which undervalues saved cancel-intent subscribers.
+- Reasons drift for subscribers who escalate.
+
+Jethro chose to model the hero action as an **ongoing save-offer policy**. Task 5 is replaced by the three tasks below. Task 5's original test "values the precision discount above the broad at-risk discount" moves to Task 5c. Tasks 6–8 are unchanged, except that strategy literals gain `campaignMonths`, and Task 7 also validates `reason` when it is read from the ledger.
+
+### Task 5 (revised): Reasons
+
+Same as the original Task 5, with these changes:
+- **Drop** the test "values the precision discount above the broad at-risk discount" and the Step 8 candidates rewrite (both move to 5c). Literals still gain `reason`.
+- **Re-split reasons on entry to cancel intent.** In `runOnce`'s `at_risk` transition branch, replace the single `moved.push({ ...c, segment: "cancel_intent", count: escalated })` with:
+
+```ts
+        // Leaving reasons are assessed when someone tries to cancel, so entrants take the cancel-intent mix.
+        const priceDriven = rng.binomial(escalated, s.priceReasonShare.cancel_intent);
+        moved.push({ ...c, segment: "cancel_intent", reason: "price", count: priceDriven });
+        moved.push({ ...c, segment: "cancel_intent", reason: "other", count: escalated - priceDriven });
+```
+
+- **Candidates:** `src/merchant/candidates.ts` gets `reason: "any"` on the existing at-risk discounts only.
+- **Commit:** `feat(twin): target discounts by leaving reason with reason-specific effects`.
+
+### Task 5b: Value of subscribers at month 12 includes their later segment moves
+
+**Files:** modify `src/twin/simulate.ts` and `src/twin/twin.test.ts`.
+
+- Export a shared `moveShares(segment, s)` returning the one-month destination probabilities, in the same sequential order as `runOnce`:
+  - `new`: core g(1−ps), price_sensitive g·ps
+  - `core`: at_risk
+  - `price_sensitive`: at_risk
+  - `at_risk`: core r, cancel_intent (1−r)·e
+  - `cancel_intent`: at_risk d
+
+  Use an exhaustive switch.
+- Replace `subscriberValue` with an exported `tailValue(p, s, cohort, listPrice)`, where `cohort` is `Pick<Cohort, "segment" | "reason" | "plan" | "monthsLeft" | "offer" | "price">`, and export that type as `TailCohort`. It propagates expected subscriber mass across segments for `TAIL_MONTHS`.
+  - Start with all mass in the cohort's segment. Annual cohorts start in `core`, because they become core when the term ends.
+  - Each month k, add `discount(k) × totalMass × margin`. Margin is `price − fee(price) − fulfilment`, where price is `c.price` while an offer lasts (`c.offer && k <= c.monthsLeft`) and list price otherwise. For prepaid annual months (`k <= monthsLeft`), add `−fulfilment` instead and skip churn and moves.
+  - Then apply churn per segment: `hazard = churn[seg] × (on offer ? offerRelativeRisk[c.reason] : (list/ref)^elasticity[seg])`, clamped at 0.95. Surviving mass is `× (1 − hazard)(1 − involuntary)`.
+  - Then apply `moveShares`.
+- **Tests:**
+  1. A cancel-intent cohort's tail value exceeds the same value computed with `cancelIntentToAtRisk = 0` (moves raise its value).
+  2. A core cohort's tail value exceeds a cancel-intent cohort's.
+  3. The existing simulation tests still pass.
+
+  Use `sampleParams(twin.params, new Rng(1))` for `s`.
+- **Commit:** `fix(twin): value the ending subscriber base with expected segment moves`.
+
+### Task 5c: Save-offer campaigns
+
+**Files:** modify `src/twin/interventions.ts`, `src/twin/simulate.ts`, `src/twin/types.ts`, `src/twin/twin.test.ts`, `src/merchant/candidates.ts`, `src/ledger/proposals.test.ts`, and `scripts/inspect-twin.ts` if it constructs strategies.
+
+- **Schema:** `targeted_discount` gains `campaignMonths: z.number().int().min(0).max(12)` with the doc comment "0 = only subscribers in the segment today; N = also everyone who enters the segment (with a matching reason) during the next N months".
+- **`describeIntervention`:** append ", for everyone entering over the next N months" when N > 0.
+- **`RunMetrics` and `METRIC_KEYS`:** add `discountedSubscribers`, the number of subscribers who received the discount.
+- **`runOnce`:**
+  - Use one `qualifies(c)` predicate (segment and reason match, monthly, not already on offer) and one `applyDiscount(c)` helper, both for the month-0 stock and for entrants.
+  - Entrants arriving through moves at the end of month t get the discount if `t + 1 < campaignMonths`, because their first discounted bill is in month t+1.
+  - New signups get it if the target segment is `new` and `t < campaignMonths`.
+  - Apply the discount to `moved` entries and acquisition cohorts *before* merging. Count `discountedSubscribers` for the stock and every entrant.
+- **Literals:** every targeted-discount literal gains `campaignMonths`. Tests use 0 unless stated.
+- **Candidates:** the broad at-risk 20% (3 months) and the hero price-driven cancel-intent 25% (3 months) both use `campaignMonths: 6`, so the comparison is fair. Remove the at-risk 35% candidate.
+- **Tests:**
+  1. "a save-offer campaign reaches entrants as well as today's segment": the hero with campaign 6 has `discountedSubscribers.mean` more than 2× the same strategy with campaign 0.
+  2. "values the precision campaign above the broad campaign": the median `vsBaseline.totalValue` of the hero (campaign 6) is above that of the broad strategy (campaign 6).
+
+  If test 2 fails, **do not tune parameters**. Report the numbers and stop.
+- **Commit:** `feat(twin): model targeted discounts as save-offer campaigns`.
+
+**Task 7 additions:**
+- The proposal action gains `campaignMonths`, for display and audit. Execution still targets only today's matching pilots; later entrants require their own proposals.
+- `listSandboxSubscribers` validates `reason` on read with `z.enum(REASONS)` and falls back to `"other"` with a console warning.
