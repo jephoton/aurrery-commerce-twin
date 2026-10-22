@@ -69,7 +69,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
    - Record the verified override/revert request shape in [decision 0001](decisions/0001-scenario-and-paypal-action.md) only after the sandbox check succeeds. This live check remains incomplete.
    - Credentials and the SQLite ledger are local ignored state; Git does not transfer them to another machine. Keep credentials and approval links out of tracked files.
 3. **Merge and push M0/M1 into `main`** after the check and reviews (also making LICENSE visible on GitHub). M0 and M1 remain local and unpushed.
-4. **M2: Signals: feedback corpus and classifier.**
+4. **M2: Signals: feedback corpus and classifier.** Revisit the model provider before implementation: [free API research](research/free-ai-api-options.md) recommends evaluating Gemini Flash, with Groq/Mistral alternatives. Anthropic is not required; no provider switch has been approved or implemented. Public offers were checked on 2026-10-22; account quotas and end-to-end quality still need testing.
 5. **M3: Agent: tool loop and streamed timeline.**
 6. **M4: Product UI: headline card, orbit language, polish.**
 7. **M5: Hosting and observed loop: Render, webhooks, revert, reset.** Then the roadmap's cut checkpoint.
