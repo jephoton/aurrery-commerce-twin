@@ -176,6 +176,31 @@ describe("agent tool boundary", () => {
     expect(classify).toHaveBeenCalledTimes(10);
     expect(JSON.stringify(fresh)).not.toContain("I-PILOT");
     expect(JSON.stringify(fresh)).not.toContain(feedbackCorpus[0].id);
+    expect(fresh).toMatchObject({ ok: true, data: { provider: "groq", model: "synthetic-tool-pacing" } });
+    expect(ctx.state.classification).toMatchObject({ provider: "groq", model: "synthetic-tool-pacing" });
+    expect(events).toContainEqual(expect.objectContaining({ type: "classification", summary: expect.objectContaining({ provider: "groq", model: "synthetic-tool-pacing" }) }));
+  });
+  it.each([{ category: "quota" as const, status: 429 }, { category: "auth" as const, status: 401 }, { category: "configuration" as const }])("marks terminal classification failures with partial accepted evidence as unsafe for proposals: %j", async (failure) => {
+    const events: unknown[] = [];
+    const partial = classified();
+    const accepted = partial.accepted.slice(0, 20);
+    const ctx = setup({ emit: (event) => events.push(event), classify: async () => ({ ...partial, accepted, stopped: failure.category === "quota", batches: [{ index: 1, inputIds: [], accepted: [], unclassified: [], schemaValidCount: 0, diagnostics: [], metrics: emptyMetrics(), error: { provider: "groq", model: "openai/gpt-oss-120b", retryCount: 0, quota: {}, ...failure } }] }) });
+    const result = await ctx.dispatch("classify_feedback", {});
+    expect(result).toMatchObject({ ok: false, terminal: true, code: "CLASSIFICATION_FAILED", failure });
+    expect(ctx.state.classified).toBe(false);
+    expect(events).toContainEqual(expect.objectContaining({ type: "classification", summary: expect.objectContaining({ accepted: 20, provider: "groq", model: "openai/gpt-oss-120b" }) }));
+    await ctx.dispatch("set_decision_rules", rules);
+    await ctx.dispatch("simulate_strategies", { strategies: [strategy] });
+    await ctx.dispatch("stress_test", { strategyId: "save" });
+    expect(await recommend(ctx)).toMatchObject({ ok: false, terminal: true });
+    expect(listProposals()).toEqual([]);
+  });
+  it("does not accept an empty classification as the evidence prerequisite", async () => {
+    const ctx = setup({ classify: async () => ({ ...classified(), accepted: [], cacheHits: 0 }) });
+    expect(await ctx.dispatch("classify_feedback", {})).toMatchObject({ ok: false, code: "NO_ACCEPTED_EVIDENCE" });
+    expect(ctx.state.classified).toBe(false);
+    expect(await recommend(ctx)).toMatchObject({ ok: false });
+    expect(listProposals()).toEqual([]);
   });
   it("keeps stressed losses visible without treating them as an automatic veto", async () => {
     const simulate = (twin: Parameters<typeof compareStrategies>[0], candidates: Strategy[], options: Parameters<typeof compareStrategies>[2]) => compareStrategies(twin, candidates, { ...options, runs: 10 });

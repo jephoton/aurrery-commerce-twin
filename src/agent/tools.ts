@@ -13,7 +13,7 @@ import { StrategySchema, BASELINE, type Strategy } from "@/twin/interventions";
 import { compareStrategies, type ComparisonResult, type StrategyResult } from "@/twin/simulate";
 import { stressTest, type StressResult } from "@/twin/stress";
 import { SEGMENTS, type MerchantTwin } from "@/twin/types";
-import { DEFAULT_DECISION_RULES, DecisionRulesSchema, type AgentEvent, type ClassificationSummary, type DecisionRules, type ToolResult } from "./contracts";
+import { DEFAULT_DECISION_RULES, DecisionRulesSchema, type AgentEvent, type ClassificationFailure, type ClassificationSummary, type DecisionRules, type ToolResult } from "./contracts";
 
 // Existing simulator schemas preserve manual API compatibility. Tighten recursively at the tool boundary.
 const intervention = z.discriminatedUnion("kind", [
@@ -48,8 +48,9 @@ export const TOOL_DEFINITIONS = Object.entries(schemas).map(([name, schema]) => 
   function: { name, description: descriptions[name as ToolName], parameters: z.toJSONSchema(schema) },
 }));
 class ToolFailure extends Error {
-  constructor(readonly code: string, message: string) { super(message); }
+  constructor(readonly code: string, message: string, readonly terminal = false, readonly failure?: ClassificationFailure) { super(message); }
 }
+const safeClassificationFailure = z.object({ category: z.enum(["configuration", "auth", "model", "request", "quota", "network", "timeout", "server", "malformed_json", "envelope", "response_size"]), status: z.number().int().min(100).max(599).optional() });
 export interface ToolContextOptions {
   objective?: string;
   twin?: MerchantTwin;
@@ -67,6 +68,7 @@ export interface ToolState {
   twin: MerchantTwin; rules: DecisionRules; rulesExplicit: boolean; classified: boolean;
   revision: number; classification?: ClassificationSummary; comparison?: ComparisonResult;
   stresses: Record<string, StressResult>; proposal?: Proposal;
+  terminalFailure?: ClassificationFailure;
 }
 /** A context is owned by one runner. Model callers only receive dispatch results, never this state. */
 export function createToolContext(options: ToolContextOptions = {}) {
@@ -99,6 +101,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
   }
   async function invoke(name: ToolName, args: unknown): Promise<unknown> {
     checkAbort();
+    if (state.terminalFailure && name !== "get_merchant_state") throw new ToolFailure("CLASSIFICATION_FAILED", "Classification failed; start a new run before recommending.", true, state.terminalFailure);
     if (state.proposal && name !== "get_merchant_state") throw new ToolFailure("PROPOSAL_EXISTS", "This run already created a proposal. Review that proposal or start a new run.");
     switch (name) {
       case "get_merchant_state": {
@@ -112,12 +115,16 @@ export function createToolContext(options: ToolContextOptions = {}) {
           }),
           assumptions: assumptions(), evidenceNote: "Synthetic history estimates churn; classified feedback estimates leaving reasons. Intervention effects are uncertain and stress tested.",
           starterStrategies: STARTER_STRATEGIES,
-          rules: state.rules, rulesExplicit: state.rulesExplicit, classified: state.classified, classification: state.classification, revision: state.revision, comparedStrategyIds: [...strategies.keys()], proposalId: state.proposal?.id,
+          rules: state.rules, rulesExplicit: state.rulesExplicit, classified: state.classified, classification: state.classification, terminalFailure: state.terminalFailure, revision: state.revision, comparedStrategyIds: [...strategies.keys()], proposalId: state.proposal?.id,
         };
       }
       case "classify_feedback": {
+        state.classified = false; state.classification = undefined; invalidate();
         const provider = options.provider ?? createProvider({ provider: "groq" });
-        if (provider.provider !== "groq") throw new ToolFailure("CONFIGURATION", "The selected classifier must be Groq.");
+        if (provider.provider !== "groq") {
+          state.terminalFailure = { category: "configuration" };
+          throw new ToolFailure("CONFIGURATION", "The selected classifier must be Groq.", true, state.terminalFailure);
+        }
         let called = false;
         const paced: ClassificationProvider = { ...provider, async classify(inputs) {
           checkAbort();
@@ -139,11 +146,18 @@ export function createToolContext(options: ToolContextOptions = {}) {
         const evidence = summarizeEvidence(feedbackCorpus, result.accepted);
         const eligibility = pilotEligibility(feedbackCorpus, evidence.accepted, registry(), labels);
         const updated = applyEvidence(original, feedbackCorpus, evidence.accepted);
+        const error = result.batches.find((batch) => batch.error)?.error;
+        const failed = result.stopped || !!error;
         checkAbort();
         accepted = evidence.accepted;
-        state.twin = updated; state.classified = true; invalidate();
-        state.classification = { total: result.total, accepted: accepted.length, unclassified: result.unclassified.length, cacheHits: result.cacheHits, segments: evidence.segments, intents: evidence.intents, eligiblePilotCount: eligibility.eligibleSubscriptionIds.length, pilotCount: eligibility.pilots.length, mappingIssueCount: eligibility.issues.length, source: "AI-classified synthetic feedback" };
+        state.twin = updated; state.classified = accepted.length > 0 && !failed;
+        state.classification = { provider: "groq", model: provider.model, stopped: result.stopped, total: result.total, accepted: accepted.length, unclassified: result.unclassified.length, cacheHits: result.cacheHits, segments: evidence.segments, intents: evidence.intents, eligiblePilotCount: eligibility.eligibleSubscriptionIds.length, pilotCount: eligibility.pilots.length, mappingIssueCount: eligibility.issues.length, source: "AI-classified synthetic feedback" };
         emit({ type: "classification", summary: state.classification, hitmap: evidence.segments, provenance: state.twin.provenance });
+        if (failed || accepted.length === 0) {
+          const safe = safeClassificationFailure.safeParse(error);
+          state.terminalFailure = safe.success ? safe.data : { category: "provider_error" };
+          throw new ToolFailure(failed ? "CLASSIFICATION_FAILED" : "NO_ACCEPTED_EVIDENCE", failed ? "Classification failed. Partial evidence is visible, but this run cannot recommend an action." : "Classification produced no accepted evidence; this run cannot recommend an action.", true, state.terminalFailure);
+        }
         return state.classification;
       }
       case "set_decision_rules":
@@ -206,7 +220,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
       result = { ok: true, data };
     } catch (error) {
       result = options.signal?.aborted ? { ok: false, code: "ABORTED", message: "Run cancelled." }
-        : error instanceof ToolFailure ? { ok: false, code: error.code, message: error.message }
+        : error instanceof ToolFailure ? { ok: false, code: error.code, message: error.message, ...(error.terminal ? { terminal: true as const } : {}), ...(error.failure ? { failure: error.failure } : {}) }
         : error instanceof ProposalError ? { ok: false, code: error.code, message: "A proposed action could not be created for the current eligible cohort." }
         : { ok: false, code: "TOOL_FAILED", message: "Tool could not complete. Details suppressed." };
     }
