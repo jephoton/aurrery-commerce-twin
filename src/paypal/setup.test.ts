@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { ledger } from "@/ledger/db";
+import { ledger, setSetting } from "@/ledger/db";
 import { listSandboxSubscribers, registerSandboxSubscriber } from "@/ledger/proposals";
 import { setupPilots, syncPilots, PILOT_COHORT } from "./setup";
 import type { Result, SubscriptionSnapshot } from "./subscriptions";
@@ -23,7 +23,7 @@ function seed() {
 }
 
 beforeEach(() => {
-  ledger().exec("DELETE FROM sandbox_subscribers; DELETE FROM observations;");
+  ledger().exec("DELETE FROM sandbox_subscribers; DELETE FROM observations; DELETE FROM kv;");
   vi.resetAllMocks();
   transport.read.mockImplementation(async (id: string) => snapshot(id));
   let created = 0;
@@ -47,6 +47,36 @@ it("refuses an existing 404 by default and leaves the registry unchanged", async
   await expect(setupPilots(options)).rejects.toThrow(/404.*--recover-missing/);
   expect(transport.create).not.toHaveBeenCalled();
   expect(listSandboxSubscribers()[0].subscriptionId).toBe("I-OLD0");
+});
+
+it("replays an adopted pilot's active creation intent while retaining legacy intent for the others", async () => {
+  seed();
+  setSetting("paypal.pilot.0.request_id", "aurrery-ridgeline-sub-0-v2");
+  setSetting("paypal.pilot.0.return_url", "http://localhost:3001/?paypal=approved");
+  setSetting("paypal.pilot.1.replacement_request_id", "not-an-active-request");
+  setSetting("paypal.pilot.1.replacement_return_url", "http://localhost:3999/pending");
+  transport.read.mockImplementation(async (id: string) => id.startsWith("I-OLD") ? failure(404) : snapshot(id));
+  await setupPilots({ ...options, recoverMissing: true });
+  expect(transport.create.mock.calls.map(([request]) => request)).toEqual(PILOT_COHORT.map((_, i) => {
+    const returnUrl = i === 0 ? "http://localhost:3001/?paypal=approved" : options.returnUrl;
+    return {
+      paypalRequestId: i === 0 ? "aurrery-ridgeline-sub-0-v2" : `aurrery-ridgeline-sub-${i}-v1`,
+      prefer: "return=representation",
+      body: { planId: options.planId, customId: `pilot-${i}`, applicationContext: { brandName: "Ridgeline Roasters", returnUrl, cancelUrl: returnUrl } },
+    };
+  }));
+  expect(listSandboxSubscribers()).toHaveLength(4);
+});
+
+it("never POSTs healthy pilots even when an active creation override exists", async () => {
+  seed();
+  setSetting("paypal.pilot.0.request_id", "aurrery-ridgeline-sub-0-v2");
+  setSetting("paypal.pilot.0.return_url", "http://localhost:3001/?paypal=approved");
+  transport.read.mockImplementation(async (id: string) => snapshot(id, "ACTIVE"));
+  const before = listSandboxSubscribers();
+  await setupPilots({ ...options, recoverMissing: true });
+  expect(transport.create).not.toHaveBeenCalled();
+  expect(listSandboxSubscribers()).toEqual(before);
 });
 
 it.each([401, 403, 429, 500, null])("never recreates a pilot after a %s read failure, even with recovery enabled", async (status) => {

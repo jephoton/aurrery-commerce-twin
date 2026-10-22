@@ -1,5 +1,6 @@
 import "server-only";
 import { listSandboxSubscribers, registerSandboxSubscriber, replaceSandboxSubscription } from "@/ledger/proposals";
+import { getSetting } from "@/ledger/db";
 import { recordObservation } from "@/execution/execute";
 import { paypal } from "./client";
 import { getSubscription, type SubscriptionSnapshot } from "./subscriptions";
@@ -37,7 +38,7 @@ function describe(label: string, snapshot: SubscriptionSnapshot, fallback?: unkn
   return `${status}\n  approve as a sandbox buyer: ${approve}`;
 }
 
-/** Replays a missing pilot only on explicit opt-in; the original key and body stay fixed. */
+/** Replays a missing pilot only on explicit opt-in, using its recorded creation intent. */
 export async function setupPilots(options: {
   planId: string;
   returnUrl: string;
@@ -62,19 +63,21 @@ export async function setupPilots(options: {
       } else {
         if (read.error.httpStatus !== 404) throw new Error(readFailure(existing.subscriptionId, read.error));
         if (!options.recoverMissing) {
-          throw new Error(`${readFailure(existing.subscriptionId, read.error)}. Rerun with --recover-missing to replay only confirmed missing pilots using their original request IDs.`);
+          throw new Error(`${readFailure(existing.subscriptionId, read.error)}. Rerun with --recover-missing to replay only confirmed missing pilots using their recorded creation request IDs.`);
         }
       }
     }
     let created: unknown;
     if (!snapshot) {
+      const requestId = getSetting(`paypal.pilot.${i}.request_id`) ?? `aurrery-ridgeline-sub-${i}-v1`;
+      const returnUrl = getSetting(`paypal.pilot.${i}.return_url`) ?? options.returnUrl;
       const response = await paypal().subscriptions.createSubscription({
-        paypalRequestId: `aurrery-ridgeline-sub-${i}-v1`,
+        paypalRequestId: requestId,
         prefer: "return=representation",
         body: {
           planId: options.planId,
           customId: `pilot-${i}`,
-          applicationContext: { brandName: "Ridgeline Roasters", returnUrl: options.returnUrl, cancelUrl: options.returnUrl },
+          applicationContext: { brandName: "Ridgeline Roasters", returnUrl, cancelUrl: returnUrl },
         },
       });
       created = response.result;
