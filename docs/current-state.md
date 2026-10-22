@@ -24,9 +24,9 @@ Project: **Aurrery** (repo `jephoton/aurrery-commerce-twin`, public). Design: `d
   - fails loudly if the restore fails
   - tries `add` only after a 400/422 on `replace`
 - **M1 Task 4:** `cancel_intent` segment with at-risk ⇄ cancel-intent transitions, estimated from history with destination-level `movedTo`. Estimators are checked against exact exposure counts.
-- **M1 Task 5 (implemented, spec-reviewed; quality review pending):** leaving reasons (`price`/`other`) on cohorts, reason-specific discount effect (Gamma priors), targeting by reason, re-split of reasons on entry to cancel intent, per-reason Bayesian update.
+- **M1 Task 5:** leaving reasons (`price`/`other`) on cohorts, reason-specific discount effect (Gamma priors), re-split of reasons on entry to cancel intent, and a per-reason Bayesian update with matching provenance keys. Targeting by `reason: "price"` is only allowed for `cancel_intent`, because reasons are only known in the cancel flow. Deterministic tests check that targeting is exact.
 
-All checks pass on `feat/m1-twin-v2` (22 tests, typecheck, lint).
+All checks pass on `feat/m1-twin-v2` (24 tests, typecheck, lint).
 
 ## In progress
 
@@ -43,6 +43,13 @@ All checks pass on `feat/m1-twin-v2` (22 tests, typecheck, lint).
 - **Hero action is an ongoing save-offer policy,** not a one-off (Jethro, 2026-10-22). A one-off discount to the ~18 subscribers in cancel intent at month 0 is noise-level. In PayPal, approving executes for today's matching pilots; later entrants need their own proposals.
 - **Leaving reasons are assessed when someone tries to cancel,** so entrants to cancel intent take that segment's reason mix.
 - **No tuning of parameters to make the story work.** If the precision campaign doesn't beat the broad one under honest assumptions, stop and revisit the story.
+  - The one prior change so far went *against* the hero. After review, the "other"-reason discount prior was tightened from Gamma(20, 22.2) to Gamma(72.25, 85), because the old prior gave a ~29% chance that a discount raises churn. That makes the broad discount look better.
+  - One-off results after Task 5 (400 runs), median Δ value:
+    - Broad at-risk discount: about −$350, worse than doing nothing about 62% of the time.
+    - Hero: about +$14 to +$50, worse about 45% of the time.
+
+    Both are noise-level, which is why Task 5c's campaigns are needed.
+- **Open question for Task 7:** outcomes from an at-risk `"any"` discount can't be labelled with a reason, so decide whether to skip or pool them in calibration.
 
 ## Not yet verified
 
