@@ -81,8 +81,11 @@ export function generateDemoHistory(): { history: DemoHistory; endActive: Record
       } else if (segment === "at_risk") {
         movedTo.core = rng.binomial(remaining, t.atRiskRecovery);
         movedTo.cancel_intent = rng.binomial(remaining - movedTo.core, t.atRiskToCancelIntent);
-      } else {
+      } else if (segment === "cancel_intent") {
         movedTo.at_risk = rng.binomial(remaining, t.cancelIntentToAtRisk);
+      } else {
+        const unreachable: never = segment;
+        throw new Error(`Unhandled segment: ${unreachable}`);
       }
       let out = 0;
       for (const [to, n] of Object.entries(movedTo) as [SegmentId, number][]) {
@@ -108,7 +111,7 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
   const acquisition = estimateAcquisition(history.acquisition);
 
   const segmentRows = (segment: SegmentId) => rows.filter((x) => x.segment === segment);
-  const stayed = (segment: SegmentId) =>
+  const survivedChurn = (segment: SegmentId) =>
     segmentRows(segment).reduce((s, x) => s + x.activeAtStart - x.voluntaryChurn - x.involuntaryChurn, 0);
   const moved = (from: SegmentId, to: SegmentId) => segmentRows(from).reduce((s, x) => s + (x.movedTo[to] ?? 0), 0);
   const graduated = moved("new", "core") + moved("new", "price_sensitive");
@@ -150,13 +153,13 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
       acquisitionPriceElasticity: { mean: 1.2, sd: 0.6 },
       involuntaryChurn: involuntary.posterior,
       transitions: {
-        newGraduation: betaPosterior(FLAT_PRIOR, graduated, stayed("new")),
+        newGraduation: betaPosterior(FLAT_PRIOR, graduated, survivedChurn("new")),
         newToPriceSensitive: betaPosterior(FLAT_PRIOR, moved("new", "price_sensitive"), graduated),
-        coreToAtRisk: betaPosterior(FLAT_PRIOR, moved("core", "at_risk"), stayed("core")),
-        priceSensitiveToAtRisk: betaPosterior(FLAT_PRIOR, moved("price_sensitive", "at_risk"), stayed("price_sensitive")),
-        atRiskRecovery: betaPosterior(FLAT_PRIOR, recovered, stayed("at_risk")),
-        atRiskToCancelIntent: betaPosterior(FLAT_PRIOR, moved("at_risk", "cancel_intent"), stayed("at_risk") - recovered),
-        cancelIntentToAtRisk: betaPosterior(FLAT_PRIOR, moved("cancel_intent", "at_risk"), stayed("cancel_intent")),
+        coreToAtRisk: betaPosterior(FLAT_PRIOR, moved("core", "at_risk"), survivedChurn("core")),
+        priceSensitiveToAtRisk: betaPosterior(FLAT_PRIOR, moved("price_sensitive", "at_risk"), survivedChurn("price_sensitive")),
+        atRiskRecovery: betaPosterior(FLAT_PRIOR, recovered, survivedChurn("at_risk")),
+        atRiskToCancelIntent: betaPosterior(FLAT_PRIOR, moved("at_risk", "cancel_intent"), survivedChurn("at_risk") - recovered),
+        cancelIntentToAtRisk: betaPosterior(FLAT_PRIOR, moved("cancel_intent", "at_risk"), survivedChurn("cancel_intent")),
       },
       offerChurnRelativeRisk: { shape: 6, rate: 10 },
       postOfferChurnMultiplier: { mean: 1.25, sd: 0.15 },

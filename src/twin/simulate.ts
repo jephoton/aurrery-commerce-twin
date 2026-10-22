@@ -279,10 +279,13 @@ export function runOnce(
         c.count -= recovered + escalated;
         moved.push({ ...c, segment: "core", count: recovered });
         moved.push({ ...c, segment: "cancel_intent", count: escalated });
-      } else {
+      } else if (c.segment === "cancel_intent") {
         const deescalated = rng.binomial(c.count, s.cancelIntentToAtRisk);
         c.count -= deescalated;
         moved.push({ ...c, segment: "at_risk", count: deescalated });
+      } else {
+        const unreachable: never = c.segment;
+        throw new Error(`Unhandled segment: ${unreachable}`);
       }
     }
     cohorts = merge([...cohorts, ...moved]);

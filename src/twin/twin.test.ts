@@ -6,7 +6,7 @@ import { Rng } from "./rng";
 import { compareStrategies } from "./simulate";
 import { SEGMENTS } from "./types";
 
-const { twin } = buildDemoTwin();
+const { twin, history } = buildDemoTwin();
 const FAST = { runs: 200, horizonMonths: 12, seed: 7 };
 
 const discount: Strategy = {
@@ -58,6 +58,24 @@ describe("calibration", () => {
     for (const [posterior, truth] of pairs) {
       expect(Math.abs(betaMean(posterior) - truth)).toBeLessThan(4 * betaSd(posterior) + 0.002);
     }
+  });
+
+  it("estimates transitions from exactly the right exposures", () => {
+    const rows = (segment: string) => history.segments.filter((r) => r.segment === segment);
+    const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+    const postChurn = (r: (typeof history.segments)[number]) => r.activeAtStart - r.voluntaryChurn - r.involuntaryChurn;
+
+    const escalation = twin.params.transitions.atRiskToCancelIntent;
+    const atRisk = rows("at_risk");
+    expect(escalation.alpha - 1).toBe(sum(atRisk.map((r) => r.movedTo.cancel_intent ?? 0)));
+    expect(escalation.beta - 1).toBe(
+      sum(atRisk.map((r) => postChurn(r) - (r.movedTo.core ?? 0) - (r.movedTo.cancel_intent ?? 0))),
+    );
+
+    const deescalation = twin.params.transitions.cancelIntentToAtRisk;
+    const cancelIntent = rows("cancel_intent");
+    expect(deescalation.alpha - 1).toBe(sum(cancelIntent.map((r) => r.movedTo.at_risk ?? 0)));
+    expect(deescalation.beta - 1).toBe(sum(cancelIntent.map((r) => postChurn(r) - (r.movedTo.at_risk ?? 0))));
   });
 
   it("starts with subscribers in every segment, including cancel intent", () => {
