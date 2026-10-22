@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { StrategySchema, type Strategy } from "@/twin/interventions";
 import type { StrategyResult } from "@/twin/simulate";
-import { SEGMENTS, type ReasonId } from "@/twin/types";
+import { REASONS, SEGMENTS, type ReasonId } from "@/twin/types";
 import { audit, ledger, now } from "./db";
 
 // Action proposals: the only route from a recommendation to a PayPal call.
@@ -14,10 +14,12 @@ export const MAX_TARGETS_PER_ACTION = 25;
 export const PriceOverrideActionSchema = z.object({
   type: z.literal("subscription_price_override"),
   segment: z.enum(SEGMENTS),
+  reason: z.enum(["price", "any"]),
   listPrice: z.string().regex(/^\d+\.\d{2}$/),
   newPrice: z.string().regex(/^\d+\.\d{2}$/),
   discountPct: z.number().min(5).max(50),
   months: z.number().int().min(1).max(12),
+  campaignMonths: z.number().int().min(0).max(12),
   targets: z.array(z.string().regex(/^I-[A-Z0-9]+$/)).min(1).max(MAX_TARGETS_PER_ACTION),
 });
 export type PriceOverrideAction = z.infer<typeof PriceOverrideActionSchema>;
@@ -63,12 +65,16 @@ export function listSandboxSubscribers(): SandboxSubscriber[] {
     // Insertion order: rows registered in the same millisecond must keep the cohort's order.
     .prepare("SELECT subscription_id, label, segment, reason FROM sandbox_subscribers ORDER BY rowid")
     .all()
-    .map((r) => ({
-      subscriptionId: String(r.subscription_id),
-      label: String(r.label),
-      segment: String(r.segment),
-      reason: String(r.reason) as ReasonId,
-    }));
+    .map((r) => {
+      const reason = z.enum(REASONS).safeParse(r.reason);
+      if (!reason.success) console.warn(`Invalid stored pilot reason for ${r.subscription_id}; using other.`);
+      return {
+        subscriptionId: String(r.subscription_id),
+        label: String(r.label),
+        segment: String(r.segment),
+        reason: reason.success ? reason.data : "other",
+      };
+    });
 }
 
 export function registerSandboxSubscriber(s: SandboxSubscriber) {
@@ -77,26 +83,28 @@ export function registerSandboxSubscriber(s: SandboxSubscriber) {
     .run(s.subscriptionId, s.label, s.segment, s.reason, now());
 }
 
-/** Translate a simulated strategy into a concrete, bounded PayPal action over real sandbox subscriptions. */
+/** Snapshot today's matching pilots. Later campaign entrants require separate proposals and approvals. */
 export function buildAction(strategy: Strategy, listPrice: number): ProposalAction {
   const iv = strategy.intervention;
   if (iv.kind !== "targeted_discount") {
     throw new ProposalError(`Strategy kind "${iv.kind}" has no executable PayPal action in this build.`, "NOT_EXECUTABLE");
   }
   const targets = listSandboxSubscribers()
-    .filter((s) => s.segment === iv.segment)
+    .filter((s) => s.segment === iv.segment && (iv.reason === "any" || s.reason === iv.reason))
     .map((s) => s.subscriptionId)
     .slice(0, MAX_TARGETS_PER_ACTION);
   if (targets.length === 0) {
-    throw new ProposalError(`No sandbox subscriptions are registered in segment "${iv.segment}".`, "NO_TARGETS");
+    throw new ProposalError(`No sandbox subscriptions are registered in segment "${iv.segment}" for reason "${iv.reason}".`, "NO_TARGETS");
   }
   return PriceOverrideActionSchema.parse({
     type: "subscription_price_override",
     segment: iv.segment,
+    reason: iv.reason,
     listPrice: listPrice.toFixed(2),
     newPrice: (Math.round(listPrice * (1 - iv.discountPct / 100) * 100) / 100).toFixed(2),
     discountPct: iv.discountPct,
     months: iv.months,
+    campaignMonths: iv.campaignMonths,
     targets,
   });
 }

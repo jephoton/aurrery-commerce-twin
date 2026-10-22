@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. Execution resumed; **M1 Task 6 passed independent spec-compliance and code-quality reviews; Task 7 is in progress**._
+_Last material update: 2026-10-22. Execution resumed; **M1 Task 6 passed independent spec-compliance and code-quality reviews; Task 7 is implemented, with independent reviews pending**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -17,7 +17,7 @@ _Last material update: 2026-10-22. Execution resumed; **M1 Task 6 passed indepen
 | `main` | Create Next App scaffold only | yes (foundation not merged) |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3) | **no** |
-| `feat/m1-twin-v2` | branched from the M0 tip; M1 Tasks 4–6, plus docs | **no**; **continue here** |
+| `feat/m1-twin-v2` | branched from the M0 tip; M1 Tasks 4–7, plus docs | **no**; **continue here** |
 
 Task 6 verification: `npm test` (46 passing), `npm run typecheck`, and `npm run lint` pass. The build last passed after Task 5c; it was not rerun for the pure stress-test module. Test output still includes the Vite config-format warning and Node's experimental SQLite warning.
 
@@ -54,8 +54,8 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 ## Next steps (in order)
 
 1. **Finish M1** on `feat/m1-twin-v2`:
-   - **Task 6:** implementation complete; run spec-compliance and code-quality reviews, then address any findings.
-   - **Task 7:** proposals target by reason, plus the carry-forward items in the plan: `campaignMonths` in the action, executing only today's pilots, a UI note, validating reason on read, and the calibration decision.
+   - **Task 6:** implementation and independent spec-compliance/code-quality reviews passed.
+   - **Task 7:** implementation complete; independent spec-compliance and code-quality reviews are pending.
    - **Task 8:** story check and docs, using Amendment 2's acceptance criteria.
    - Same process as before: implementer, then spec review, then code-quality review. Update this file after each task.
 2. **Finish M0 Task 3, Step 4 onward.** This needs Jethro: create the PayPal Sandbox REST app (type **Merchant**) with a sandbox **business** account selected; create a sandbox **personal** account too.
@@ -67,7 +67,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 
 ## Known issues and follow-ups
 
-- **The hero proposal targets the wrong pilots until Task 7.** `buildAction` doesn't filter by reason yet, so the hero would also discount Pilot C ("other" reason). Don't approve hero proposals before Task 7 lands.
+- **Task 7 reviews remain pending.** The hero proposal now targets only price-driven cancel-intent pilots A and B; Pilot C is excluded.
 - **The UI is unverified.** It hasn't been checked in a browser since the foundation. `STARTER_STRATEGIES` now contains campaign strategies.
 - **Optional test improvements from the 5c review:**
   - decouple test (d) from the `m0:acq` stream key, using `runOnce(...).newSubscribers`;
@@ -88,3 +88,13 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 ## Starter-strategy schema regression
 
 Shortened the hero strategy display name to satisfy the existing 80-character API limit. All actual starter strategies now pass the schema regression test (observed failing before the source fix, passing afterward). No simulation parameters changed.
+
+## M1 Task 7 implementation (reviews pending)
+
+Proposals filter today's registered pilots by segment and reason, retain registration order and the 25-target cap, and carry reason plus `campaignMonths` in the hashed action. No-target errors name both criteria. Stored reasons are validated with a warning and `other` fallback for invalid data. The approval card displays targeting, campaign context, and the requirement for separate approvals for later entrants.
+
+The four-pilot regression cohort proves the price hero reaches A+B at $18.00; `any` reaches A+B+C and excludes core D. Tests cover metadata/hash binding, no matching reason, invalid persisted data, insertion order, cap, and the existing lifecycle. New proposal assertions were observed failing before implementation and passing afterward. The calibration contract now accepts aggregate `any` observations but skips them; its test first failed typechecking under the old contract and now passes, including mixed assessed evidence.
+
+Verification: `npm test` (53 passing), `npm run typecheck`, and `npm run lint` pass. Build and the canonical story check are reserved for Task 8. The Vite config-format and experimental SQLite warnings remain unchanged. Browser UI verification remains outstanding.
+
+See [decision 0002](decisions/0002-reason-specific-calibration.md) for the calibration rationale and campaign execution boundary. No future webhook or campaign execution was added. Task 6 has passed independent spec and quality review; Task 7 still requires both reviews before Task 8.

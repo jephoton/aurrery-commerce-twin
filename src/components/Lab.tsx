@@ -392,11 +392,17 @@ function ProposalCard({
       <dl className="mb-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <Field label="PayPal operation" value="PATCH /v1/billing/subscriptions/{id} · regular-cycle fixed_price" mono />
         <Field label="Price change" value={`$${a.listPrice} → $${a.newPrice} (${a.discountPct}% off) for ${a.months} month(s)`} />
+        <Field label="Targeting" value={`${a.segment.replaceAll("_", " ")} · ${a.reason === "any" ? "any reason" : "price reason"}`} />
+        <Field label="Simulated campaign" value={a.campaignMonths === 0 ? "Today's cohort only (0-month campaign)" : `${a.campaignMonths}-month offer enrollment window; each offer lasts ${a.months} month(s)`} />
         <Field label="Targets" value={a.targets.map((t) => `${labels.get(t) ?? ""} ${t}`).join(", ")} />
         <Field label="Simulated Δ value (median, 80% interval)" value={`${money(d.p50)} (${money(d.p10)} … ${money(d.p90)})`} />
         <Field label="Status" value={proposal.status} />
         <Field label="Payload hash" value={proposal.actionHash.slice(0, 16) + "…"} mono />
       </dl>
+      <p className="mb-3 text-sm text-muted">
+        Approval executes for today&apos;s matching pilots only. Later campaign entrants need their own proposals and approvals.
+        Campaign duration describes the simulated policy; it does not schedule future PayPal actions.
+      </p>
       {proposal.status === "proposed" && (
         <>
           <p className="mb-3 text-sm text-muted">

@@ -69,7 +69,8 @@ export function estimateAcquisition(records: AcquisitionRecord[]): NormalDist & 
 /** An observed outcome for subscribers who received a retention discount, e.g. read back from PayPal. */
 export interface DiscountOutcomeObservation {
   segment: SegmentId;
-  reason: ReasonId;
+  /** Aggregate "any" outcomes are accepted but skipped; assessed per-pilot reasons remain usable. */
+  reason: ReasonId | "any";
   /** Subscriber-months observed while the discount was active. */
   subscriberMonths: number;
   /** Cancellations observed during those months. */
@@ -95,6 +96,7 @@ export function updateDiscountEffect(
   let params = twin.params;
   let provenance = twin.provenance;
   const changes: ParameterChange[] = [];
+  // An aggregate campaign outcome cannot identify either reason-specific effect.
   for (const reason of REASONS) {
     const obs = observations.filter((o) => o.reason === reason);
     const expected = obs.reduce((s, o) => s + o.subscriberMonths * betaMean(twin.params.segments[o.segment].monthlyChurn), 0);

@@ -41,6 +41,8 @@
 
 **Reasons.** Reason affects discount response and targeting, not baseline churn. Reasons persist across moves, except that entrants to `cancel_intent` are re-split with that segment's price share, because reasons are assessed in the cancel flow. Targeting `reason: "price"` is only valid for `cancel_intent`.
 
+**Calibration and execution boundary.** Aggregate `any` outcomes are skipped by calibration; known assessed per-pilot reasons can update their own posterior. PayPal proposals snapshot today's matching pilots only, with reason and campaign duration bound into the action hash; future entrants need separate approvals. See [decision 0002](decisions/0002-reason-specific-calibration.md).
+
 **Targeted discounts are save-offer campaigns.**
 - With `campaignMonths: 0` they reach today's stock only. With N > 0 they also reach entrants for N months, capped at the horizon.
 - Each subscriber gets one offer; flags reset after the window.
