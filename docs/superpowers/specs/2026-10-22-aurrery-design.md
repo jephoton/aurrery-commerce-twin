@@ -2,7 +2,7 @@
 
 **Status:** approved in brainstorming on 2026-10-22. Supersedes the working name "Autonomous Commerce Lab".
 
-**Provider amendment (2026-10-22):** the user approved evaluating Gemini first, then Groq, before choosing the provider for M2/M3. Claude is no longer required. See [decision 0003](../../decisions/0003-ai-provider-evaluation.md); evaluation remains pending.
+**Provider amendment (2026-10-22):** the user approved evaluating Gemini first, then Groq, before choosing the provider for M2/M3. Claude is no longer required. See [decision 0003](../../decisions/0003-ai-provider-evaluation.md); M2 selected Groq GPT-OSS 120B after the live evaluation; Gemini returned HTTP 503 twice. See the [measured report](../../research/m2-provider-evaluation.md).
 **Event:** PayPal AI Hackathon. Submission deadline 2026-11-13 04:00 SGT.
 
 ## 1. Product

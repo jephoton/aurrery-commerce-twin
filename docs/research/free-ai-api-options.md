@@ -1,12 +1,14 @@
 # Free AI API options for Aurrery
 
-<!-- Generated research notes; Gemini-then-Groq evaluation order approved; final provider selection pending. -->
+<!-- Generated research notes; ordered evaluation completed in M2, with Groq selected. -->
+
+M2 update: Groq GPT-OSS 120B passed the frozen synthetic benchmark and read-only tool smoke; Gemini returned HTTP 503 twice. See the [measured report](m2-provider-evaluation.md) and [decision](../decisions/0003-ai-provider-evaluation.md). The public-offer research below is historical context, not account billing verification.
 
 Checked against official public sources on 2026-10-22. These are published offers, not account-level quota or model-quality tests. Recheck availability before implementation.
 
 ## Recommendation to evaluate
 
-The user approved evaluating Gemini first, then Groq, before selecting the M2/M3 default. Start with Gemini 3.8 Flash and Groq GPT-OSS 120B, subject to current account access; use the same fixture and record the measured results. Follow [decision 0003](../decisions/0003-ai-provider-evaluation.md). Anthropic is not an implementation requirement: its SDK is installed, but the classifier and agent have not been built. Keep the provider choice separate from the pure twin and PayPal approval/execution boundary.
+The user approved evaluating Gemini first, then Groq, before selecting the M2/M3 default. The approved starting candidates were Gemini 3.8 Flash and Groq GPT-OSS 120B, using the same fixture; the completed results are linked above. Follow [decision 0003](../decisions/0003-ai-provider-evaluation.md). Anthropic is not an implementation requirement: its SDK is installed, but the classifier is now complete and the agent is next; the measured M2 selection is linked above. Keep the provider choice separate from the pure twin and PayPal approval/execution boundary.
 
 Google lists free input/output for `gemini-3.8-flash`, and its model page lists function calling and structured outputs. Active project quotas must be checked in AI Studio; there is no verified universal request allowance here. Singapore is a supported region. Free-tier content is used to improve Google's products; the current corpus is planned as synthetic, but real merchant feedback would require reviewing that choice.
 

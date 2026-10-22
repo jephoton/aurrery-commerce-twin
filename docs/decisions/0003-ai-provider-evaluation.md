@@ -1,10 +1,10 @@
 # 0003: Evaluate Gemini, then Groq, before selecting the AI provider
 
-**Status:** accepted (2026-10-22); evaluation order approved by the user, final provider not selected.
+**Status:** accepted (2026-10-22); Gemini-then-Groq evaluation completed; **Groq `openai/gpt-oss-120b` selected** for M2/M3.
 
 ## Context
 
-M2 classification and the M3 agent have not been implemented. The original plan named Claude, but the product needs structured classification and tool calling rather than a particular provider. The user requested free options and approved evaluating Gemini first, then Groq.
+The original plan named Claude, but the product needs structured classification and tool calling rather than a particular provider. The user requested free options and approved evaluating Gemini first, then Groq. M2 classification is now implemented; the M3 agent remains next.
 
 ## Decision
 
@@ -17,4 +17,10 @@ Keep a small provider boundary for classification and tool calls. Server-side va
 
 ## Consequences
 
-The roadmap and design no longer require Anthropic. Its installed but unused SDK can remain until implementation settles the dependencies. Provider credentials are local configuration and are never committed. Public free-tier claims are not guarantees of account access, capacity or quality. No live AI evaluation has been performed yet.
+The roadmap and design no longer require Anthropic. Its installed but unused SDK can remain until implementation settles the dependencies. Provider credentials are local configuration and are never committed. Public free-tier claims are not guarantees of account access, capacity or quality.
+
+## Measured selection
+
+The fresh comparison used frozen code `e64696b`, 200 synthetic messages and the same prompt/schema for both providers. Gemini returned HTTP 503 on both allowed attempts; no accuracy conclusion is available for it. Groq accepted all 200 items, with 97.5% intent, 96.0% reason and 93.5% joint agreement. All four pilots were correctly classified (only A/B eligible), and the separate read-only tool round trip passed. Groq made 12 successful requests without retries and was the only qualifying provider. See the [full measured report](../research/m2-provider-evaluation.md), including retained errors and the simulated evidence round trip.
+
+Set explicit `AI_PROVIDER=groq` with `GROQ_MODEL=openai/gpt-oss-120b`. Keep Gemini configured for explicit diagnostics; do not add automatic fallback. Groq headers exposed 1,000 requests/day and 8,000 tokens/minute; account billing tier and actual charges remain unverified. No billing settings were changed. M3 must validate the full tool loop, streaming, token limits and classifier-derived targeting before claiming complete agent suitability.

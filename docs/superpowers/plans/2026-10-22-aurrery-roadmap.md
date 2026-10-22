@@ -36,6 +36,7 @@ Each milestone ends with working, tested software, committed on its own branch a
 **Done when:** tests pass. `twin:inspect` shows the precision discount beating the broad one on median value, and the stress test is never better than the base case. If the precision discount does *not* beat baseline under honest assumptions, we stop and revisit the story rather than tune numbers.
 
 ## M2: Signals
+**Status:** completed; Groq GPT-OSS 120B selected. See [measured results](../../research/m2-provider-evaluation.md); Gemini accuracy remains unassessed after HTTP 503. M3 full-loop validation is next.
 **Goal:** the AI reads customer text, and that becomes evidence the twin uses.
 - Synthetic corpus fixture (about 200 messages with hidden ground-truth labels) linked to segments and pilot subscriptions.
 - Evaluate **Gemini first, then Groq**, using the same synthetic fixture, schema and hidden ground truth, before selecting the default provider. See [decision 0003](../../decisions/0003-ai-provider-evaluation.md).

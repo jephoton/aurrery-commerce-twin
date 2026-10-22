@@ -11,14 +11,14 @@
 | Ledger | `src/ledger/` | SQLite (`node:sqlite`): sandbox subscribers, proposals state machine, executions, observations, audit events, kv settings. | twin types |
 | PayPal | `src/paypal/` | Sandbox-only SDK client, typed wrappers (`getSubscription`, `overrideSubscriptionPrice`), error normalisation. | SDK |
 | Execution | `src/execution/` | Runs an approved proposal: claim → PATCH each target → GET read-back → record → finish. | ledger, paypal |
-| Signals | `src/signals/` | Frozen synthetic feedback, isolated Gemini/Groq transport, validated classification/cache, pure reason evidence, runtime pilot mapping and provider scoring. Evaluation CLI follows. | twin types, ledger |
+| Signals | `src/signals/` | Frozen synthetic feedback, isolated Gemini/Groq transport, validated classification/cache, pure reason evidence, runtime pilot mapping and provider scoring. Includes the evaluation CLI and read-only tool smoke. | twin types, ledger |
 | Agent | `src/agent/` (next) | Provider-independent tool-use loop: read state, propose strategies, call simulator, recommend, create proposal. **No execute tool.** | twin, ledger |
 | API | `src/app/api/` | Thin route handlers with Zod validation. | all above |
 | UI | `src/app/page.tsx`, `src/components/` | Dashboard: KPIs, objective, AG Grid comparison, fan chart, assumptions, approval, execution, pilot cohort. | API |
 
 ## Key invariants
 
-AI provider selection is pending evaluation: Gemini first, then Groq, using the same classifier fixture and a tool-call smoke test before choosing the M2/M3 default. See [decision 0003](decisions/0003-ai-provider-evaluation.md). The server-only classifier supports both explicit providers; live evaluation and the agent loop remain pending. No default merchant or UI path invokes classification automatically.
+Groq `openai/gpt-oss-120b` is the selected M2/M3 provider after the ordered Gemini/Groq evaluation. Groq achieved 93.5% joint agreement on 200 synthetic messages, all pilot labels correct and tool smoke passed; Gemini returned HTTP 503 twice and its accuracy remains unassessed. See [decision 0003](decisions/0003-ai-provider-evaluation.md) and the [measured report](research/m2-provider-evaluation.md). Both explicit adapters remain available with no fallback; the full agent loop remains M3 work. No default merchant or UI path invokes classification automatically.
 
 - Only `POST /api/proposals/{id}/approve` reaches PayPal. It requires the proposal's action hash, and execution is claimed atomically (`UPDATE … WHERE status='approved'`), so it happens at most once.
 - Proposal predictions are recomputed server-side; client numbers are never trusted.
@@ -69,7 +69,7 @@ The two-part hero story pairs the modest tactical save offer with annual prepay 
 
 ## Feedback classification boundary (M2)
 
-<!-- Generated handoff: M2 Tasks 1–4 code reviews passed; live evaluation pending. -->
+<!-- Generated handoff: M2 Tasks 1–4 code reviews passed; live evaluation completed; Groq selected. -->
 
 `src/signals/contracts.ts` and the frozen `feedback-corpus-v1` fixture define observed feedback and the strict prediction contract. `corpus.ts` projects only ID, text, source and known segment for providers. Hidden labels are loaded separately for evaluation; classification never uses them or pilot identity.
 
@@ -91,7 +91,7 @@ Evaluation is fresh by default. Explicit `cache: true` enables the accepted-only
 
 `scripts/evaluate-signals.ts` reads the current local registry through `listSandboxSubscribers` and stable `PILOT_COHORT` labels, then explicitly evaluates Gemini followed by Groq even when one fails. `--provider=gemini|groq` is a diagnostic; `--use-cache` requires one explicit provider and cannot contribute comparison candidates. `--batch-delay-ms=0..60000` adjusts pacing. `AI_PROVIDER` never silently narrows the comparison. The CLI prints batch/pacing progress, scores, safe errors/quota evidence, usage/latency/retries, current pilot mapping and simulated round-trip summaries. Existing ledger initialization can create/migrate its schema; the evaluation reader does not mutate registry/proposal/observation records. Accepted cache writes occur only with explicit reuse.
 
-One exclusively created, timestamped UUID JSON artifact per attempted provider goes under ignored `data/`, preserving classification results and safe metrics without request objects. Dimensions include model, corpus/prompt/schema versions and JSON/UTF-8 SHA-256 hashes of corpus, projected input, truth, instruction and schema. Account tier and demonstrated free capacity remain unverified; missing usage is zero in reported-token sums, not evidence of zero charge. Qualifying fresh candidates are ordered by joint agreement then HTTP latency while free-capacity evidence is unavailable. Cached runs are diagnostic only. No suitable result sets a nonzero exit after artifacts are written. Selection stays pending review and runtime configuration never changes. Independent Task 4 code reviews passed; the actual live comparison/selection record remains pending.
+One exclusively created, timestamped UUID JSON artifact per attempted provider goes under ignored `data/`, preserving classification results and safe metrics without request objects. Dimensions include model, corpus/prompt/schema versions and JSON/UTF-8 SHA-256 hashes of corpus, projected input, truth, instruction and schema. Account tier and demonstrated free capacity remain unverified; missing usage is zero in reported-token sums, not evidence of zero charge. Qualifying fresh candidates are ordered by joint agreement then HTTP latency while free-capacity evidence is unavailable. Cached runs are diagnostic only. No suitable result sets a nonzero exit after artifacts are written. The evaluator leaves selection pending review and never changes configuration itself. Independent Task 4 and final code reviews passed. The subsequent measured decision selects Groq explicitly; see the [live report](research/m2-provider-evaluation.md).
 
 ## Commands
 

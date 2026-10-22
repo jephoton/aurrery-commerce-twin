@@ -1,21 +1,22 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. M2 Tasks 1–4 code passed independent spec and quality reviews; live comparison/selection remain pending. All four registered PayPal pilots were verified ACTIVE at $24; price override and restoration were verified on Pilot D. Aurrery runs on port 3001**._
+_Last material update: 2026-10-22. **M0/M1 are published; M2 implementation and live acceptance are complete and reviewed. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. Final integration checks and merge/push are next. Aurrery uses port 3001**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
 **Read in this order:**
 1. `docs/superpowers/specs/2026-10-22-aurrery-design.md`: the design, including §3a, the story revision.
 2. `docs/superpowers/plans/2026-10-22-aurrery-roadmap.md`: milestones in order.
-3. `docs/superpowers/plans/2026-10-22-m0-m1-rename-paypal-twin-v2.md`: the active task plan. Read its two amendments and the "Task 5c as built" and "Carry-forward for Task 7" notes at the bottom.
-4. `docs/architecture.md`: modules and the model.
+3. `docs/superpowers/specs/2026-10-22-m2-feedback-signals-design.md` and `docs/superpowers/plans/2026-10-22-m2-feedback-signals.md`: the completed M2 design and implementation plan. M0/M1 amendments remain historical context in their plan.
+4. `docs/research/m2-provider-evaluation.md`: measured results, selected provider and M3 carry-forward.
+5. `docs/architecture.md`: modules and the model.
 
 ## Branches
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
 | `main` | M0/M1, sandbox verification and reviewed recovery fixes | yes |
-| `feat/m2-feedback-signals` | M2 Tasks 1–4 code reviewed; live evaluation pending | yes through `d2305c3`; active |
+| `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes through `e64696b`; final docs/integration pending |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
 | `feat/m1-twin-v2` | M0/M1 and final sandbox acceptance | yes; merged into main |
@@ -71,8 +72,8 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
    - Credentials, ledger, candidate history and approval links are ignored local state and do not transfer through Git. New machines need local credentials and their own setup or a securely transferred ledger.
    - The original cohort's earlier 404s remain unexplained. No expiration duration or TTL has been established.
 3. **Integration complete.** Main fast-forwarded to the tested M0/M1 tree; all 75 tests passed again on main. Main and both working branch refs were pushed and verified on origin. LICENSE is now on main. The user subsequently resumed M2 after adding provider keys.
-4. **M2: Signals: feedback corpus and classifier.** The user approved evaluating **Gemini first, then Groq**, before selecting the default provider for M2/M3. Follow [decision 0003](decisions/0003-ai-provider-evaluation.md), the [M2 plan](superpowers/plans/2026-10-22-m2-feedback-signals.md) and the [free API research](research/free-ai-api-options.md). Tasks 1–4 code passed both reviews. Run the live comparison, record actual quotas, classification quality, tool smoke and simulated round trip, then document selection only from actual results. The full agent loop remains M3.
-5. **M3: Agent: tool loop and streamed timeline.**
+4. **M2 complete.** The fresh Gemini-then-Groq run completed: Gemini returned HTTP 503 twice; Groq passed all thresholds with 93.5% joint agreement, all four pilots correct and a successful tool round trip. The classify → evidence → simulate path worked. `AI_PROVIDER=groq` and `GROQ_MODEL=openai/gpt-oss-120b` record the default. See the [measured report](research/m2-provider-evaluation.md) and [decision 0003](decisions/0003-ai-provider-evaluation.md).
+5. **M3 next: agent tool loop and streamed timeline.** Write its detailed plan first. Use the selected Groq provider, validate the full tool loop/streaming under the observed 8,000-token-per-minute limit, consume the classified twin and classifier-derived pilot eligibility explicitly, and keep exact-payload merchant approval. The fresh benchmark left the cache cold; populate or explicitly validate/import cached results with version/hash checks. No agent or new UI is implemented yet.
 6. **M4: Product UI: headline card, orbit language, polish.**
 7. **M5: Hosting and observed loop: Render, webhooks, revert, reset.** Then the roadmap's cut checkpoint.
 8. **M7: Annual-plan execution** (required hero path; may precede M6).
@@ -133,7 +134,7 @@ The core PayPal operation is proven on D: PATCH replace returned 204, GET showed
 
 ## M2 preparation
 
-Both provider credentials are present locally (values never printed). The Gemini credential is named `GOOGLE_GENERATIVE_AI_API_KEY`; support it as an alias for `GEMINI_API_KEY`. Authenticated model-list reads returned HTTP 200: Gemini exposes `gemini-3.8-flash` with generateContent and Groq exposes active `openai/gpt-oss-120b`. These reads establish authentication/model visibility only, not inference access, free-tier quotas or classification quality. No paid billing or fallback was enabled. The user approved the focused M2 design addendum at `docs/superpowers/specs/2026-10-22-m2-feedback-signals-design.md` and authorized implementation on `feat/m2-feedback-signals`. It specifies the corpus, classification contract, evidence update, pilot boundaries and evaluation criteria. No live inference has started.
+Both provider credentials are present locally (values never printed). The Gemini credential is named `GOOGLE_GENERATIVE_AI_API_KEY`; support it as an alias for `GEMINI_API_KEY`. Authenticated model-list reads returned HTTP 200: Gemini exposes `gemini-3.8-flash` with generateContent and Groq exposes active `openai/gpt-oss-120b`. These reads establish authentication/model visibility only, not inference access, free-tier quotas or classification quality. No paid billing or fallback was enabled. The user approved the focused M2 design addendum at `docs/superpowers/specs/2026-10-22-m2-feedback-signals-design.md` and authorized implementation on `feat/m2-feedback-signals`. It specifies the corpus, classification contract, evidence update, pilot boundaries and evaluation criteria. At this preparation checkpoint no inference had started; the completed live run and Groq selection are recorded below.
 
 ### M2 Task 1: corpus and contract (reviews passed)
 
@@ -171,9 +172,9 @@ Pilot eligibility receives current registry rows plus stable cohort labels from 
 
 Test-first verification: 11 focused tests failed against minimal stubs before implementation, then all 11 passed. `npm test` passed all 148 tests; `npm run typecheck` and `npm run lint` passed. Independent Task 3 spec and quality reviews subsequently passed. Existing Vite config-format and experimental SQLite warnings remain. No credentials/ignored data were read, no live calls were made, and corpus/prompt/provider files were unchanged. Task 4 implementation follows; M0/M1 on `main` remain unchanged.
 
-### M2 Task 4: evaluation CLI, tool smoke and round trip (code reviews passed; live pending)
+### M2 Task 4: evaluation CLI, tool smoke and round trip (reviews and live acceptance passed)
 
-<!-- Generated handoff: Task 4 code only. No live results or provider selection are claimed. -->
+<!-- Generated handoff: Task 4 implementation; live results follow below. -->
 
 `src/signals/tool-smoke.ts` implements separate Gemini/Groq call-and-result protocols using only `get_merchant_state` with exact empty arguments. It supplies synthetic state absent from the prompt and requires the final JSON to reproduce merchant and list price. Gemini retains full returned content/thought signatures and matches an optional call ID; Groq requires and matches its tool call ID. Incorrect/multiple calls, refused/malformed state and provider errors fail visibly with summed safe metrics. Classification strict mode is not used for tools.
 
@@ -181,4 +182,12 @@ Test-first verification: 11 focused tests failed against minimal stubs before im
 
 Reports include complete scoring, local current pilot eligibility/mapping issues, safe errors/quota evidence, aggregate and per-attempt usage/latency/retries, model/version/hash dimensions, and base/updated simulated strategy summaries. Both simulations use 1,000 runs, a 12-month horizon and seed `20261113`; evidence changes a twin copy, retaining estimated provenance and each comparison's own baseline deltas. No accepted evidence gives an explicit unavailable result. Exclusive timestamped UUID files preserve one ignored `data/signals-eval-*.json` artifact per attempted provider; no qualifying provider returns nonzero after writing both results. Account tier/free capacity stay unverified, and missing usage contributes zero only to reported totals. Runtime defaults, canonical M1 results, pilot registrations and historical proposals are unchanged; no PayPal API, approval, execution or observation action is involved.
 
-Red/green evidence: all 21 tool-smoke assertions and all 15 evaluator assertions first failed against minimal stubs, then the combined 36 focused tests passed. Fake fetch/sleep/simulation cover both protocols, metric aggregation, wrong/missing calls/state, quota stops without extra smoke POSTs, continuation after a failed provider, cache opt-in/fresh defaults, input dimensions and metadata isolation, pilot mapping, copied twin inputs, and unique sanitized artifacts. Full verification passes: `npm test` (184 tests across 13 files), `npm run typecheck`, `npm run lint`, `npm run build`, and `git diff --check`. Existing Vite config-format and experimental SQLite warnings remain. Independent Task 4 code spec and quality reviews passed; the quality review independently reran all 36 focused tests. No live provider or PayPal calls were made. Next: actual Gemini-then-Groq evaluation, credential-free results/selection documentation and final milestone acceptance. Do not select/configure a default provider from fake tests.
+Red/green evidence: all 21 tool-smoke assertions and all 15 evaluator assertions first failed against minimal stubs, then the combined 36 focused tests passed. Fake fetch/sleep/simulation cover both protocols, metric aggregation, wrong/missing calls/state, quota stops without extra smoke POSTs, continuation after a failed provider, cache opt-in/fresh defaults, input dimensions and metadata isolation, pilot mapping, copied twin inputs, and unique sanitized artifacts. Full verification passes: `npm test` (184 tests across 13 files), `npm run typecheck`, `npm run lint`, `npm run build`, and `git diff --check`. Existing Vite config-format and experimental SQLite warnings remain. Independent Task 4 code spec and quality reviews passed; the quality review independently reran all 36 focused tests. These tests made no live provider or PayPal calls. The subsequent real Gemini-then-Groq evaluation and provider decision are recorded below; selection uses those measured results, not fake tests.
+
+## M2 live acceptance and provider decision
+
+The fresh run completed at 2026-10-22 15:16 UTC (23:16 SGT), with code `e64696b`. Gemini returned HTTP 503 on the initial call and one bounded retry; it provided no predictions, token usage or quota evidence, so no accuracy conclusion is available. Groq accepted all 200 messages: intent agreement 97.5%, reason 96.0%, joint 93.5%; all four pilot labels and A/B-only eligibility were correct, and the two-request read-only tool smoke passed. Groq made 12 successful requests without retries, reporting 22,953 tokens and 33.652 seconds HTTP time; 312.768 seconds wall time includes proactive pacing and simulations. Headers exposed 1,000 requests/day and 8,000 tokens/minute. Account billing tier/charges remain unverified; no billing settings changed.
+
+Select Groq GPT-OSS 120B for M2/M3. `.env.example` and ignored local configuration now record the explicit selection. Gemini remains for explicit diagnostics, with no automatic fallback. The [measured report](research/m2-provider-evaluation.md) records all disagreement IDs, exact hashes, posterior counts and simulated round-trip results. Classified-evidence median differences are broad -$1,327, save +$88 and annual +$10,351; canonical M1 remains unchanged. Neither labels nor prompts were tuned after inference. Raw artifacts remain ignored under `data/` and do not transfer through Git; the fresh benchmark did not populate the classification cache.
+
+All four tasks passed independent spec and quality reviews. The final independent branch code review found no actionable gaps and passed all 109 signals tests. Independent final verification after the measured decision passes all 184 tests, typecheck, lint and production build. Merge/push is the remaining integration step; M3 is next afterward.
