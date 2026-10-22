@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. M3 Task 1 implements the validated seven-tool boundary and explicit cache import; its reviews are PENDING. The runner, provider tool loop and streaming UI remain subsequent tasks. Aurrery uses port 3001**._
+_Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. M3 Task 1 implements the validated seven-tool boundary and explicit cache import; independent spec and quality reviews passed. The runner, provider tool loop and streaming UI remain subsequent tasks. Aurrery uses port 3001**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -16,7 +16,7 @@ _Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and publish
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
 | `main` | M0/M1/M2, selected Groq provider and measured report | yes |
-| `feat/m3-agent-loop` | M3 detailed plan; Task 1 tool boundary and cache import implemented, reviews pending | active |
+| `feat/m3-agent-loop` | M3 detailed plan; Task 1 reviewed; bounded runner is next | active |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
@@ -24,7 +24,7 @@ _Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and publish
 
 Latest M2 verification: all 184 tests across 13 files, typecheck, lint and production build pass. Merged-main tests also pass. Scans of all 88 tracked files found no configured credential values or personal home-directory paths. The working tree is clean after the documentation commit.
 
-## M3 Task 1 implementation (reviews PENDING)
+## M3 Task 1 implementation (reviews passed)
 
 Generated handoff: `src/agent/contracts.ts` defines public activity/evidence events and bounded decision rules. `createToolContext` in `src/agent/tools.ts` owns a fresh twin copy, exposes seven strict Zod-validated tools, and keeps classification predictions, eligible pilot IDs, cumulative comparisons and stress results on the server. Each comparison uses 1000 runs, seed 20261113 and the current explicit horizon. Classification and rule changes invalidate comparisons/stress. The model receives compact estimates and paired value deltas; full evidence remains available in typed UI events. The canonical starter strategies are visible as options without a scripted recommendation.
 
@@ -32,11 +32,11 @@ Recommendation requires classification, explicitly set rules, a current simulati
 
 `npm run signals:import-cache -- <artifact-path>` explicitly imports a local fresh M2 evaluation artifact. Configure `AI_PROVIDER=groq` and `GROQ_MODEL` to match its recorded model. The importer checks all current corpus/input/prompt/schema fingerprints, fresh-cache metadata, all 200 unique known IDs, schemas and confidence before any cache insert; a transaction rolls back insertion failure. It never loads hidden labels or discovers artifacts automatically. Runtime classification uses this existing cache; fresh batches are paced by 30 seconds with cancellation and public progress.
 
-Classification summaries identify the actual provider/model for fresh and cached results. A stopped classification or any provider batch error returns a sanitized terminal failure (category and optional HTTP status), keeps partial evidence visible in UI events, and prevents proposals or further context changes for that run. Zero accepted predictions do not satisfy the classification prerequisite. These review corrections have red/green tests for quota, auth/configuration, partial pilot acceptance, empty evidence and provider/model attribution; independent review remains pending.
+Classification summaries identify the actual provider/model for fresh and cached results. A stopped classification or any provider batch error returns a sanitized terminal failure (category and optional HTTP status), keeps partial evidence visible in UI events, and prevents proposals or further context changes for that run. Zero accepted predictions do not satisfy the classification prerequisite. These review corrections have red/green tests for quota, auth/configuration, partial pilot acceptance, empty evidence and provider/model attribution; independent spec and quality reviews passed.
 
 Strategy definitions are immutable for the whole run: evidence/rule revisions clear current comparisons and stress results while retaining a separate ID-to-definition registry. Reusing an ID with changed content is rejected after either revision; resimulating the original definition remains allowed. Both regression assertions were observed failing before this correction.
 
-Task 1 verification: 235 tests across 15 files, typecheck and lint pass, using synthetic predictions and an in-memory ledger. Cache validation assertion failures were observed before implementation, and compact model/stress summary assertions were observed failing before their correction. Existing Vite configuration and experimental SQLite warnings remain. No live provider/PayPal calls, local artifact imports or UI changes were performed. Next: independent spec and code-quality review of Task 1, then the bounded runner/provider adapter (Task 2).
+Task 1 verification: 235 tests across 15 files, typecheck and lint pass, using synthetic predictions and an in-memory ledger. Cache validation assertion failures were observed before implementation, and compact model/stress summary assertions were observed failing before their correction. Existing Vite configuration and experimental SQLite warnings remain. No live provider/PayPal calls, local artifact imports or UI changes were performed. Independent spec and quality reviews passed at f650a16; the bounded runner/provider adapter is next (Task 2).
 
 Historical M1 Task 8 verification: `npm run twin:inspect` passes Amendment 2; `npm test` (53 passing across 5 files), `npm run typecheck`, `npm run lint`, and `npm run build` pass. Tests retain the Vite config-format warning and Node experimental SQLite warning; the build also prints the SQLite warning. Final integration verification passes all 75 tests, typecheck, lint and production build. The live PayPal override/restore check passed on Pilot D; all four registered pilots are now ACTIVE.
 
