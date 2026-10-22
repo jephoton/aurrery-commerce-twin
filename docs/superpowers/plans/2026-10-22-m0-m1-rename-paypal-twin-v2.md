@@ -1290,3 +1290,16 @@ Task 8 Step 2's expected output is replaced by:
 - each strategy's stressed value is at most its base value.
 
 The numbers are recorded as they are. If any of these fail, stop and report; don't tune.
+
+### Task 5c as built (differences from the amendment text)
+
+- **Qualification rule:** `qualifies` uses **never offered** (`!c.offered`, one save offer per subscriber), not "not currently on offer". `offered` is reset once the campaign window closes (capped at the horizon), so former offer subscribers merge back and share baseline's random streams.
+- **Description wording:** `describeIntervention` says ", and to everyone entering over the next N month(s)", not ", for everyone entering over the next N months".
+
+### Carry-forward for Task 7
+
+- `buildAction` must filter pilots by **reason** as well as segment. Today the hero would also discount Pilot C (cancel intent, "other" reason).
+- Add `campaignMonths` to the Task 7 test strategy literal (0) and to `PriceOverrideActionSchema`. The proposal executes only for **today's** matching pilots.
+- The Lab approval panel must say that later entrants need their own approvals.
+- Validate `reason` on read in `listSandboxSubscribers` (`z.enum(REASONS)`, falling back to "other" with a warning).
+- Decide how calibration treats outcomes from `reason: "any"` discounts, which have no assessed reason: skip or pool.
