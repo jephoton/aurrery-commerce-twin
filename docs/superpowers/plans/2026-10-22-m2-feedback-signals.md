@@ -82,7 +82,7 @@ const key = createHash('sha256').update(JSON.stringify({
 
 ## Task 3: Evidence projection, scoring and pilot eligibility
 
-Implemented; independent spec and quality reviews pending. Verification: 11 focused tests / 148 total tests, typecheck and lint pass.
+Implemented; independent spec and quality reviews passed. Verification: 11 focused tests / 148 total tests, typecheck and lint pass.
 
 **Files:** `src/signals/evidence.ts`, `score.ts`, `evidence.test.ts`, `score.test.ts`.
 
@@ -108,18 +108,19 @@ const eligible = messages.filter(m => m.segment === 'cancel_intent'
 ```
 
 - [x] Report schema-valid rate and coverage over all 200, accepted/whole-corpus intent/reason/joint agreement, confusion counts and four pilot checks. Suitable requires valid >=.95, coverage >=.90, whole-corpus joint >=.90, all pilots' accepted intent/reason labels correct and tool smoke passed. Run task tests, full tests/typecheck/lint, update docs and commit `feat(signals): project classified evidence and score provider agreement`.
-- [ ] Complete independent Task 3 spec then quality reviews before Task 4.
+- [x] Complete independent Task 3 spec then quality reviews before Task 4.
 
 ## Task 4: Tool smoke, evaluation CLI, live comparison and integration
 
 **Files:** `src/signals/tool-smoke.ts`, `evaluate.ts`, `evaluate.test.ts`, `tool-smoke.test.ts`, `scripts/evaluate-signals.ts`, `package.json`, README/architecture/current-state, research report and decision 0003.
 
-- [ ] Write and observe failing fake-transport tests for Gemini tool call/result and Groq tool call/result. Only `get_merchant_state` is available; require exact empty arguments, one call, and a final response consuming supplied synthetic list price and merchant state. No classification strict mode on tool requests. Refusals/incorrect calls fail visibly. Include sanitized failure/usage metrics.
+- [x] Write and observe failing fake-transport tests for Gemini tool call/result and Groq tool call/result. Only `get_merchant_state` is available; require exact empty arguments, one call, and a final response consuming supplied synthetic list price and merchant state. No classification strict mode on tool requests. Refusals/incorrect calls fail visibly. Include sanitized failure/usage metrics.
 
-- [ ] Implement a fresh-by-default CLI `npm run signals:evaluate` (Gemini then Groq), plus explicit `--provider=gemini` or `--provider=groq` and `--use-cache` for diagnostic reuse. Never silently overwrite previous artifacts: timestamped ignored data report. Print compact per-batch progress, sanitized errors, full scoring and tool result. If a provider stops, evaluate the next explicitly configured provider. Set a nonzero exit if no candidate qualifies, while still writing both results.
+- [x] Implement a fresh-by-default CLI `npm run signals:evaluate` (Gemini then Groq), plus explicit `--provider=gemini` or `--provider=groq` and `--use-cache` for diagnostic reuse. Cache reuse requires an explicit single provider and cannot contribute comparison candidates. Never silently overwrite previous artifacts: timestamped ignored data report. Print compact per-batch progress, sanitized errors, full scoring and tool result. If a provider stops, evaluate the next explicitly configured provider. Set a nonzero exit if no candidate qualifies, while still writing both results. Default proactive interbatch pacing is 30 seconds, configurable with `--batch-delay-ms=0..60000`; progress announces delays, with none after the last batch or error.
 
-- [ ] Implement the classify → evidence copy → simulate round trip in the report with `compareStrategies(updatedTwin, STARTER_STRATEGIES, {runs:1000,horizonMonths:12,seed:20261113})`. Both base and updated results must be clearly simulated; report the seed/options and provenance. Do not replace the canonical M1 numbers or silently set runtime default during evaluation.
+- [x] Implement the classify → evidence copy → simulate round trip in the report with `compareStrategies(updatedTwin, STARTER_STRATEGIES, {runs:1000,horizonMonths:12,seed:20261113})`. Both base and updated results must be clearly simulated; report the seed/options and provenance. Do not replace the canonical M1 numbers or silently set runtime default during evaluation.
 
-- [ ] Run fake tests/typecheck/lint/build, review spec then quality before live inference. Run `npm run signals:evaluate`, Gemini first then Groq. Freeze corpus/prompt first; record artifacts, quota evidence and any inaccessible/failed provider honestly. A transport compatibility fix may be tested/reviewed and retried, but do not rewrite fixture labels or prompt to chase scores.
+- [x] Complete code verification and independent spec then quality reviews before live inference. All 184 tests, typecheck, lint and production build pass; both code reviews passed and quality independently reran the 36 focused tests.
+- [ ] Run `npm run signals:evaluate`, Gemini first then Groq. Freeze corpus/prompt first; record artifacts, quota evidence and any inaccessible/failed provider honestly. A transport compatibility fix may be tested/reviewed and retried, but do not rewrite fixture labels or prompt to chase scores.
 
 - [ ] Commit sanitized evaluation summary and provider selection rationale only after actual results. If neither qualifies, report without selecting another provider. If account billing/free tier cannot be proven from API, say so and do not claim free account verification. Complete final independent review, tests/typecheck/lint/build and handoff. Merge/push the milestone when acceptance is achieved, preserving credentials and ledger locally. M3 remains the next milestone; no full agent/UI work is included here.

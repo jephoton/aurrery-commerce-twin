@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. All four registered PayPal pilots are ACTIVE at $24; price override and restoration are verified on Pilot D. Aurrery runs on port 3001. M0/M1 are merged and pushed; the user has resumed M2 after adding both AI provider keys**._
+_Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. M2 Tasks 1–4 code passed independent spec and quality reviews; live comparison/selection remain pending. All four registered PayPal pilots were verified ACTIVE at $24; price override and restoration were verified on Pilot D. Aurrery runs on port 3001**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -15,7 +15,7 @@ _Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. All fo
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
 | `main` | M0/M1, sandbox verification and reviewed recovery fixes | yes |
-| `feat/m2-feedback-signals` | M2 design, reviewed corpus/classifier, evidence and scoring pending review | yes through `9878193`; active |
+| `feat/m2-feedback-signals` | M2 Tasks 1–4 code reviewed; live evaluation pending | yes through `d2305c3`; active |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
 | `feat/m1-twin-v2` | M0/M1 and final sandbox acceptance | yes; merged into main |
@@ -71,7 +71,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
    - Credentials, ledger, candidate history and approval links are ignored local state and do not transfer through Git. New machines need local credentials and their own setup or a securely transferred ledger.
    - The original cohort's earlier 404s remain unexplained. No expiration duration or TTL has been established.
 3. **Integration complete.** Main fast-forwarded to the tested M0/M1 tree; all 75 tests passed again on main. Main and both working branch refs were pushed and verified on origin. LICENSE is now on main. The user subsequently resumed M2 after adding provider keys.
-4. **M2: Signals: feedback corpus and classifier.** The user approved evaluating **Gemini first, then Groq**, before selecting the default provider for M2/M3. Follow [decision 0003](decisions/0003-ai-provider-evaluation.md) and the [free API research](research/free-ai-api-options.md). Anthropic is no longer required; corpus reviews passed, provider/classification implementation is ready for review, and live evaluation remains pending. Measure actual quotas, classification quality and tool-call behavior; verify the full agent loop in M3.
+4. **M2: Signals: feedback corpus and classifier.** The user approved evaluating **Gemini first, then Groq**, before selecting the default provider for M2/M3. Follow [decision 0003](decisions/0003-ai-provider-evaluation.md), the [M2 plan](superpowers/plans/2026-10-22-m2-feedback-signals.md) and the [free API research](research/free-ai-api-options.md). Tasks 1–4 code passed both reviews. Run the live comparison, record actual quotas, classification quality, tool smoke and simulated round trip, then document selection only from actual results. The full agent loop remains M3.
 5. **M3: Agent: tool loop and streamed timeline.**
 6. **M4: Product UI: headline card, orbit language, polish.**
 7. **M5: Hosting and observed loop: Render, webhooks, revert, reset.** Then the roadmap's cut checkpoint.
@@ -159,7 +159,7 @@ Evaluation makes fresh calls by default. Explicit `cache: true` uses `createPred
 
 Verification: the initial focused suite showed 30 failures against minimal stubs (including missing cache storage); a later regression run showed four expected failures for stalled terminal responses and absent quota details before those fixes. All 40 Task 2 tests pass. `npm test` passed all 137 tests; `npm run typecheck` and normal `npm run lint` passed. Independent spec and quality reviews passed. The branch is pushed through checkpoint `9878193`. Existing Vite config-format and experimental SQLite warnings remain. No live provider/PayPal calls were made and the 200-message corpus/labels were unchanged. The root lint command initially scanned ignored local `data` helpers; their contents were not opened or copied.
 
-### M2 Task 3: evidence, pilot mapping and scoring (implemented; reviews pending)
+### M2 Task 3: evidence, pilot mapping and scoring (reviews passed)
 
 <!-- Generated handoff: M2 Task 3 implementation. -->
 
@@ -169,4 +169,16 @@ Pilot eligibility receives current registry rows plus stable cohort labels from 
 
 `scoreClassification(messages, truth, result, toolSmokePassed)` takes the classifier's accepted outputs and pre-confidence `schemaValidCount`. It reports full-corpus validity/coverage, accepted-only and full-corpus intent/reason/joint agreement, complete confusion counts including unclassified, and four pilot checks. Zero accepted outputs yield zero rates. Inconsistent counts, duplicate/unknown IDs and incomplete/invalid truth reject clearly. Suitability uses inclusive 95% validity, 90% coverage and 90% whole-corpus joint thresholds, all four accepted correct intent/reason labels, and passing tool smoke; even a mislabelled but excluded D fails the pilot gate.
 
-Test-first verification: 11 focused tests failed against minimal stubs before implementation, then all 11 passed. `npm test` passes all 148 tests; `npm run typecheck` and `npm run lint` pass. Existing Vite config-format and experimental SQLite warnings remain. No credentials/ignored data were read, no live calls were made, and corpus/prompt/provider files were unchanged. Next: independent Task 3 spec then quality reviews, followed by Task 4 tool smoke/evaluation CLI/round trip and live comparison. M0/M1 on `main` remain unchanged.
+Test-first verification: 11 focused tests failed against minimal stubs before implementation, then all 11 passed. `npm test` passed all 148 tests; `npm run typecheck` and `npm run lint` passed. Independent Task 3 spec and quality reviews subsequently passed. Existing Vite config-format and experimental SQLite warnings remain. No credentials/ignored data were read, no live calls were made, and corpus/prompt/provider files were unchanged. Task 4 implementation follows; M0/M1 on `main` remain unchanged.
+
+### M2 Task 4: evaluation CLI, tool smoke and round trip (code reviews passed; live pending)
+
+<!-- Generated handoff: Task 4 code only. No live results or provider selection are claimed. -->
+
+`src/signals/tool-smoke.ts` implements separate Gemini/Groq call-and-result protocols using only `get_merchant_state` with exact empty arguments. It supplies synthetic state absent from the prompt and requires the final JSON to reproduce merchant and list price. Gemini retains full returned content/thought signatures and matches an optional call ID; Groq requires and matches its tool call ID. Incorrect/multiple calls, refused/malformed state and provider errors fail visibly with summed safe metrics. Classification strict mode is not used for tools.
+
+`src/signals/evaluate.ts` and `scripts/evaluate-signals.ts` add `npm run signals:evaluate`: fresh Gemini then fresh Groq, with explicit one-provider diagnostics and `--use-cache` restricted to those diagnostics. Cache hits are marked and cached diagnostics cannot become comparison candidates. `--batch-delay-ms=0..60000` adjusts the default 30-second proactive interbatch pacing. Progress prints before delays; no delay follows the final batch or transport error, and no quota-reset waiting/fallback occurs. Terminal classification failure skips tool POSTs but still permits a partial accepted-evidence simulation and the second provider's independent run.
+
+Reports include complete scoring, local current pilot eligibility/mapping issues, safe errors/quota evidence, aggregate and per-attempt usage/latency/retries, model/version/hash dimensions, and base/updated simulated strategy summaries. Both simulations use 1,000 runs, a 12-month horizon and seed `20261113`; evidence changes a twin copy, retaining estimated provenance and each comparison's own baseline deltas. No accepted evidence gives an explicit unavailable result. Exclusive timestamped UUID files preserve one ignored `data/signals-eval-*.json` artifact per attempted provider; no qualifying provider returns nonzero after writing both results. Account tier/free capacity stay unverified, and missing usage contributes zero only to reported totals. Runtime defaults, canonical M1 results, pilot registrations and historical proposals are unchanged; no PayPal API, approval, execution or observation action is involved.
+
+Red/green evidence: all 21 tool-smoke assertions and all 15 evaluator assertions first failed against minimal stubs, then the combined 36 focused tests passed. Fake fetch/sleep/simulation cover both protocols, metric aggregation, wrong/missing calls/state, quota stops without extra smoke POSTs, continuation after a failed provider, cache opt-in/fresh defaults, input dimensions and metadata isolation, pilot mapping, copied twin inputs, and unique sanitized artifacts. Full verification passes: `npm test` (184 tests across 13 files), `npm run typecheck`, `npm run lint`, `npm run build`, and `git diff --check`. Existing Vite config-format and experimental SQLite warnings remain. Independent Task 4 code spec and quality reviews passed; the quality review independently reran all 36 focused tests. No live provider or PayPal calls were made. Next: actual Gemini-then-Groq evaluation, credential-free results/selection documentation and final milestone acceptance. Do not select/configure a default provider from fake tests.
