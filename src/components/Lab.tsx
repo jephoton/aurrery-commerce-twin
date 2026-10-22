@@ -137,7 +137,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-brand-accent">Autonomous Commerce Lab</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-brand-accent">Aurrery</p>
           <h1 className="text-3xl font-semibold tracking-tight">Simulate before you transact.</h1>
           <p className="mt-1 max-w-2xl text-muted">
             A digital twin of your subscription business tests strategies under uncertainty. Only an approved action reaches PayPal.

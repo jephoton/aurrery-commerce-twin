@@ -1,6 +1,6 @@
-# Autonomous Commerce Lab
+# Aurrery
 
-**Simulate before you transact.** A digital twin of a subscription business tests retention and pricing strategies under uncertainty, an AI agent recommends one with its trade-offs, and only after the merchant approves the exact payload is the change executed through the PayPal Subscriptions API (Sandbox) and read back from PayPal.
+**Simulate before you transact.** Aurrery is an orrery for your business: a digital twin of a subscription business that you can run forward. It tests retention and pricing strategies under uncertainty, an AI agent recommends one with its trade-offs, and only after the merchant approves the exact payload is the change executed through the PayPal Subscriptions API (Sandbox) and read back from PayPal.
 
 Built for the PayPal AI Hackathon (2026).
 

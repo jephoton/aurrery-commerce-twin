@@ -43,7 +43,7 @@ async function ensureProduct(): Promise<string> {
     headers: {
       Authorization: `Bearer ${await accessToken()}`,
       "Content-Type": "application/json",
-      "PayPal-Request-Id": "acl-ridgeline-product-v1",
+      "PayPal-Request-Id": "aurrery-ridgeline-product-v1",
     },
     body: JSON.stringify({
       name: "Ridgeline Roasters Coffee Club",
@@ -63,7 +63,7 @@ async function ensurePlan(productId: string): Promise<string> {
   const existing = getSetting("paypal.plan_id");
   if (existing) return existing;
   const res = await paypal().subscriptions.createBillingPlan({
-    paypalRequestId: "acl-ridgeline-plan-v1",
+    paypalRequestId: "aurrery-ridgeline-plan-v1",
     prefer: "return=representation",
     body: {
       productId,
@@ -93,7 +93,7 @@ async function setup() {
   for (const [i, member] of PILOT_COHORT.entries()) {
     if (registered.some((r) => r.label === member.label)) continue;
     const res = await paypal().subscriptions.createSubscription({
-      paypalRequestId: `acl-ridgeline-sub-${i}-v1`,
+      paypalRequestId: `aurrery-ridgeline-sub-${i}-v1`,
       prefer: "return=representation",
       body: {
         planId,

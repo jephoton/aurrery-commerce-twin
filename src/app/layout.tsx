@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Autonomous Commerce Lab",
+  title: "Aurrery",
   description: "Simulate before you transact: a digital twin and AI agent for subscription merchants, executing approved actions through PayPal.",
 };
 
