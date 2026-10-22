@@ -102,6 +102,9 @@ export function generateDemoHistory(): { history: DemoHistory; endActive: Record
 
 const WEAK_RATE_PRIOR = { alpha: 1, beta: 19 };
 const FLAT_PRIOR = { alpha: 1, beta: 1 };
+/** Prior share of price-driven leavers per segment, used until customer feedback is classified. */
+const PRICE_REASON_PRIOR: Record<SegmentId, number> = { new: 0.3, core: 0.2, price_sensitive: 0.65, at_risk: 0.45, cancel_intent: 0.6 };
+const reasonPrior = (segment: SegmentId) => ({ alpha: PRICE_REASON_PRIOR[segment] * 10, beta: (1 - PRICE_REASON_PRIOR[segment]) * 10 });
 
 export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
   const { history, endActive } = generateDemoHistory();
@@ -127,7 +130,8 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
     churnPriceElasticity: assume("No price changes in history, so price sensitivity is a prior, not an estimate."),
     acquisitionPriceElasticity: assume("Prior on how signups respond to list price."),
     annualUptake: assume("Prior on annual-plan uptake when offered; no annual plan has been tried."),
-    offerChurnRelativeRisk: assume("Prior that a retention discount cuts churn to ~60% of normal (wide); updated from observed outcomes."),
+    offerChurnRelativeRisk: assume("Prior that a retention discount cuts churn to ~45% of normal for price-driven leavers and ~90% for others (wide); updated from observed outcomes."),
+    priceReasonShare: assume("Prior share of price-driven leavers per segment; replaced by classified customer feedback when available."),
     postOfferChurnMultiplier: assume("Prior on extra churn in the month a discount expires."),
     unitEconomics: assume("Merchant-entered costs. Payment fee approximates a standard PayPal rate; verify for your account."),
   };
@@ -161,7 +165,7 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
         atRiskToCancelIntent: betaPosterior(FLAT_PRIOR, moved("at_risk", "cancel_intent"), survivedChurn("at_risk") - recovered),
         cancelIntentToAtRisk: betaPosterior(FLAT_PRIOR, moved("cancel_intent", "at_risk"), survivedChurn("cancel_intent")),
       },
-      offerChurnRelativeRisk: { shape: 6, rate: 10 },
+      offerChurnRelativeRisk: { price: { shape: 9, rate: 20 }, other: { shape: 20, rate: 22.2 } },
       postOfferChurnMultiplier: { mean: 1.25, sd: 0.15 },
       segments: {
         new: {
@@ -169,30 +173,35 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
           monthlyChurn: voluntary.new.posterior,
           churnPriceElasticity: { mean: 1.5, sd: 0.7 },
           annualUptake: { alpha: 2, beta: 38 },
+          priceReasonShare: reasonPrior("new"),
         },
         core: {
           label: "Core",
           monthlyChurn: voluntary.core.posterior,
           churnPriceElasticity: { mean: 1.0, sd: 0.5 },
           annualUptake: { alpha: 3, beta: 22 },
+          priceReasonShare: reasonPrior("core"),
         },
         price_sensitive: {
           label: "Price sensitive",
           monthlyChurn: voluntary.price_sensitive.posterior,
           churnPriceElasticity: { mean: 2.5, sd: 1.0 },
           annualUptake: { alpha: 2, beta: 23 },
+          priceReasonShare: reasonPrior("price_sensitive"),
         },
         at_risk: {
           label: "At risk (skipped or paused recently)",
           monthlyChurn: voluntary.at_risk.posterior,
           churnPriceElasticity: { mean: 1.8, sd: 0.8 },
           annualUptake: { alpha: 1, beta: 39 },
+          priceReasonShare: reasonPrior("at_risk"),
         },
         cancel_intent: {
           label: "Cancel intent (opened cancel flow)",
           monthlyChurn: voluntary.cancel_intent.posterior,
           churnPriceElasticity: { mean: 2.0, sd: 0.8 },
           annualUptake: { alpha: 1, beta: 49 },
+          priceReasonShare: reasonPrior("cancel_intent"),
         },
       },
     },

@@ -2,10 +2,12 @@ import { BASELINE, describeIntervention, paypalActionFor, type Intervention, typ
 import { hashSeed, Rng } from "./rng";
 import {
   METRIC_KEYS,
+  REASONS,
   SEGMENTS,
   type Band,
   type MerchantTwin,
   type MetricKey,
+  type ReasonId,
   type RunMetrics,
   type SampledParams,
   type SegmentId,
@@ -29,6 +31,7 @@ export const DEFAULT_OPTIONS: SimulationOptions = { runs: 1000, horizonMonths: 1
 
 interface Cohort {
   segment: SegmentId;
+  reason: ReasonId;
   count: number;
   /** Amount charged per billing event (monthly price, or the full annual prepayment). */
   price: number;
@@ -82,7 +85,10 @@ export function sampleParams(p: TwinParams, rng: Rng): SampledParams {
     atRiskRecovery: beta(p.transitions.atRiskRecovery),
     atRiskToCancelIntent: beta(p.transitions.atRiskToCancelIntent),
     cancelIntentToAtRisk: beta(p.transitions.cancelIntentToAtRisk),
-    offerRelativeRisk: rng.gamma(p.offerChurnRelativeRisk.shape) / p.offerChurnRelativeRisk.rate,
+    offerRelativeRisk: Object.fromEntries(
+      REASONS.map((r) => [r, rng.gamma(p.offerChurnRelativeRisk[r].shape) / p.offerChurnRelativeRisk[r].rate]),
+    ) as Record<ReasonId, number>,
+    priceReasonShare: bySegment((s) => beta(p.segments[s].priceReasonShare)),
     postOfferMultiplier: Math.max(0.5, rng.normal(p.postOfferChurnMultiplier.mean, p.postOfferChurnMultiplier.sd)),
   };
 }
@@ -90,7 +96,7 @@ export function sampleParams(p: TwinParams, rng: Rng): SampledParams {
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
 function cohortKey(c: Cohort): string {
-  return [c.segment, c.plan, c.offer ? 1 : 0, c.rebound ? 1 : 0, c.monthsLeft, c.price, c.billDue ? 1 : 0].join(":");
+  return [c.segment, c.reason, c.plan, c.offer ? 1 : 0, c.rebound ? 1 : 0, c.monthsLeft, c.price, c.billDue ? 1 : 0].join(":");
 }
 
 function merge(cohorts: Cohort[]): Cohort[] {
@@ -105,8 +111,14 @@ function merge(cohorts: Cohort[]): Cohort[] {
   return [...byKey.values()];
 }
 
-function monthlyCohort(segment: SegmentId, count: number, price: number): Cohort {
-  return { segment, count, price, plan: "monthly", monthsLeft: 0, offer: false, fullPrice: price, rebound: false, billDue: false };
+function monthlyCohort(segment: SegmentId, reason: ReasonId, count: number, price: number): Cohort {
+  return { segment, reason, count, price, plan: "monthly", monthsLeft: 0, offer: false, fullPrice: price, rebound: false, billDue: false };
+}
+
+/** Split a count into price-driven and other subscribers. */
+function splitByReason(segment: SegmentId, count: number, price: number, priceShare: number, rng: Rng): Cohort[] {
+  const priceDriven = rng.binomial(count, priceShare);
+  return [monthlyCohort(segment, "price", priceDriven, price), monthlyCohort(segment, "other", count - priceDriven, price)];
 }
 
 /** Simulate one strategy for one parameter draw. `streamSeed` keys every random draw. */
@@ -129,7 +141,9 @@ export function runOnce(
   let listPrice = p.listPrice;
   let pendingListPrice: number | null = null;
 
-  let cohorts: Cohort[] = SEGMENTS.map((seg) => monthlyCohort(seg, twin.initialActive[seg], listPrice));
+  let cohorts: Cohort[] = merge(
+    SEGMENTS.flatMap((seg) => splitByReason(seg, twin.initialActive[seg], listPrice, s.priceReasonShare[seg], draw(`init:reason:${seg}`))),
+  );
 
   // Interventions take effect at the start of month 0.
   if (intervention.kind === "targeted_discount") {
@@ -137,7 +151,12 @@ export function runOnce(
     for (const c of cohorts) {
       // The discount is applied merchant-side to every targeted subscriber (no opt-in step),
       // so its cost includes subscribers who would have stayed anyway.
-      if (c.segment === intervention.segment && c.plan === "monthly" && !c.offer) {
+      if (
+        c.segment === intervention.segment &&
+        (intervention.reason === "any" || c.reason === intervention.reason) &&
+        c.plan === "monthly" &&
+        !c.offer
+      ) {
         next.push({
           ...c,
           price: round2(listPrice * (1 - intervention.discountPct / 100)),
@@ -157,7 +176,7 @@ export function runOnce(
     const next: Cohort[] = [];
     for (const c of cohorts) {
       if (intervention.segments.includes(c.segment) && c.plan === "monthly" && !c.offer) {
-        const converted = draw(`iv:annual:${c.segment}`).binomial(c.count, s.annualUptake[c.segment]);
+        const converted = draw(`iv:annual:${c.segment}:${c.reason}`).binomial(c.count, s.annualUptake[c.segment]);
         next.push({ ...c, count: c.count - converted });
         next.push({
           ...c,
@@ -204,7 +223,7 @@ export function runOnce(
     const lambda = s.acquisition * Math.pow(listPrice / p.referencePrice, -s.acquisitionElasticity);
     const acquired = draw(`m${t}:acq`).poisson(lambda);
     m.newSubscribers += acquired;
-    cohorts = merge([...cohorts, monthlyCohort("new", acquired, listPrice)]);
+    cohorts = merge([...cohorts, ...splitByReason("new", acquired, listPrice, s.priceReasonShare.new, draw(`m${t}:acq:reason`))]);
 
     // Billing and fulfilment for everyone active at the start of the month.
     for (const c of cohorts) {
@@ -221,9 +240,9 @@ export function runOnce(
     // Churn at the end of the month. Annual prepay subscribers cannot churn mid-term.
     for (const c of cohorts) {
       if (c.plan === "annual") continue;
-      const key = `m${t}:churn:${c.segment}:${c.offer ? "o" : c.rebound ? "r" : "b"}`;
+      const key = `m${t}:churn:${c.segment}:${c.reason}:${c.offer ? "o" : c.rebound ? "r" : "b"}`;
       let hazard = s.churn[c.segment];
-      if (c.offer) hazard *= s.offerRelativeRisk;
+      if (c.offer) hazard *= s.offerRelativeRisk[c.reason];
       else hazard *= Math.pow(c.price / p.referencePrice, s.elasticity[c.segment]);
       if (c.rebound) hazard *= s.postOfferMultiplier;
       hazard = Math.min(0.95, Math.max(0, hazard));
@@ -257,7 +276,7 @@ export function runOnce(
     const moved: Cohort[] = [];
     for (const c of cohorts) {
       if (c.plan !== "monthly" || c.count === 0) continue;
-      const rng = draw(`m${t}:move:${c.segment}:${c.offer ? "o" : c.rebound ? "r" : "b"}`);
+      const rng = draw(`m${t}:move:${c.segment}:${c.reason}:${c.offer ? "o" : c.rebound ? "r" : "b"}`);
       if (c.segment === "new") {
         const graduated = rng.binomial(c.count, s.newGraduation);
         const toPriceSensitive = rng.binomial(graduated, s.newToPriceSensitive);
@@ -278,7 +297,10 @@ export function runOnce(
         const escalated = rng.binomial(c.count - recovered, s.atRiskToCancelIntent);
         c.count -= recovered + escalated;
         moved.push({ ...c, segment: "core", count: recovered });
-        moved.push({ ...c, segment: "cancel_intent", count: escalated });
+        // Leaving reasons are assessed when someone tries to cancel, so entrants take the cancel-intent mix.
+        const priceDriven = rng.binomial(escalated, s.priceReasonShare.cancel_intent);
+        moved.push({ ...c, segment: "cancel_intent", reason: "price", count: priceDriven });
+        moved.push({ ...c, segment: "cancel_intent", reason: "other", count: escalated - priceDriven });
       } else if (c.segment === "cancel_intent") {
         const deescalated = rng.binomial(c.count, s.cancelIntentToAtRisk);
         c.count -= deescalated;

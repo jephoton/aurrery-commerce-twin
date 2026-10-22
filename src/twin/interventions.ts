@@ -11,6 +11,8 @@ export const InterventionSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("targeted_discount"),
     segment: SegmentSchema,
+    /** "price" targets only subscribers whose main leaving reason is price. */
+    reason: z.enum(["price", "any"]),
     discountPct: z.number().min(5).max(50),
     months: z.number().int().min(1).max(12),
   }),
@@ -58,8 +60,10 @@ export function describeIntervention(intervention: Intervention, listPrice: numb
   switch (intervention.kind) {
     case "baseline":
       return "Keep current pricing and offers.";
-    case "targeted_discount":
-      return `Offer ${intervention.segment.replace("_", " ")} subscribers ${intervention.discountPct}% off ($${(listPrice * (1 - intervention.discountPct / 100)).toFixed(2)}/mo) for ${intervention.months} month(s).`;
+    case "targeted_discount": {
+      const who = `${intervention.segment.replaceAll("_", " ")} subscribers${intervention.reason === "price" ? " leaving over price" : ""}`;
+      return `Offer ${who} ${intervention.discountPct}% off ($${(listPrice * (1 - intervention.discountPct / 100)).toFixed(2)}/mo) for ${intervention.months} month(s).`;
+    }
     case "list_price_change":
       return `Change the list price from $${listPrice.toFixed(2)} to $${intervention.newPrice.toFixed(2)}/mo for all subscribers.`;
     case "annual_plan":

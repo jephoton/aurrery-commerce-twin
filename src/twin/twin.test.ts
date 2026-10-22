@@ -12,7 +12,17 @@ const FAST = { runs: 200, horizonMonths: 12, seed: 7 };
 const discount: Strategy = {
   id: "at-risk-20",
   name: "20% off for at-risk, 3 months",
-  intervention: { kind: "targeted_discount", segment: "at_risk", discountPct: 20, months: 3 },
+  intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3 },
+};
+const precision: Strategy = {
+  id: "cancel-price-25",
+  name: "25% off price-driven cancel intent, 3 months",
+  intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3 },
+};
+const cancelAny: Strategy = {
+  id: "cancel-any-25",
+  name: "25% off all cancel intent, 3 months",
+  intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "any", discountPct: 25, months: 3 },
 };
 const priceCut: Strategy = { id: "cut-20", name: "List price $20", intervention: { kind: "list_price_change", newPrice: 20 } };
 const priceRise: Strategy = { id: "rise-28", name: "List price $28", intervention: { kind: "list_price_change", newPrice: 28 } };
@@ -83,12 +93,13 @@ describe("calibration", () => {
     expect(SEGMENTS).toContain("cancel_intent");
   });
 
-  it("pulls the discount effect toward observed outcomes", () => {
-    const before = twin.params.offerChurnRelativeRisk;
-    const { change } = updateDiscountEffect(twin, [{ segment: "at_risk", subscriberMonths: 600, cancellations: 20 }]);
+  it("pulls the discount effect for a reason toward observed outcomes", () => {
+    const { changes } = updateDiscountEffect(twin, [{ segment: "at_risk", reason: "price", subscriberMonths: 600, cancellations: 20 }]);
     // 600 months × ~16% ≈ 96 expected cancellations without discount; 20 observed → RR well below the prior.
-    expect(change!.after.mean).toBeLessThan(before.shape / before.rate);
-    expect(change!.after.sd).toBeLessThan(change!.before.sd);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].parameter).toBe("offerChurnRelativeRisk.price");
+    expect(changes[0].after.mean).toBeLessThan(changes[0].before.mean);
+    expect(changes[0].after.sd).toBeLessThan(changes[0].before.sd);
   });
 });
 
@@ -122,6 +133,13 @@ describe("simulation", () => {
     expect(r.strategies[1].metrics.discountCost.mean).toBeGreaterThan(0);
   });
 
+  it("discounts only subscribers with the targeted reason", () => {
+    const r = compareStrategies(twin, [precision, cancelAny], FAST);
+    const [, onlyPrice, everyone] = r.strategies;
+    expect(onlyPrice.metrics.discountCost.mean).toBeGreaterThan(0);
+    expect(onlyPrice.metrics.discountCost.mean).toBeLessThan(everyone.metrics.discountCost.mean);
+  });
+
   it("responds to list price in the expected directions", () => {
     const r = compareStrategies(twin, [priceCut, priceRise], FAST);
     const [, cut, rise] = r.strategies;
@@ -138,7 +156,10 @@ describe("simulation", () => {
 
 describe("guardrails", () => {
   it("rejects discounts outside commercial bounds", () => {
-    expect(InterventionSchema.safeParse({ kind: "targeted_discount", segment: "at_risk", discountPct: 80, months: 3 }).success).toBe(false);
-    expect(InterventionSchema.safeParse({ kind: "targeted_discount", segment: "vip", discountPct: 20, months: 3 }).success).toBe(false);
+    const ok = { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3 };
+    expect(InterventionSchema.safeParse(ok).success).toBe(true);
+    expect(InterventionSchema.safeParse({ ...ok, discountPct: 80 }).success).toBe(false);
+    expect(InterventionSchema.safeParse({ ...ok, segment: "vip" }).success).toBe(false);
+    expect(InterventionSchema.safeParse({ ...ok, reason: "loyalty" }).success).toBe(false);
   });
 });

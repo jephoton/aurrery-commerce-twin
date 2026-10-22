@@ -1,4 +1,4 @@
-import { SEGMENTS, type BetaDist, type GammaDist, type MerchantTwin, type NormalDist, type SegmentId } from "./types";
+import { REASONS, SEGMENTS, type BetaDist, type GammaDist, type MerchantTwin, type NormalDist, type ReasonId, type SegmentId } from "./types";
 
 // Conjugate Bayesian estimation: builds twin parameters from history and folds observed
 // outcomes back in. Simple on purpose, so every update can be explained in one sentence.
@@ -69,6 +69,7 @@ export function estimateAcquisition(records: AcquisitionRecord[]): NormalDist & 
 /** An observed outcome for subscribers who received a retention discount, e.g. read back from PayPal. */
 export interface DiscountOutcomeObservation {
   segment: SegmentId;
+  reason: ReasonId;
   /** Subscriber-months observed while the discount was active. */
   subscriberMonths: number;
   /** Cancellations observed during those months. */
@@ -83,38 +84,35 @@ export interface ParameterChange {
 }
 
 /**
- * Update the discount relative-risk posterior from observed cancellations, treating them as
- * Poisson with mean RR × (expected cancellations without the discount). Gamma prior → Gamma posterior.
+ * Update the discount relative-risk posterior for each leaving reason from observed cancellations,
+ * treating them as Poisson with mean RR × (expected cancellations without the discount).
+ * Gamma prior → Gamma posterior.
  */
 export function updateDiscountEffect(
   twin: MerchantTwin,
   observations: DiscountOutcomeObservation[],
-): { twin: MerchantTwin; change: ParameterChange | null } {
-  const expected = observations.reduce(
-    (s, o) => s + o.subscriberMonths * betaMean(twin.params.segments[o.segment].monthlyChurn),
-    0,
-  );
-  const observed = observations.reduce((s, o) => s + o.cancellations, 0);
-  if (expected <= 0) return { twin, change: null };
-
-  const before = twin.params.offerChurnRelativeRisk;
-  const after: GammaDist = { shape: before.shape + observed, rate: before.rate + expected };
-  const months = observations.reduce((s, o) => s + o.subscriberMonths, 0);
-  const evidence = `${observed} cancellation(s) in ${months} discounted subscriber-month(s); ${expected.toFixed(2)} expected without discount`;
-  return {
-    twin: {
-      ...twin,
-      params: { ...twin.params, offerChurnRelativeRisk: after },
-      provenance: {
-        ...twin.provenance,
-        offerChurnRelativeRisk: { source: "observed", note: `Prior assumption updated with ${evidence}.`, evidenceCount: months },
-      },
-    },
-    change: {
-      parameter: "offerChurnRelativeRisk",
+): { twin: MerchantTwin; changes: ParameterChange[] } {
+  let params = twin.params;
+  let provenance = twin.provenance;
+  const changes: ParameterChange[] = [];
+  for (const reason of REASONS) {
+    const obs = observations.filter((o) => o.reason === reason);
+    const expected = obs.reduce((s, o) => s + o.subscriberMonths * betaMean(twin.params.segments[o.segment].monthlyChurn), 0);
+    if (expected <= 0) continue;
+    const observed = obs.reduce((s, o) => s + o.cancellations, 0);
+    const months = obs.reduce((s, o) => s + o.subscriberMonths, 0);
+    const before = params.offerChurnRelativeRisk[reason];
+    const after: GammaDist = { shape: before.shape + observed, rate: before.rate + expected };
+    const parameter = `offerChurnRelativeRisk.${reason}`;
+    const evidence = `${observed} cancellation(s) in ${months} discounted ${reason}-reason subscriber-month(s); ${expected.toFixed(2)} expected without discount`;
+    params = { ...params, offerChurnRelativeRisk: { ...params.offerChurnRelativeRisk, [reason]: after } };
+    provenance = { ...provenance, [parameter]: { source: "observed", note: `Prior assumption updated with ${evidence}.`, evidenceCount: months } };
+    changes.push({
+      parameter,
       before: { mean: gammaMean(before), sd: gammaSd(before) },
       after: { mean: gammaMean(after), sd: gammaSd(after) },
       evidence,
-    },
-  };
+    });
+  }
+  return { twin: { ...twin, params, provenance }, changes };
 }

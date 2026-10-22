@@ -40,6 +40,8 @@ export interface SegmentParams {
   churnPriceElasticity: NormalDist;
   /** Probability a subscriber in this segment switches to a discounted annual prepay plan when offered. */
   annualUptake: BetaDist;
+  /** Share of this segment whose main reason to leave is price. From classified feedback when available. */
+  priceReasonShare: BetaDist;
 }
 
 export interface TwinParams {
@@ -70,8 +72,8 @@ export interface TwinParams {
     /** cancel_intent → at_risk (they stepped back from cancelling). */
     cancelIntentToAtRisk: BetaDist;
   };
-  /** Churn multiplier for subscribers on a retention discount, while it lasts. */
-  offerChurnRelativeRisk: GammaDist;
+  /** Churn multiplier while on a retention discount, by leaving reason. */
+  offerChurnRelativeRisk: Record<ReasonId, GammaDist>;
   /** Churn multiplier in the month after a retention discount expires (price snaps back). */
   postOfferChurnMultiplier: NormalDist;
   segments: Record<SegmentId, SegmentParams>;
@@ -107,7 +109,8 @@ export interface SampledParams {
   atRiskRecovery: number;
   atRiskToCancelIntent: number;
   cancelIntentToAtRisk: number;
-  offerRelativeRisk: number;
+  offerRelativeRisk: Record<ReasonId, number>;
+  priceReasonShare: Record<SegmentId, number>;
   postOfferMultiplier: number;
 }
 

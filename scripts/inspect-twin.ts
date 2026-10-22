@@ -8,9 +8,9 @@ console.log("initial", twin.initialActive, "acq", twin.params.monthlyAcquisition
 console.log("churn", Object.fromEntries(Object.entries(twin.params.segments).map(([k, v]) => [k, betaMean(v.monthlyChurn).toFixed(4)])));
 const t0 = performance.now();
 const r = compareStrategies(twin, [
-  { id: "d20", name: "at-risk 20% x3", intervention: { kind: "targeted_discount", segment: "at_risk", discountPct: 20, months: 3 } },
-  { id: "d35", name: "at-risk 35% x2", intervention: { kind: "targeted_discount", segment: "at_risk", discountPct: 35, months: 2 } },
-  { id: "ps15", name: "price-sens 15% x3", intervention: { kind: "targeted_discount", segment: "price_sensitive", discountPct: 15, months: 3 } },
+  { id: "d20", name: "at-risk 20% x3", intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3 } },
+  { id: "d35", name: "at-risk 35% x2", intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 35, months: 2 } },
+  { id: "ps15", name: "price-sens 15% x3", intervention: { kind: "targeted_discount", segment: "price_sensitive", reason: "any", discountPct: 15, months: 3 } },
   { id: "cut22", name: "list $22", intervention: { kind: "list_price_change", newPrice: 22 } },
   { id: "rise27", name: "list $27", intervention: { kind: "list_price_change", newPrice: 27 } },
   { id: "annual", name: "annual 15%", intervention: { kind: "annual_plan", discountPct: 15, segments: ["core", "price_sensitive"] } },
