@@ -1,13 +1,13 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. All 184 tests, typecheck, lint and production build pass; M3 is next. Aurrery uses port 3001**._
+_Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. The M2 baseline passes 184 tests, typecheck, lint and build. M3 is in progress on feat/m3-agent-loop; its detailed plan follows the approved seven-tool product design. Aurrery uses port 3001**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
 **Read in this order:**
 1. `docs/superpowers/specs/2026-10-22-aurrery-design.md`: the design, including §3a, the story revision.
 2. `docs/superpowers/plans/2026-10-22-aurrery-roadmap.md`: milestones in order.
-3. `docs/superpowers/specs/2026-10-22-m2-feedback-signals-design.md` and `docs/superpowers/plans/2026-10-22-m2-feedback-signals.md`: the completed M2 design and implementation plan. M0/M1 amendments remain historical context in their plan.
+3. `docs/superpowers/plans/2026-10-22-m3-agent-loop.md`: the active M3 implementation plan. The completed M2 design/plan remain prerequisite context. M0/M1 amendments remain historical context in their plan.
 4. `docs/research/m2-provider-evaluation.md`: measured results, selected provider and M3 carry-forward.
 5. `docs/architecture.md`: modules and the model.
 
@@ -15,7 +15,8 @@ _Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and publish
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `main` | M0/M1/M2, selected Groq provider and measured report | yes; resume M3 here |
+| `main` | M0/M1/M2, selected Groq provider and measured report | yes |
+| `feat/m3-agent-loop` | M3 detailed plan; seven-tool layer implementation in progress | active; plan checkpoint being pushed |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
@@ -193,3 +194,7 @@ The fresh run completed at 2026-10-22 15:16 UTC (23:16 SGT), with code `e64696b`
 Select Groq GPT-OSS 120B for M2/M3. `.env.example` and ignored local configuration now record the explicit selection. Gemini remains for explicit diagnostics, with no automatic fallback. The [measured report](research/m2-provider-evaluation.md) records all disagreement IDs, exact hashes, posterior counts and simulated round-trip results. Classified-evidence median differences are broad -$1,327, save +$88 and annual +$10,351; canonical M1 remains unchanged. Neither labels nor prompts were tuned after inference. Raw artifacts remain ignored under `data/` and do not transfer through Git; the fresh benchmark did not populate the classification cache.
 
 All four tasks passed independent spec and quality reviews. The final independent branch code review found no actionable gaps and passed all 109 signals tests. Independent final verification after the measured decision passes all 184 tests, typecheck, lint and production build. Main fast-forwarded to the verified M2 tree (`726e5f9`), all 184 tests passed again on main, and both main and the M2 branch were pushed with remote refs verified. The final documentation review passed after stale status text was corrected. M3 is next.
+
+## M3 execution started
+
+The user authorized continuing M3. The active plan is `docs/superpowers/plans/2026-10-22-m3-agent-loop.md`. Task 1 implements validated tools, per-run classified context, explicit cache import and classifier-bound proposal targets; Task 2 adds the bounded real Groq loop; Task 3 adds the streamed endpoint and timeline; Task 4 verifies an actual run, sanitized replay and browser flow. Each implementation task receives independent spec and quality reviews. No agent approval/execution tool is introduced; existing merchant approval remains required.
