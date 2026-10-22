@@ -49,6 +49,22 @@ describe("calibration", () => {
     }
   });
 
+  it("recovers cancel-intent escalation and de-escalation rates", () => {
+    const t = twin.params.transitions;
+    const pairs = [
+      [t.atRiskToCancelIntent, DEMO_TRUTH.atRiskToCancelIntent],
+      [t.cancelIntentToAtRisk, DEMO_TRUTH.cancelIntentToAtRisk],
+    ] as const;
+    for (const [posterior, truth] of pairs) {
+      expect(Math.abs(betaMean(posterior) - truth)).toBeLessThan(4 * betaSd(posterior) + 0.002);
+    }
+  });
+
+  it("starts with subscribers in every segment, including cancel intent", () => {
+    for (const s of SEGMENTS) expect(twin.initialActive[s]).toBeGreaterThan(0);
+    expect(SEGMENTS).toContain("cancel_intent");
+  });
+
   it("pulls the discount effect toward observed outcomes", () => {
     const before = twin.params.offerChurnRelativeRisk;
     const { change } = updateDiscountEffect(twin, [{ segment: "at_risk", subscriberMonths: 600, cancellations: 20 }]);

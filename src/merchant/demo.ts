@@ -14,10 +14,8 @@ import { SEGMENTS, type MerchantTwin, type Provenance, type SegmentId } from "@/
 // twin estimates its parameters from that history exactly as it would from real data.
 
 export interface DemoHistoryRow extends SegmentMonthRecord {
-  /** Subscribers leaving this segment for another (maturing, drifting at-risk, or recovering). */
-  transitionedOut: number;
-  /** For the `new` segment: matured subscribers who became price sensitive. */
-  toPriceSensitive: number;
+  /** Subscribers who moved from this segment to another this month, by destination. */
+  movedTo: Partial<Record<SegmentId, number>>;
 }
 
 export interface DemoHistory {
@@ -31,18 +29,20 @@ const AS_OF_MONTH = "2026-10";
 
 /** Hidden generating rates. The twin never reads these directly; tests use them to check recovery. */
 export const DEMO_TRUTH = {
-  churn: { new: 0.11, core: 0.028, price_sensitive: 0.062, at_risk: 0.16 } as Record<SegmentId, number>,
+  churn: { new: 0.11, core: 0.028, price_sensitive: 0.062, at_risk: 0.16, cancel_intent: 0.35 } as Record<SegmentId, number>,
   involuntary: 0.015,
   newGraduation: 0.33,
   newToPriceSensitive: 0.35,
   coreToAtRisk: 0.02,
   priceSensitiveToAtRisk: 0.035,
   atRiskRecovery: 0.12,
+  atRiskToCancelIntent: 0.1,
+  cancelIntentToAtRisk: 0.2,
   acquisitionMean: 190,
   acquisitionSd: 22,
 };
 
-const START_ACTIVE: Record<SegmentId, number> = { new: 380, core: 1180, price_sensitive: 470, at_risk: 230 };
+const START_ACTIVE: Record<SegmentId, number> = { new: 380, core: 1180, price_sensitive: 470, at_risk: 230, cancel_intent: 70 };
 
 function monthLabel(offsetFromAsOf: number): string {
   const [y, m] = AS_OF_MONTH.split("-").map(Number);
@@ -63,31 +63,34 @@ export function generateDemoHistory(): { history: DemoHistory; endActive: Record
     acquisition.push({ month, newSubscribers: signups });
     active.new += signups;
 
-    const inflow: Record<SegmentId, number> = { new: 0, core: 0, price_sensitive: 0, at_risk: 0 };
+    const inflow = Object.fromEntries(SEGMENTS.map((s) => [s, 0])) as Record<SegmentId, number>;
     for (const segment of SEGMENTS) {
       const start = active[segment];
       const voluntary = rng.binomial(start, t.churn[segment]);
       const involuntary = rng.binomial(start - voluntary, t.involuntary);
       const remaining = start - voluntary - involuntary;
-      let transitionedOut = 0;
-      let toPriceSensitive = 0;
+      const movedTo: Partial<Record<SegmentId, number>> = {};
       if (segment === "new") {
-        transitionedOut = rng.binomial(remaining, t.newGraduation);
-        toPriceSensitive = rng.binomial(transitionedOut, t.newToPriceSensitive);
-        inflow.price_sensitive += toPriceSensitive;
-        inflow.core += transitionedOut - toPriceSensitive;
+        const graduated = rng.binomial(remaining, t.newGraduation);
+        movedTo.price_sensitive = rng.binomial(graduated, t.newToPriceSensitive);
+        movedTo.core = graduated - movedTo.price_sensitive;
       } else if (segment === "core") {
-        transitionedOut = rng.binomial(remaining, t.coreToAtRisk);
-        inflow.at_risk += transitionedOut;
+        movedTo.at_risk = rng.binomial(remaining, t.coreToAtRisk);
       } else if (segment === "price_sensitive") {
-        transitionedOut = rng.binomial(remaining, t.priceSensitiveToAtRisk);
-        inflow.at_risk += transitionedOut;
+        movedTo.at_risk = rng.binomial(remaining, t.priceSensitiveToAtRisk);
+      } else if (segment === "at_risk") {
+        movedTo.core = rng.binomial(remaining, t.atRiskRecovery);
+        movedTo.cancel_intent = rng.binomial(remaining - movedTo.core, t.atRiskToCancelIntent);
       } else {
-        transitionedOut = rng.binomial(remaining, t.atRiskRecovery);
-        inflow.core += transitionedOut;
+        movedTo.at_risk = rng.binomial(remaining, t.cancelIntentToAtRisk);
       }
-      segments.push({ month, segment, activeAtStart: start, voluntaryChurn: voluntary, involuntaryChurn: involuntary, transitionedOut, toPriceSensitive });
-      active[segment] = remaining - transitionedOut;
+      let out = 0;
+      for (const [to, n] of Object.entries(movedTo) as [SegmentId, number][]) {
+        inflow[to] += n;
+        out += n;
+      }
+      segments.push({ month, segment, activeAtStart: start, voluntaryChurn: voluntary, involuntaryChurn: involuntary, movedTo });
+      active[segment] = remaining - out;
     }
     for (const segment of SEGMENTS) active[segment] += inflow[segment];
   }
@@ -104,15 +107,12 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
   const involuntary = estimatePooledInvoluntary(rows, WEAK_RATE_PRIOR);
   const acquisition = estimateAcquisition(history.acquisition);
 
-  const transitionPosterior = (segment: SegmentId) => {
-    const r = rows.filter((x) => x.segment === segment);
-    const exposure = r.reduce((s, x) => s + x.activeAtStart - x.voluntaryChurn - x.involuntaryChurn, 0);
-    const events = r.reduce((s, x) => s + x.transitionedOut, 0);
-    return betaPosterior(FLAT_PRIOR, events, exposure);
-  };
-  const newRows = rows.filter((x) => x.segment === "new");
-  const graduated = newRows.reduce((s, x) => s + x.transitionedOut, 0);
-  const toPriceSensitive = newRows.reduce((s, x) => s + x.toPriceSensitive, 0);
+  const segmentRows = (segment: SegmentId) => rows.filter((x) => x.segment === segment);
+  const stayed = (segment: SegmentId) =>
+    segmentRows(segment).reduce((s, x) => s + x.activeAtStart - x.voluntaryChurn - x.involuntaryChurn, 0);
+  const moved = (from: SegmentId, to: SegmentId) => segmentRows(from).reduce((s, x) => s + (x.movedTo[to] ?? 0), 0);
+  const graduated = moved("new", "core") + moved("new", "price_sensitive");
+  const recovered = moved("at_risk", "core");
 
   const est = (note: string, evidenceCount: number): Provenance => ({ source: "estimated", note, evidenceCount });
   const assume = (note: string): Provenance => ({ source: "assumption", note });
@@ -150,11 +150,13 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
       acquisitionPriceElasticity: { mean: 1.2, sd: 0.6 },
       involuntaryChurn: involuntary.posterior,
       transitions: {
-        newGraduation: transitionPosterior("new"),
-        newToPriceSensitive: betaPosterior(FLAT_PRIOR, toPriceSensitive, graduated),
-        coreToAtRisk: transitionPosterior("core"),
-        priceSensitiveToAtRisk: transitionPosterior("price_sensitive"),
-        atRiskRecovery: transitionPosterior("at_risk"),
+        newGraduation: betaPosterior(FLAT_PRIOR, graduated, stayed("new")),
+        newToPriceSensitive: betaPosterior(FLAT_PRIOR, moved("new", "price_sensitive"), graduated),
+        coreToAtRisk: betaPosterior(FLAT_PRIOR, moved("core", "at_risk"), stayed("core")),
+        priceSensitiveToAtRisk: betaPosterior(FLAT_PRIOR, moved("price_sensitive", "at_risk"), stayed("price_sensitive")),
+        atRiskRecovery: betaPosterior(FLAT_PRIOR, recovered, stayed("at_risk")),
+        atRiskToCancelIntent: betaPosterior(FLAT_PRIOR, moved("at_risk", "cancel_intent"), stayed("at_risk") - recovered),
+        cancelIntentToAtRisk: betaPosterior(FLAT_PRIOR, moved("cancel_intent", "at_risk"), stayed("cancel_intent")),
       },
       offerChurnRelativeRisk: { shape: 6, rate: 10 },
       postOfferChurnMultiplier: { mean: 1.25, sd: 0.15 },
@@ -182,6 +184,12 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
           monthlyChurn: voluntary.at_risk.posterior,
           churnPriceElasticity: { mean: 1.8, sd: 0.8 },
           annualUptake: { alpha: 1, beta: 39 },
+        },
+        cancel_intent: {
+          label: "Cancel intent (opened cancel flow)",
+          monthlyChurn: voluntary.cancel_intent.posterior,
+          churnPriceElasticity: { mean: 2.0, sd: 0.8 },
+          annualUptake: { alpha: 1, beta: 49 },
         },
       },
     },

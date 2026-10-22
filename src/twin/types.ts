@@ -1,6 +1,6 @@
 // Domain types for the subscription-merchant digital twin.
 
-export const SEGMENTS = ["new", "core", "price_sensitive", "at_risk"] as const;
+export const SEGMENTS = ["new", "core", "price_sensitive", "at_risk", "cancel_intent"] as const;
 export type SegmentId = (typeof SEGMENTS)[number];
 
 /** Main reason a subscriber would leave. Affects how they respond to a discount, not their baseline churn. */
@@ -65,6 +65,10 @@ export interface TwinParams {
     coreToAtRisk: BetaDist;
     priceSensitiveToAtRisk: BetaDist;
     atRiskRecovery: BetaDist;
+    /** at_risk → cancel_intent, drawn from at-risk subscribers who did not recover that month. */
+    atRiskToCancelIntent: BetaDist;
+    /** cancel_intent → at_risk (they stepped back from cancelling). */
+    cancelIntentToAtRisk: BetaDist;
   };
   /** Churn multiplier for subscribers on a retention discount, while it lasts. */
   offerChurnRelativeRisk: GammaDist;
@@ -101,6 +105,8 @@ export interface SampledParams {
   coreToAtRisk: number;
   priceSensitiveToAtRisk: number;
   atRiskRecovery: number;
+  atRiskToCancelIntent: number;
+  cancelIntentToAtRisk: number;
   offerRelativeRisk: number;
   postOfferMultiplier: number;
 }

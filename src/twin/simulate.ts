@@ -80,6 +80,8 @@ export function sampleParams(p: TwinParams, rng: Rng): SampledParams {
     coreToAtRisk: beta(p.transitions.coreToAtRisk),
     priceSensitiveToAtRisk: beta(p.transitions.priceSensitiveToAtRisk),
     atRiskRecovery: beta(p.transitions.atRiskRecovery),
+    atRiskToCancelIntent: beta(p.transitions.atRiskToCancelIntent),
+    cancelIntentToAtRisk: beta(p.transitions.cancelIntentToAtRisk),
     offerRelativeRisk: rng.gamma(p.offerChurnRelativeRisk.shape) / p.offerChurnRelativeRisk.rate,
     postOfferMultiplier: Math.max(0.5, rng.normal(p.postOfferChurnMultiplier.mean, p.postOfferChurnMultiplier.sd)),
   };
@@ -270,10 +272,17 @@ export function runOnce(
         const drift = rng.binomial(c.count, s.priceSensitiveToAtRisk);
         c.count -= drift;
         moved.push({ ...c, segment: "at_risk", count: drift });
-      } else {
+      } else if (c.segment === "at_risk") {
+        // Same order as the history generator: recovery first, then escalation from the rest.
         const recovered = rng.binomial(c.count, s.atRiskRecovery);
-        c.count -= recovered;
+        const escalated = rng.binomial(c.count - recovered, s.atRiskToCancelIntent);
+        c.count -= recovered + escalated;
         moved.push({ ...c, segment: "core", count: recovered });
+        moved.push({ ...c, segment: "cancel_intent", count: escalated });
+      } else {
+        const deescalated = rng.binomial(c.count, s.cancelIntentToAtRisk);
+        c.count -= deescalated;
+        moved.push({ ...c, segment: "at_risk", count: deescalated });
       }
     }
     cohorts = merge([...cohorts, ...moved]);
