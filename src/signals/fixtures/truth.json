@@ -1,0 +1,802 @@
+{
+  "feedback-001": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-002": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-003": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-004": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-005": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-006": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-007": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-008": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-009": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-010": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-011": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-012": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-013": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-014": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-015": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-016": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-017": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-018": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-019": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-020": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-021": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-022": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-023": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-024": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-025": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-026": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-027": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-028": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-029": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-030": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-031": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-032": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-033": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-034": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-035": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-036": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-037": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-038": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-039": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-040": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-041": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-042": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-043": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-044": {
+    "intent": "cancel",
+    "reason": "price"
+  },
+  "feedback-045": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-046": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-047": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-048": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-049": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-050": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-051": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-052": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-053": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-054": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-055": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-056": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-057": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-058": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-059": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-060": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-061": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-062": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-063": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-064": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-065": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-066": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-067": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-068": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-069": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-070": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-071": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-072": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-073": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-074": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-075": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-076": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-077": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-078": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-079": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-080": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-081": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-082": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-083": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-084": {
+    "intent": "cancel",
+    "reason": "other"
+  },
+  "feedback-085": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-086": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-087": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-088": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-089": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-090": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-091": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-092": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-093": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-094": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-095": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-096": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-097": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-098": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-099": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-100": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-101": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-102": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-103": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-104": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-105": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-106": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-107": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-108": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-109": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-110": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-111": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-112": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-113": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-114": {
+    "intent": "considering_cancel",
+    "reason": "price"
+  },
+  "feedback-115": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-116": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-117": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-118": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-119": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-120": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-121": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-122": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-123": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-124": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-125": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-126": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-127": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-128": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-129": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-130": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-131": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-132": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-133": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-134": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-135": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-136": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-137": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-138": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-139": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-140": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-141": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-142": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-143": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-144": {
+    "intent": "considering_cancel",
+    "reason": "other"
+  },
+  "feedback-145": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-146": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-147": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-148": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-149": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-150": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-151": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-152": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-153": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-154": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-155": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-156": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-157": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-158": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-159": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-160": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-161": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-162": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-163": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-164": {
+    "intent": "stay",
+    "reason": "price"
+  },
+  "feedback-165": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-166": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-167": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-168": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-169": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-170": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-171": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-172": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-173": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-174": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-175": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-176": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-177": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-178": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-179": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-180": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-181": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-182": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-183": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-184": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-185": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-186": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-187": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-188": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-189": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-190": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-191": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-192": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-193": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-194": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-195": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-196": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-197": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-198": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-199": {
+    "intent": "stay",
+    "reason": "other"
+  },
+  "feedback-200": {
+    "intent": "stay",
+    "reason": "other"
+  }
+}
