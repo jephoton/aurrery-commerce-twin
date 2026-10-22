@@ -1,7 +1,7 @@
 # Aurrery: design spec
 
 **Status:** approved in brainstorming on 2026-10-22. Supersedes the working name "Autonomous Commerce Lab".
-**Event:** PayPal AI Hackathon. Submission deadline 2026-11-13 04:00 SGT. Internal target: submit by 2026-11-12.
+**Event:** PayPal AI Hackathon. Submission deadline 2026-11-13 04:00 SGT.
 
 ## 1. Product
 
@@ -36,7 +36,7 @@
 
 **Out:** multiple preset merchants, an auto-execute mode, live (non-sandbox) payments, ML model training, multi-agent orchestration.
 
-**Cut lines.** Checkpoint on 2026-11-05. If behind, cut in this order:
+**Cut lines.** Checkpoint after the hosting milestone (M5 in the roadmap). If time is short, cut in this order:
 1. Annual-plan *execution*: it stays a simulated strategy, with its PayPal route explained in the UI.
 2. CSV import.
 
@@ -107,20 +107,3 @@ The PATCH path format still needs live verification (first task in implementatio
 - **Classifier:** accuracy against synthetic ground truth, run manually because it costs tokens.
 - **PayPal:** manual sandbox check script (patch → read back → revert); webhook handler tested with recorded payloads.
 - **Before recording:** a full browser walkthrough on the hosted build.
-
-## 9. Effort estimate (days)
-
-| Work | Days |
-| --- | --- |
-| PayPal test and fixes | 0.5–1 |
-| Twin: reason targeting and stress test | 1–1.5 |
-| Feedback corpus and classifier | 1–1.5 |
-| Agent loop and streamed UI | 3 |
-| UI polish and headline card | 3 |
-| Hosting, reset, rate limits | 1–1.5 |
-| Webhooks and revert | 1.5 |
-| CSV import | 1.5–2 |
-| Annual-plan execution | 1.5–2 |
-| Video and Devpost write-up | 2 |
-
-That totals about 17–19 days against about 21 available, leaving 3–4 days of buffer.

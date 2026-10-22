@@ -1,22 +1,22 @@
 # Aurrery: milestone roadmap
 
 Source spec: [`docs/superpowers/specs/2026-10-22-aurrery-design.md`](../specs/2026-10-22-aurrery-design.md).
-Deadline 2026-11-13 04:00 SGT; internal submission target **2026-11-12**. Today: 2026-10-22.
+Submission deadline: 2026-11-13 04:00 SGT (fixed by the hackathon). Milestones run in the order below.
 
 Each milestone ends with working, tested software, committed on its own branch and merged before the next starts. Each milestone gets a detailed task plan in this folder before work begins. M0 and M1 are already written: [`2026-10-22-m0-m1-rename-paypal-twin-v2.md`](2026-10-22-m0-m1-rename-paypal-twin-v2.md).
 
-| # | Milestone | Dates | Days |
-| --- | --- | --- | --- |
-| M0 | Rename and PayPal check | Oct 22–23 | 1 |
-| M1 | Twin v2: cancel intent, reasons, stress test | Oct 23–25 | 2 |
-| M2 | Signals: feedback corpus and classifier | Oct 25–27 | 2 |
-| M3 | Agent: tool loop and streamed timeline | Oct 27–30 | 3 |
-| M4 | Product UI: headline card, orbit language, polish | Oct 30–Nov 2 | 3 |
-| M5 | Hosting and observed loop: Render, webhooks, revert, reset | Nov 2–5 | 3 |
-| ✱ | **Checkpoint: cut decision** | **Nov 5** | |
-| M6 | CSV import *(cut line 2)* | Nov 5–7 | 2 |
-| M7 | Annual-plan execution *(cut line 1)* | Nov 7–8 | 1.5 |
-| M8 | Submission: repo, write-up, video, QA | Nov 9–12 | 3–4 incl. buffer |
+| Order | Milestone | Depends on |
+| --- | --- | --- |
+| M0 | Rename and PayPal check | — |
+| M1 | Twin v2: cancel intent, reasons, stress test | M0 |
+| M2 | Signals: feedback corpus and classifier | M1 |
+| M3 | Agent: tool loop and streamed timeline | M2 |
+| M4 | Product UI: headline card, orbit language, polish | M3 |
+| M5 | Hosting and observed loop: Render, webhooks, revert, reset | M4 |
+| ✱ | **Checkpoint: cut decision** | after M5 |
+| M6 | CSV import *(cut line 2)* | M5 |
+| M7 | Annual-plan execution *(cut line 1)* | M5 |
+| M8 | Submission: repo, write-up, video, QA | all kept milestones |
 
 ## M0: Rename and PayPal check
 **Goal:** the project is called Aurrery everywhere, and the hero PayPal operation is proven against the real sandbox.
@@ -69,8 +69,8 @@ Each milestone ends with working, tested software, committed on its own branch a
 
 **Done when:** the hosted URL runs the full flow end to end; a webhook from a sandbox event appears as an observation.
 
-## ✱ Checkpoint (Nov 5)
-If M0–M5 are not done: cut M7 first (the annual plan stays simulate-only, with its PayPal route explained in the UI), then M6. The hero path is never cut.
+## ✱ Checkpoint (after M5)
+If the remaining time looks too short for both M6 and M7: cut M7 first (the annual plan stays simulate-only, with its PayPal route explained in the UI), then M6. The hero path is never cut.
 
 ## M6: CSV import
 **Goal:** "works on your data".
@@ -90,4 +90,4 @@ If M0–M5 are not done: cut M7 first (the annual plan stays simulate-only, with
 - Create the public GitHub repo (name agreed with you then), with the MIT license visible.
 - README with a hosted URL and local setup; Devpost text, including the tools-used explanation.
 - Video script, then record (under 3:00), upload to YouTube as public.
-- Final QA on the hosted build; submit by Nov 12.
+- Final QA on the hosted build; submit with margin before the deadline.
