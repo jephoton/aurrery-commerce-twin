@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildDemoTwin, DEMO_TRUTH } from "@/merchant/demo";
 import { betaMean, betaSd, updateDiscountEffect } from "./calibrate";
-import { BASELINE, InterventionSchema, type Strategy } from "./interventions";
-import { Rng } from "./rng";
+import { BASELINE, InterventionSchema, type Intervention, type Strategy } from "./interventions";
+import { hashSeed, Rng } from "./rng";
 import { compareStrategies, runOnce, sampleParams, tailValue, tailValuer, type TailCohort } from "./simulate";
 import { REASONS, SEGMENTS, type SegmentId } from "./types";
 
@@ -23,6 +23,11 @@ const cancelAny: Strategy = {
   id: "cancel-any-25",
   name: "25% off all cancel intent, 3 months",
   intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "any", discountPct: 25, months: 3, campaignMonths: 0 },
+};
+/** Same targeted discount with a different campaign window. */
+const withCampaign = (st: Strategy, months: number, id = `${st.id}-c${months}`): Strategy => {
+  if (st.intervention.kind !== "targeted_discount") throw new Error("withCampaign needs a targeted discount");
+  return { ...st, id, intervention: { ...st.intervention, campaignMonths: months } };
 };
 const priceCut: Strategy = { id: "cut-20", name: "List price $20", intervention: { kind: "list_price_change", newPrice: 20 } };
 const priceRise: Strategy = { id: "rise-28", name: "List price $28", intervention: { kind: "list_price_change", newPrice: 28 } };
@@ -153,6 +158,46 @@ describe("simulation", () => {
     expect(runOnce(twin, s1, precision.intervention, 12, 99)).toEqual(runOnce(twin, s1, cancelAny.intervention, 12, 99));
   });
 
+  it("matches the baseline exactly under a campaign when nobody qualifies", () => {
+    const s = sampleParams(twin.params, new Rng(11));
+    const s0 = { ...s, priceReasonShare: Object.fromEntries(SEGMENTS.map((g) => [g, 0])) as typeof s.priceReasonShare };
+    expect(runOnce(twin, s0, withCampaign(precision, 6).intervention, 12, 99)).toEqual(runOnce(twin, s0, BASELINE.intervention, 12, 99));
+  });
+
+  it("offers exactly today's segment when the campaign is 0", () => {
+    const s = sampleParams(twin.params, new Rng(11));
+    const iv = withCampaign({ ...cancelAny, id: "x" }, 0).intervention;
+    expect(runOnce(twin, s, iv, 12, 99).discountedSubscribers).toBe(twin.initialActive.cancel_intent);
+  });
+
+  it("offers each subscriber at most once, even when they re-enter the segment", () => {
+    // Close the loop between at_risk and cancel_intent (nobody enters from other segments or recovers), so
+    // the distinct subscribers who can ever be in cancel_intent are today's cancel_intent plus at_risk.
+    const s = {
+      ...sampleParams(twin.params, new Rng(11)),
+      cancelIntentToAtRisk: 0.9,
+      atRiskToCancelIntent: 0.9,
+      atRiskRecovery: 0,
+      coreToAtRisk: 0,
+      priceSensitiveToAtRisk: 0,
+    };
+    const iv: Intervention = { kind: "targeted_discount", segment: "cancel_intent", reason: "any", discountPct: 25, months: 1, campaignMonths: 12 };
+    const discounted = runOnce(twin, s, iv, 12, 99).discountedSubscribers;
+    expect(discounted).toBeGreaterThan(twin.initialActive.cancel_intent);
+    expect(discounted).toBeLessThanOrEqual(twin.initialActive.cancel_intent + twin.initialActive.at_risk);
+  });
+
+  it("includes entrants billed in the last campaign month and none after", () => {
+    const s = sampleParams(twin.params, new Rng(11));
+    const newAny = (months: number): Intervention => ({ kind: "targeted_discount", segment: "new", reason: "any", discountPct: 20, months: 3, campaignMonths: months });
+    const discounted = (months: number) => runOnce(twin, s, newAny(months), 12, 99).discountedSubscribers;
+    // Month-0 acquisitions use the same keyed stream as runOnce; list price equals the reference price at month 0.
+    const acquiredInMonth0 = new Rng(hashSeed(99, "m0:acq", 0)).poisson(s.acquisition);
+    expect(discounted(0)).toBe(twin.initialActive.new);
+    expect(discounted(1)).toBe(twin.initialActive.new + acquiredInMonth0);
+    expect(discounted(2)).toBeGreaterThan(discounted(1));
+  });
+
   it("responds to list price in the expected directions", () => {
     const r = compareStrategies(twin, [priceCut, priceRise], FAST);
     const [, cut, rise] = r.strategies;
@@ -162,15 +207,13 @@ describe("simulation", () => {
   });
 
   it("reaches campaign entrants as well as today's segment", () => {
-    const campaign: Strategy = { ...precision, id: "cancel-price-25-c6", intervention: { ...precision.intervention, campaignMonths: 6 } as Strategy["intervention"] };
-    const r = compareStrategies(twin, [precision, campaign], FAST);
+    const r = compareStrategies(twin, [precision, withCampaign(precision, 6)], FAST);
     const [, oneOff, ongoing] = r.strategies;
     expect(ongoing.metrics.discountedSubscribers.mean).toBeGreaterThan(2 * oneOff.metrics.discountedSubscribers.mean);
   });
 
   it("values the precision campaign above the broad campaign", () => {
-    const withCampaign = (st: Strategy, id: string): Strategy => ({ ...st, id, intervention: { ...st.intervention, campaignMonths: 6 } as Strategy["intervention"] });
-    const r = compareStrategies(twin, [withCampaign(discount, "broad-c6"), withCampaign(precision, "precise-c6")], FAST);
+    const r = compareStrategies(twin, [withCampaign(discount, 6, "broad-c6"), withCampaign(precision, 6, "precise-c6")], FAST);
     const [, broad, precise] = r.strategies;
     expect(precise.vsBaseline.totalValue.p50).toBeGreaterThan(broad.vsBaseline.totalValue.p50);
   });

@@ -171,13 +171,17 @@ export function runOnce(
   const qualifies = (c: Cohort) =>
     iv !== null && c.count > 0 && c.plan === "monthly" && !c.offered &&
     c.segment === iv.segment && (iv.reason === "any" || c.reason === iv.reason);
+  // Entrants after the horizon are not modelled, and the tail valuation assumes no further offers.
+  const effectiveCampaignMonths = iv ? Math.min(iv.campaignMonths, horizonMonths) : 0;
+  /** Applies the discount and counts the cohort in `discountedSubscribers`. */
   const applyDiscount = (c: Cohort): Cohort => {
+    if (iv === null) return c;
     m.discountedSubscribers += c.count;
-    return { ...c, price: round2(listPrice * (1 - iv!.discountPct / 100)), fullPrice: listPrice, offer: true, offered: true, monthsLeft: iv!.months };
+    return { ...c, price: round2(listPrice * (1 - iv.discountPct / 100)), fullPrice: listPrice, offer: true, offered: true, monthsLeft: iv.months };
   };
   /** Campaign entrants first billed in `month` get the offer while the campaign runs. */
   const offerToEntrants = (entrants: Cohort[], month: number) =>
-    iv !== null && month < iv.campaignMonths ? entrants.map((c) => (qualifies(c) ? applyDiscount(c) : c)) : entrants;
+    month < effectiveCampaignMonths ? entrants.map((c) => (qualifies(c) ? applyDiscount(c) : c)) : entrants;
 
   // Interventions take effect at the start of month 0.
   if (iv !== null) {
@@ -210,6 +214,11 @@ export function runOnce(
   }
 
   for (let t = 0; t < horizonMonths; t++) {
+    // Once the campaign can no longer offer anyone, forget who was offered so cohorts merge back with never-offered ones.
+    if (iv !== null && t >= effectiveCampaignMonths && cohorts.some((c) => c.offered)) {
+      for (const c of cohorts) c.offered = false;
+      cohorts = merge(cohorts);
+    }
     if (t === 1 && pendingListPrice !== null) {
       for (const c of cohorts) {
         if (c.plan === "monthly" && !c.offer) {
