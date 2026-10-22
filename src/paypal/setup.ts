@@ -1,0 +1,104 @@
+import "server-only";
+import { listSandboxSubscribers, registerSandboxSubscriber, replaceSandboxSubscription } from "@/ledger/proposals";
+import { recordObservation } from "@/execution/execute";
+import { paypal } from "./client";
+import { getSubscription, type SubscriptionSnapshot } from "./subscriptions";
+import type { PayPalFailure } from "./client";
+
+export const PILOT_COHORT = [
+  { label: "Pilot A: \"honestly it's just too expensive right now\"", segment: "cancel_intent", reason: "price" },
+  { label: "Pilot B: \"can't justify $24 a month anymore\"", segment: "cancel_intent", reason: "price" },
+  { label: "Pilot C: \"moving abroad next month\"", segment: "cancel_intent", reason: "other" },
+  { label: "Pilot D: loyal, 14 months", segment: "core", reason: "other" },
+] as const;
+
+function readFailure(id: string, error: PayPalFailure): string {
+  return `PayPal read failed for ${id} (HTTP ${error.httpStatus ?? "unavailable"}; ${error.name}${error.debugId ? `; debug ${error.debugId}` : ""})`;
+}
+
+function approvalLink(raw: unknown): string | undefined {
+  const links = (raw as { links?: { rel?: string; href?: string }[] } | null)?.links;
+  return links?.find((link) => link.rel === "approve")?.href;
+}
+
+function describe(label: string, snapshot: SubscriptionSnapshot, fallback?: unknown): string {
+  const status = `${label} ${snapshot.id} ${snapshot.status}`;
+  if (snapshot.status !== "APPROVAL_PENDING") return status;
+  const approve = approvalLink(snapshot.raw) ?? approvalLink(fallback);
+  if (!approve) throw new Error(`${snapshot.id} is APPROVAL_PENDING but has no approval link; rerun setup to read its current link.`);
+  return `${status}\n  approve as a sandbox buyer: ${approve}`;
+}
+
+/** Replays a missing pilot only on explicit opt-in; the original key and body stay fixed. */
+export async function setupPilots(options: {
+  planId: string;
+  returnUrl: string;
+  recoverMissing?: boolean;
+  onMessage?: (message: string) => void;
+}): Promise<string[]> {
+  const registered = listSandboxSubscribers();
+  for (const member of PILOT_COHORT) {
+    if (registered.filter((row) => row.label === member.label).length > 1) {
+      throw new Error(`Multiple registrations for ${member.label}; resolve duplicate labels before setup.`);
+    }
+  }
+  const messages: string[] = [];
+  for (const [i, member] of PILOT_COHORT.entries()) {
+    const existing = registered.find((row) => row.label === member.label);
+    let snapshot: SubscriptionSnapshot | undefined;
+    if (existing) {
+      const read = await getSubscription(existing.subscriptionId);
+      if (read.ok) {
+        if (read.value.id !== existing.subscriptionId) throw new Error(`Read-back ID mismatch for ${existing.subscriptionId}.`);
+        snapshot = read.value;
+      } else {
+        if (read.error.httpStatus !== 404) throw new Error(readFailure(existing.subscriptionId, read.error));
+        if (!options.recoverMissing) {
+          throw new Error(`${readFailure(existing.subscriptionId, read.error)}. Rerun with --recover-missing to replay only confirmed missing pilots using their original request IDs.`);
+        }
+      }
+    }
+    let created: unknown;
+    if (!snapshot) {
+      const response = await paypal().subscriptions.createSubscription({
+        paypalRequestId: `aurrery-ridgeline-sub-${i}-v1`,
+        prefer: "return=representation",
+        body: {
+          planId: options.planId,
+          customId: `pilot-${i}`,
+          applicationContext: { brandName: "Ridgeline Roasters", returnUrl: options.returnUrl, cancelUrl: options.returnUrl },
+        },
+      });
+      created = response.result;
+      const id = response.result.id;
+      if (!id) throw new Error(`Create subscription returned no ID for ${member.label}; no registration changed.`);
+      const read = await getSubscription(id);
+      if (!read.ok) throw new Error(`Subscription read-back failed; no registration changed. ${readFailure(id, read.error)}`);
+      if (read.value.id !== id) throw new Error(`Subscription read-back ID mismatch for ${id}; no registration changed.`);
+      snapshot = read.value;
+      // Validate pending approval instructions before making the new registration durable.
+      describe(member.label, snapshot, created);
+      if (existing) replaceSandboxSubscription(existing.subscriptionId, existing.label, id);
+      else registerSandboxSubscriber({ ...member, subscriptionId: id });
+    }
+    const message = describe(member.label, snapshot, created);
+    messages.push(message);
+    options.onMessage?.(message);
+  }
+  return messages;
+}
+
+export async function syncPilots(onMessage?: (message: string) => void): Promise<void> {
+  let failed = 0;
+  for (const subscriber of listSandboxSubscribers()) {
+    const read = await getSubscription(subscriber.subscriptionId);
+    if (!read.ok) {
+      failed++;
+      onMessage?.(readFailure(subscriber.subscriptionId, read.error));
+      continue;
+    }
+    recordObservation(read.value, "paypal.sync");
+    onMessage?.(`${subscriber.subscriptionId} ${subscriber.segment}/${subscriber.reason} ${read.value.status} price ${read.value.regularPrice ?? "(plan default)"} overridden ${read.value.planOverridden} next ${read.value.nextBillingTime}`);
+  }
+  if (failed) throw new Error(`${failed} subscription read(s) failed during sync; resolve failures before executing changes.`);
+}

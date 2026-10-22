@@ -83,6 +83,14 @@ export function registerSandboxSubscriber(s: SandboxSubscriber) {
     .run(s.subscriptionId, s.label, s.segment, s.reason, now());
 }
 
+/** Change only the identifier: preserve rowid, cohort metadata, and historical proposal targets. */
+export function replaceSandboxSubscription(previousId: string, label: string, subscriptionId: string) {
+  const result = ledger()
+    .prepare("UPDATE sandbox_subscribers SET subscription_id = ? WHERE subscription_id = ? AND label = ?")
+    .run(subscriptionId, previousId, label);
+  if (result.changes !== 1) throw new Error("Pilot registration changed during recovery; no replacement was made.");
+}
+
 /** Snapshot today's matching pilots. Later campaign entrants require separate proposals and approvals. */
 export function buildAction(strategy: Strategy, listPrice: number): ProposalAction {
   const iv = strategy.intervention;

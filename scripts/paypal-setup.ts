@@ -8,22 +8,11 @@
 
 import { IntervalUnit, TenureType } from "@paypal/paypal-server-sdk";
 import { getSetting, setSetting } from "@/ledger/db";
-import { listSandboxSubscribers, registerSandboxSubscriber } from "@/ledger/proposals";
+import { setupPilots, syncPilots } from "@/paypal/setup";
 import { paypal, toFailure } from "@/paypal/client";
-import { getSubscription } from "@/paypal/subscriptions";
-import { recordObservation } from "@/execution/execute";
 
 const SANDBOX_API = "https://api-m.sandbox.paypal.com";
 const RETURN_URL = process.env.APP_URL ? `${process.env.APP_URL}/?paypal=approved` : "http://localhost:3000/?paypal=approved";
-
-// Two price-driven cancel-intent subscribers, one leaving for another reason, one loyal: the
-// hero action should visibly target two of the four.
-const PILOT_COHORT = [
-  { label: "Pilot A: \"honestly it's just too expensive right now\"", segment: "cancel_intent", reason: "price" },
-  { label: "Pilot B: \"can't justify $24 a month anymore\"", segment: "cancel_intent", reason: "price" },
-  { label: "Pilot C: \"moving abroad next month\"", segment: "cancel_intent", reason: "other" },
-  { label: "Pilot D: loyal, 14 months", segment: "core", reason: "other" },
-] as const;
 
 async function accessToken(): Promise<string> {
   const basic = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString("base64");
@@ -32,7 +21,7 @@ async function accessToken(): Promise<string> {
     headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: "grant_type=client_credentials",
   });
-  if (!res.ok) throw new Error(`OAuth failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`OAuth failed: HTTP ${res.status}`);
   return ((await res.json()) as { access_token: string }).access_token;
 }
 
@@ -54,7 +43,7 @@ async function ensureProduct(): Promise<string> {
       category: "FOOD_RETAIL_AND_SERVICE",
     }),
   });
-  if (!res.ok) throw new Error(`Create product failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`Create product failed: HTTP ${res.status}`);
   const id = ((await res.json()) as { id: string }).id;
   setSetting("paypal.product_id", id);
   console.log("Created product", id);
@@ -91,40 +80,13 @@ async function ensurePlan(productId: string): Promise<string> {
 
 async function setup() {
   const planId = await ensurePlan(await ensureProduct());
-  const registered = listSandboxSubscribers();
-  for (const [i, member] of PILOT_COHORT.entries()) {
-    if (registered.some((r) => r.label === member.label)) continue;
-    const res = await paypal().subscriptions.createSubscription({
-      paypalRequestId: `aurrery-ridgeline-sub-${i}-v1`,
-      prefer: "return=representation",
-      body: {
-        planId,
-        customId: `pilot-${i}`,
-        applicationContext: { brandName: "Ridgeline Roasters", returnUrl: RETURN_URL, cancelUrl: RETURN_URL },
-      },
-    });
-    const sub = res.result;
-    registerSandboxSubscriber({ subscriptionId: sub.id!, label: member.label, segment: member.segment, reason: member.reason });
-    const approve = sub.links?.find((l) => l.rel === "approve")?.href;
-    console.log(`\n${member.label} [${member.segment}] ${sub.id} ${sub.status}\n  approve as a sandbox buyer: ${approve}`);
-  }
-  console.log("\nOpen each approval link while signed in as a sandbox personal account, then run: npm run paypal:sync");
-}
-
-async function sync() {
-  for (const s of listSandboxSubscribers()) {
-    const r = await getSubscription(s.subscriptionId);
-    if (!r.ok) {
-      console.log(s.subscriptionId, "ERROR", r.error);
-      continue;
-    }
-    recordObservation(r.value, "paypal.sync");
-    console.log(s.subscriptionId, `${s.segment}/${s.reason}`.padEnd(22), r.value.status.padEnd(18), "price", r.value.regularPrice ?? "(plan default)", "overridden", r.value.planOverridden, "next", r.value.nextBillingTime);
-  }
+  await setupPilots({ planId, returnUrl: RETURN_URL, recoverMissing: process.argv.includes("--recover-missing"), onMessage: console.log });
+  console.log("\nApprove any APPROVAL_PENDING pilots as a sandbox personal account, then run: npm run paypal:sync");
 }
 
 const command = process.argv[2] ?? "setup";
-(command === "sync" ? sync() : setup()).catch((e) => {
-  console.error(toFailure(e));
+(command === "sync" ? syncPilots(console.log) : setup()).catch((e) => {
+  const { httpStatus, name, message, debugId } = toFailure(e);
+  console.error({ httpStatus, name, message, debugId });
   process.exit(1);
 });

@@ -29,7 +29,11 @@ The twin and simulations work without credentials. To execute through PayPal:
 
 1. Create a Sandbox REST app at developer.paypal.com and put its client ID and secret in `.env.local`.
 2. Run `npm run paypal:setup`. This creates the catalog product, a $24/month plan and four pilot subscriptions, and prints an approval link for each.
-3. Open each link signed in as a **sandbox personal** account so the subscriptions become `ACTIVE`, then run `npm run paypal:sync`.
+3. Open each link signed in as a **sandbox personal** account so the subscriptions become `ACTIVE`, then run `npm run paypal:sync`. Find the test email and password in Developer Dashboard → Testing Tools → Sandbox Accounts → the Personal account's **⋮ → View/Edit Account**. Use those sandbox credentials at the approval login; your real PayPal email or passkey belongs to a separate account. See [PayPal's sandbox setup guide](https://developer.paypal.com/api/get-started/).
+
+Rerun `npm run paypal:setup` to read the current pilot statuses and reprint pending approval links. Healthy subscriptions, including `ACTIVE` pilots, are reused without creating subscriptions. New subscriptions are read back successfully before they enter the ledger or their approval links are printed. Sync exits nonzero if any subscription cannot be read.
+
+If a registered pilot returns HTTP 404, setup stops by default. To explicitly recover confirmed missing pilots, run `npm run paypal:setup -- --recover-missing`. This replays each missing pilot's original request ID and body, verifies the returned subscription with GET, then replaces only that pilot's ledger ID in place, preserving its order and metadata. Keep the original plan settings and `APP_URL` unchanged so the replay body stays identical. Other read failures never trigger recovery. Do not change the `aurrery-ridgeline-*` request IDs or clear the ledger to retry. Historical proposals retain their original target IDs; create a fresh proposal for recovered pilots.
 
 ## Development
 
