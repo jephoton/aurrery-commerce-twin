@@ -3,8 +3,8 @@ import { buildDemoTwin, DEMO_TRUTH } from "@/merchant/demo";
 import { betaMean, betaSd, updateDiscountEffect } from "./calibrate";
 import { BASELINE, InterventionSchema, type Strategy } from "./interventions";
 import { Rng } from "./rng";
-import { compareStrategies, runOnce, sampleParams } from "./simulate";
-import { SEGMENTS } from "./types";
+import { compareStrategies, runOnce, sampleParams, tailValue, type TailCohort } from "./simulate";
+import { SEGMENTS, type SegmentId } from "./types";
 
 const { twin, history } = buildDemoTwin();
 const FAST = { runs: 200, horizonMonths: 12, seed: 7 };
@@ -176,5 +176,26 @@ describe("guardrails", () => {
     expect(InterventionSchema.safeParse({ ...ok, reason: "loyalty" }).success).toBe(false);
     expect(InterventionSchema.safeParse({ ...ok, reason: "price" }).success).toBe(false);
     expect(InterventionSchema.safeParse({ ...ok, segment: "cancel_intent", reason: "price" }).success).toBe(true);
+  });
+});
+
+describe("tail value", () => {
+  const s = sampleParams(twin.params, new Rng(1));
+  const list = twin.params.listPrice;
+  const cohort = (segment: SegmentId): TailCohort => ({ segment, reason: "other", plan: "monthly", monthsLeft: 0, offer: false, price: list });
+
+  it("counts the recovery a cancel-intent subscriber may make after the horizon", () => {
+    const withMoves = tailValue(twin.params, s, cohort("cancel_intent"), list);
+    const stuck = tailValue(twin.params, { ...s, cancelIntentToAtRisk: 0 }, cohort("cancel_intent"), list);
+    expect(withMoves).toBeGreaterThan(stuck);
+  });
+
+  it("values a core subscriber above a cancel-intent subscriber", () => {
+    expect(tailValue(twin.params, s, cohort("core"), list)).toBeGreaterThan(tailValue(twin.params, s, cohort("cancel_intent"), list));
+  });
+
+  it("charges fulfilment without revenue for prepaid annual months", () => {
+    const annual: TailCohort = { ...cohort("core"), plan: "annual", monthsLeft: 6, price: list * 12 };
+    expect(tailValue(twin.params, s, annual, list)).toBeLessThan(tailValue(twin.params, s, cohort("core"), list));
   });
 });

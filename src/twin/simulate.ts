@@ -320,7 +320,7 @@ export function runOnce(
 
   m.grossProfit = m.revenue - m.paymentFees - m.fulfilmentCost;
   m.endingActive = m.activeByMonth[m.activeByMonth.length - 1] ?? 0;
-  m.endingBaseValue = cohorts.reduce((sum, c) => sum + c.count * subscriberValue(p, s, c, listPrice), 0);
+  m.endingBaseValue = cohorts.reduce((sum, c) => sum + c.count * tailValue(p, s, c, listPrice), 0);
   m.totalValue = m.grossProfit + m.endingBaseValue;
   return m;
 }
@@ -328,25 +328,64 @@ export function runOnce(
 export const TAIL_MONTHS = 24;
 export const MONTHLY_DISCOUNT_RATE = 0.01;
 
+/** One month of segment moves as destination probabilities, in the same order as runOnce. */
+export function moveShares(segment: SegmentId, s: SampledParams): Partial<Record<SegmentId, number>> {
+  switch (segment) {
+    case "new":
+      return { core: s.newGraduation * (1 - s.newToPriceSensitive), price_sensitive: s.newGraduation * s.newToPriceSensitive };
+    case "core":
+      return { at_risk: s.coreToAtRisk };
+    case "price_sensitive":
+      return { at_risk: s.priceSensitiveToAtRisk };
+    case "at_risk":
+      return { core: s.atRiskRecovery, cancel_intent: (1 - s.atRiskRecovery) * s.atRiskToCancelIntent };
+    case "cancel_intent":
+      return { at_risk: s.cancelIntentToAtRisk };
+    default: {
+      const unreachable: never = segment;
+      throw new Error(`Unhandled segment: ${unreachable}`);
+    }
+  }
+}
+
+export type TailCohort = Pick<Cohort, "segment" | "reason" | "plan" | "monthsLeft" | "offer" | "price">;
+
 /**
- * Expected discounted margin of one subscriber over the TAIL_MONTHS after the horizon, at list
- * price and their segment's churn. Segment moves after the horizon are ignored. Prepaid annual
- * months still owe fulfilment but bring no new revenue.
+ * Expected discounted margin of one subscriber over the TAIL_MONTHS after the horizon. Propagates
+ * expected subscriber mass across segments with the same churn and moves as runOnce, so a saved
+ * cancel-intent subscriber is credited with the recoveries they may make. Prepaid annual months
+ * owe fulfilment but bring no revenue, churn, or moves; annual subscribers become core afterwards.
  */
-function subscriberValue(p: TwinParams, s: SampledParams, c: Cohort, listPrice: number): number {
-  const margin = listPrice * (1 - p.paymentFeeRate) - p.paymentFeeFixed - p.unitCost - p.shippingCost;
+export function tailValue(p: TwinParams, s: SampledParams, c: TailCohort, listPrice: number): number {
   const fulfilment = p.unitCost + p.shippingCost;
-  const hazard = Math.min(0.95, s.churn[c.segment] * Math.pow(listPrice / p.referencePrice, s.elasticity[c.segment]) + s.involuntaryChurn);
+  const margin = (price: number) => price * (1 - p.paymentFeeRate) - p.paymentFeeFixed - fulfilment;
+  const emptyMass = () => Object.fromEntries(SEGMENTS.map((seg) => [seg, 0])) as Record<SegmentId, number>;
+  let mass = emptyMass();
+  mass[c.plan === "annual" ? "core" : c.segment] = 1;
   let value = 0;
-  let survival = 1;
   for (let k = 1; k <= TAIL_MONTHS; k++) {
     const discount = Math.pow(1 + MONTHLY_DISCOUNT_RATE, -k);
+    const total = SEGMENTS.reduce((sum, seg) => sum + mass[seg], 0);
     if (c.plan === "annual" && k <= c.monthsLeft) {
-      value -= fulfilment * discount;
+      value -= discount * total * fulfilment;
       continue;
     }
-    value += survival * margin * discount;
-    survival *= 1 - hazard;
+    const onOffer = c.offer && k <= c.monthsLeft;
+    value += discount * total * margin(onOffer ? c.price : listPrice);
+    const next = emptyMass();
+    for (const seg of SEGMENTS) {
+      if (mass[seg] === 0) continue;
+      const effect = onOffer ? s.offerRelativeRisk[c.reason] : Math.pow(listPrice / p.referencePrice, s.elasticity[seg]);
+      const hazard = Math.min(0.95, s.churn[seg] * effect);
+      const surviving = mass[seg] * (1 - hazard) * (1 - s.involuntaryChurn);
+      let staying = surviving;
+      for (const [to, share] of Object.entries(moveShares(seg, s)) as [SegmentId, number][]) {
+        next[to] += surviving * share;
+        staying -= surviving * share;
+      }
+      next[seg] += staying;
+    }
+    mass = next;
   }
   return value;
 }
