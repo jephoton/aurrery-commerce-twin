@@ -17,7 +17,7 @@ const { twin } = currentMerchant();
 const strategy: Strategy = {
   id: "at-risk-20",
   name: "20% off at-risk for 3 months",
-  intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3 },
+  intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3, campaignMonths: 0 },
 };
 const result = compareStrategies(twin, [strategy], { runs: 100 }).strategies[1];
 

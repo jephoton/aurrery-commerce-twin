@@ -5,13 +5,13 @@ import type { Strategy } from "@/twin/interventions";
 export const STARTER_STRATEGIES: Strategy[] = [
   {
     id: "at-risk-20-3m",
-    name: "At-risk: 20% off for 3 months",
-    intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3 },
+    name: "At-risk: 20% off for 3 months (6-month campaign)",
+    intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3, campaignMonths: 6 },
   },
   {
-    id: "at-risk-35-2m",
-    name: "At-risk: 35% off for 2 months",
-    intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 35, months: 2 },
+    id: "cancel-price-25-3m",
+    name: "Cancel-flow save offer: 25% off for 3 months to price-driven leavers (6-month campaign)",
+    intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3, campaignMonths: 6 },
   },
   {
     id: "annual-15",

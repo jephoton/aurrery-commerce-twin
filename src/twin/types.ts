@@ -126,6 +126,8 @@ export interface RunMetrics {
   /** Revenue forgone versus list price on discounted subscribers. */
   discountCost: number;
   endingActive: number;
+  /** Subscribers who received the discount (today's stock plus campaign entrants). */
+  discountedSubscribers: number;
   voluntaryChurn: number;
   involuntaryChurn: number;
   newSubscribers: number;
@@ -159,6 +161,7 @@ export const METRIC_KEYS = [
   "voluntaryChurn",
   "involuntaryChurn",
   "discountCost",
+  "discountedSubscribers",
   "paymentFees",
   "fulfilmentCost",
   "newSubscribers",

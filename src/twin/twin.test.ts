@@ -12,17 +12,17 @@ const FAST = { runs: 200, horizonMonths: 12, seed: 7 };
 const discount: Strategy = {
   id: "at-risk-20",
   name: "20% off for at-risk, 3 months",
-  intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3 },
+  intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3, campaignMonths: 0 },
 };
 const precision: Strategy = {
   id: "cancel-price-25",
   name: "25% off price-driven cancel intent, 3 months",
-  intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3 },
+  intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3, campaignMonths: 0 },
 };
 const cancelAny: Strategy = {
   id: "cancel-any-25",
   name: "25% off all cancel intent, 3 months",
-  intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "any", discountPct: 25, months: 3 },
+  intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "any", discountPct: 25, months: 3, campaignMonths: 0 },
 };
 const priceCut: Strategy = { id: "cut-20", name: "List price $20", intervention: { kind: "list_price_change", newPrice: 20 } };
 const priceRise: Strategy = { id: "rise-28", name: "List price $28", intervention: { kind: "list_price_change", newPrice: 28 } };
@@ -161,6 +161,20 @@ describe("simulation", () => {
     expect(rise.vsBaseline.voluntaryChurn.mean).toBeGreaterThan(0);
   });
 
+  it("reaches campaign entrants as well as today's segment", () => {
+    const campaign: Strategy = { ...precision, id: "cancel-price-25-c6", intervention: { ...precision.intervention, campaignMonths: 6 } as Strategy["intervention"] };
+    const r = compareStrategies(twin, [precision, campaign], FAST);
+    const [, oneOff, ongoing] = r.strategies;
+    expect(ongoing.metrics.discountedSubscribers.mean).toBeGreaterThan(2 * oneOff.metrics.discountedSubscribers.mean);
+  });
+
+  it("values the precision campaign above the broad campaign", () => {
+    const withCampaign = (st: Strategy, id: string): Strategy => ({ ...st, id, intervention: { ...st.intervention, campaignMonths: 6 } as Strategy["intervention"] });
+    const r = compareStrategies(twin, [withCampaign(discount, "broad-c6"), withCampaign(precision, "precise-c6")], FAST);
+    const [, broad, precise] = r.strategies;
+    expect(precise.vsBaseline.totalValue.p50).toBeGreaterThan(broad.vsBaseline.totalValue.p50);
+  });
+
   it("collects annual prepayments up front", () => {
     const r = compareStrategies(twin, [annual], { ...FAST, horizonMonths: 1 });
     expect(r.strategies[1].vsBaseline.revenue.mean).toBeGreaterThan(0);
@@ -169,9 +183,10 @@ describe("simulation", () => {
 
 describe("guardrails", () => {
   it("rejects discounts outside commercial bounds", () => {
-    const ok = { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3 };
+    const ok = { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3, campaignMonths: 0 };
     expect(InterventionSchema.safeParse(ok).success).toBe(true);
     expect(InterventionSchema.safeParse({ ...ok, discountPct: 80 }).success).toBe(false);
+    expect(InterventionSchema.safeParse({ ...ok, campaignMonths: 13 }).success).toBe(false);
     expect(InterventionSchema.safeParse({ ...ok, segment: "vip" }).success).toBe(false);
     expect(InterventionSchema.safeParse({ ...ok, reason: "loyalty" }).success).toBe(false);
     expect(InterventionSchema.safeParse({ ...ok, reason: "price" }).success).toBe(false);

@@ -15,6 +15,8 @@ export const InterventionSchema = z.discriminatedUnion("kind", [
     reason: z.enum(["price", "any"]),
     discountPct: z.number().min(5).max(50),
     months: z.number().int().min(1).max(12),
+    /** 0 = only subscribers in the segment today; N = also everyone who enters the segment (with a matching reason) during the next N months. */
+    campaignMonths: z.number().int().min(0).max(12),
   }).refine((iv) => iv.reason === "any" || iv.segment === "cancel_intent", {
     message: "Leaving reasons are only known for subscribers in the cancel flow; use reason \"any\" for other segments",
     path: ["reason"],
@@ -65,7 +67,7 @@ export function describeIntervention(intervention: Intervention, listPrice: numb
       return "Keep current pricing and offers.";
     case "targeted_discount": {
       const who = `${intervention.segment.replaceAll("_", " ")} subscribers${intervention.reason === "price" ? " leaving over price" : ""}`;
-      return `Offer ${who} ${intervention.discountPct}% off ($${(listPrice * (1 - intervention.discountPct / 100)).toFixed(2)}/mo) for ${intervention.months} month(s).`;
+      return `Offer ${who} ${intervention.discountPct}% off ($${(listPrice * (1 - intervention.discountPct / 100)).toFixed(2)}/mo) for ${intervention.months} month(s)${intervention.campaignMonths > 0 ? `, and to everyone entering over the next ${intervention.campaignMonths} month(s)` : ""}.`;
     }
     case "list_price_change":
       return `Change the list price from $${listPrice.toFixed(2)} to $${intervention.newPrice.toFixed(2)}/mo for all subscribers.`;

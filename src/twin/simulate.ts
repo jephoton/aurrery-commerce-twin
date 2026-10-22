@@ -43,6 +43,8 @@ interface Cohort {
   /** List-price equivalent of one billing event, for measuring discount cost. */
   fullPrice: number;
   rebound: boolean;
+  /** True once the cohort has ever received the save discount; never reset (one save offer per subscriber). */
+  offered: boolean;
   billDue: boolean;
 }
 
@@ -97,7 +99,7 @@ export function sampleParams(p: TwinParams, rng: Rng): SampledParams {
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
 function cohortKey(c: Cohort): string {
-  return [c.segment, c.reason, c.plan, c.offer ? 1 : 0, c.rebound ? 1 : 0, c.monthsLeft, c.price, c.billDue ? 1 : 0].join(":");
+  return [c.segment, c.reason, c.plan, c.offer ? 1 : 0, c.rebound ? 1 : 0, c.offered ? 1 : 0, c.monthsLeft, c.price, c.billDue ? 1 : 0].join(":");
 }
 
 function merge(cohorts: Cohort[]): Cohort[] {
@@ -113,7 +115,7 @@ function merge(cohorts: Cohort[]): Cohort[] {
 }
 
 function monthlyCohort(segment: SegmentId, reason: ReasonId, count: number, price: number): Cohort {
-  return { segment, reason, count, price, plan: "monthly", monthsLeft: 0, offer: false, fullPrice: price, rebound: false, billDue: false };
+  return { segment, reason, count, price, plan: "monthly", monthsLeft: 0, offer: false, fullPrice: price, rebound: false, offered: false, billDue: false };
 }
 
 /** Split a count into price-driven and other subscribers. */
@@ -146,28 +148,42 @@ export function runOnce(
     SEGMENTS.flatMap((seg) => splitByReason(seg, twin.initialActive[seg], listPrice, s.priceReasonShare[seg], draw(`init:reason:${seg}`))),
   );
 
+  const m: RunMetrics = {
+    revenue: 0,
+    paymentFees: 0,
+    fulfilmentCost: 0,
+    grossProfit: 0,
+    discountCost: 0,
+    endingActive: 0,
+    discountedSubscribers: 0,
+    voluntaryChurn: 0,
+    involuntaryChurn: 0,
+    newSubscribers: 0,
+    endingBaseValue: 0,
+    totalValue: 0,
+    activeByMonth: [],
+    cumulativeProfitByMonth: [],
+  };
+
+  // Save-offer helpers: a targeted discount is a policy that applies to the current stock and, during
+  // the campaign window, to everyone who enters the target segment. Each subscriber is offered once.
+  const iv = intervention.kind === "targeted_discount" ? intervention : null;
+  const qualifies = (c: Cohort) =>
+    iv !== null && c.count > 0 && c.plan === "monthly" && !c.offered &&
+    c.segment === iv.segment && (iv.reason === "any" || c.reason === iv.reason);
+  const applyDiscount = (c: Cohort): Cohort => {
+    m.discountedSubscribers += c.count;
+    return { ...c, price: round2(listPrice * (1 - iv!.discountPct / 100)), fullPrice: listPrice, offer: true, offered: true, monthsLeft: iv!.months };
+  };
+  /** Campaign entrants first billed in `month` get the offer while the campaign runs. */
+  const offerToEntrants = (entrants: Cohort[], month: number) =>
+    iv !== null && month < iv.campaignMonths ? entrants.map((c) => (qualifies(c) ? applyDiscount(c) : c)) : entrants;
+
   // Interventions take effect at the start of month 0.
-  if (intervention.kind === "targeted_discount") {
-    const next: Cohort[] = [];
-    for (const c of cohorts) {
-      // The discount is applied merchant-side to every targeted subscriber (no opt-in step),
-      // so its cost includes subscribers who would have stayed anyway.
-      if (
-        c.segment === intervention.segment &&
-        (intervention.reason === "any" || c.reason === intervention.reason) &&
-        c.plan === "monthly" &&
-        !c.offer
-      ) {
-        next.push({
-          ...c,
-          price: round2(listPrice * (1 - intervention.discountPct / 100)),
-          fullPrice: listPrice,
-          offer: true,
-          monthsLeft: intervention.months,
-        });
-      } else next.push(c);
-    }
-    cohorts = merge(next);
+  if (iv !== null) {
+    // The discount is applied merchant-side to every targeted subscriber (no opt-in step),
+    // so its cost includes subscribers who would have stayed anyway.
+    cohorts = merge(cohorts.map((c) => (qualifies(c) ? applyDiscount(c) : c)));
   } else if (intervention.kind === "list_price_change") {
     // New subscribers see the new price immediately; existing ones from the next cycle,
     // mirroring PayPal's rule that billing within 10 days of a price change is unaffected.
@@ -193,22 +209,6 @@ export function runOnce(
     cohorts = merge(next);
   }
 
-  const m: RunMetrics = {
-    revenue: 0,
-    paymentFees: 0,
-    fulfilmentCost: 0,
-    grossProfit: 0,
-    discountCost: 0,
-    endingActive: 0,
-    voluntaryChurn: 0,
-    involuntaryChurn: 0,
-    newSubscribers: 0,
-    endingBaseValue: 0,
-    totalValue: 0,
-    activeByMonth: [],
-    cumulativeProfitByMonth: [],
-  };
-
   for (let t = 0; t < horizonMonths; t++) {
     if (t === 1 && pendingListPrice !== null) {
       for (const c of cohorts) {
@@ -224,7 +224,8 @@ export function runOnce(
     const lambda = s.acquisition * Math.pow(listPrice / p.referencePrice, -s.acquisitionElasticity);
     const acquired = draw(`m${t}:acq`).poisson(lambda);
     m.newSubscribers += acquired;
-    cohorts = merge([...cohorts, ...splitByReason("new", acquired, listPrice, s.priceReasonShare.new, draw(`m${t}:acq:reason`))]);
+    const entrants = splitByReason("new", acquired, listPrice, s.priceReasonShare.new, draw(`m${t}:acq:reason`));
+    cohorts = merge([...cohorts, ...offerToEntrants(entrants, t)]);
 
     // Billing and fulfilment for everyone active at the start of the month.
     for (const c of cohorts) {
@@ -241,7 +242,7 @@ export function runOnce(
     // Churn at the end of the month. Annual prepay subscribers cannot churn mid-term.
     for (const c of cohorts) {
       if (c.plan === "annual") continue;
-      const key = `m${t}:churn:${c.segment}:${c.reason}:${c.offer ? "o" : c.rebound ? "r" : "b"}`;
+      const key = `m${t}:churn:${c.segment}:${c.reason}:${c.offer ? `o${c.monthsLeft}` : c.rebound ? "r" : c.offered ? "p" : "b"}`;
       let hazard = s.churn[c.segment];
       if (c.offer) hazard *= s.offerRelativeRisk[c.reason];
       else hazard *= Math.pow(c.price / p.referencePrice, s.elasticity[c.segment]);
@@ -277,7 +278,7 @@ export function runOnce(
     const moved: Cohort[] = [];
     for (const c of cohorts) {
       if (c.plan !== "monthly" || c.count === 0) continue;
-      const rng = draw(`m${t}:move:${c.segment}:${c.reason}:${c.offer ? "o" : c.rebound ? "r" : "b"}`);
+      const rng = draw(`m${t}:move:${c.segment}:${c.reason}:${c.offer ? `o${c.monthsLeft}` : c.rebound ? "r" : c.offered ? "p" : "b"}`);
       if (c.segment === "new") {
         const graduated = rng.binomial(c.count, s.newGraduation);
         const toPriceSensitive = rng.binomial(graduated, s.newToPriceSensitive);
@@ -311,7 +312,8 @@ export function runOnce(
         throw new Error(`Unhandled segment: ${unreachable}`);
       }
     }
-    cohorts = merge([...cohorts, ...moved]);
+    // Their first discounted bill is next month.
+    cohorts = merge([...cohorts, ...offerToEntrants(moved, t + 1)]);
 
     const active = cohorts.reduce((sum, c) => sum + c.count, 0);
     m.activeByMonth.push(active);
