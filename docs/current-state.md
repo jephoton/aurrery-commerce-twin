@@ -26,13 +26,16 @@ Project: **Aurrery** (repo `jephoton/aurrery-commerce-twin`, public). Design: `d
 - **M1 Task 4:** `cancel_intent` segment with at-risk ⇄ cancel-intent transitions, estimated from history with destination-level `movedTo`. Estimators are checked against exact exposure counts.
 - **M1 Task 5:** leaving reasons (`price`/`other`) on cohorts, reason-specific discount effect (Gamma priors), re-split of reasons on entry to cancel intent, and a per-reason Bayesian update with matching provenance keys. Targeting by `reason: "price"` is only allowed for `cancel_intent`, because reasons are only known in the cancel flow. Deterministic tests check that targeting is exact.
 
-All checks pass on `feat/m1-twin-v2` (24 tests, typecheck, lint).
+- **M1 Task 5b:** the value of subscribers still active at month 12 now follows their expected segment moves over the next 24 months, so saved cancel-intent subscribers are credited with likely recoveries. It includes the extra churn when a discount ends.
+  - It's computed with a fast per-run valuer, checked against a simple reference implementation across 80,000 random cases.
+  - A full 1,000-run comparison of 7 strategies takes about 2.6s.
+
+All checks pass on `feat/m1-twin-v2` (29 tests, typecheck, lint).
 
 ## In progress
 
 - **M0 Task 3, Step 4 onward:** blocked on Jethro creating the PayPal Sandbox REST app (Merchant type). The dashboard errored without a sandbox business account selected. Then `npm run paypal:setup`, approve the 4 pilots as a sandbox personal account, then `paypal:sync` and `paypal:check`.
-- **M1 Tasks 5b–8,** in this order:
-  - **5b:** the value of subscribers still active at month 12 includes their expected segment moves. Today's version undervalues saved cancel-intent subscribers.
+- **M1 Tasks 5c–8,** in this order:
   - **5c:** save-offer campaigns (`campaignMonths`). Entrants to the targeted segment also get the discount. The hero-versus-broad comparison test lives here.
   - **6:** stress test.
   - **7:** proposals target by reason, plus validating reasons read from the ledger.
@@ -58,7 +61,7 @@ All checks pass on `feat/m1-twin-v2` (24 tests, typecheck, lint).
 
 ## Next steps
 
-M1 Tasks 5b–8, then finish M0 Task 3, then M2 (feedback corpus and classifier). See the roadmap.
+M1 Tasks 5c–8, then finish M0 Task 3, then M2 (feedback corpus and classifier). See the roadmap.
 
 ## Known risks
 
