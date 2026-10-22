@@ -18,8 +18,9 @@ import {
 // Monthly cohort simulation with Monte Carlo over parameter uncertainty and process noise.
 //
 // Every strategy in a comparison is evaluated against the same parameter draw and the same
-// keyed random streams within a run (common random numbers), so differences between strategies
-// reflect the intervention rather than sampling noise.
+// keyed random streams within a run (common random numbers; keys include segment and leaving
+// reason), so differences between strategies reflect
+// the intervention rather than sampling noise.
 
 export interface SimulationOptions {
   runs: number;
@@ -130,7 +131,7 @@ export function runOnce(
   streamSeed: number,
 ): RunMetrics {
   const p = twin.params;
-  // Streams are keyed by what they model (month, event, segment), not by call order, so the
+  // Streams are keyed by what they model (month, event, segment, leaving reason), not by call order, so the
   // same subscribers draw the same randomness under every strategy. Repeated keys get a suffix.
   const usedKeys = new Map<string, number>();
   const draw = (key: string) => {

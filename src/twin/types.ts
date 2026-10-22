@@ -40,7 +40,11 @@ export interface SegmentParams {
   churnPriceElasticity: NormalDist;
   /** Probability a subscriber in this segment switches to a discounted annual prepay plan when offered. */
   annualUptake: BetaDist;
-  /** Share of this segment whose main reason to leave is price. From classified feedback when available. */
+  /**
+   * Share of this segment whose main reason to leave is price. From classified feedback when available.
+   * Sets the initial split (and acquisitions, for `new`); only cancel_intent is re-split on entry,
+   * so other segments' shares drift over the horizon.
+   */
   priceReasonShare: BetaDist;
 }
 

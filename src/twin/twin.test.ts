@@ -3,7 +3,7 @@ import { buildDemoTwin, DEMO_TRUTH } from "@/merchant/demo";
 import { betaMean, betaSd, updateDiscountEffect } from "./calibrate";
 import { BASELINE, InterventionSchema, type Strategy } from "./interventions";
 import { Rng } from "./rng";
-import { compareStrategies } from "./simulate";
+import { compareStrategies, runOnce, sampleParams } from "./simulate";
 import { SEGMENTS } from "./types";
 
 const { twin, history } = buildDemoTwin();
@@ -94,12 +94,13 @@ describe("calibration", () => {
   });
 
   it("pulls the discount effect for a reason toward observed outcomes", () => {
-    const { changes } = updateDiscountEffect(twin, [{ segment: "at_risk", reason: "price", subscriberMonths: 600, cancellations: 20 }]);
+    const { twin: updated, changes } = updateDiscountEffect(twin, [{ segment: "at_risk", reason: "price", subscriberMonths: 600, cancellations: 20 }]);
     // 600 months × ~16% ≈ 96 expected cancellations without discount; 20 observed → RR well below the prior.
     expect(changes).toHaveLength(1);
     expect(changes[0].parameter).toBe("offerChurnRelativeRisk.price");
     expect(changes[0].after.mean).toBeLessThan(changes[0].before.mean);
     expect(changes[0].after.sd).toBeLessThan(changes[0].before.sd);
+    expect(updated.params.offerChurnRelativeRisk.other).toEqual(twin.params.offerChurnRelativeRisk.other);
   });
 });
 
@@ -140,6 +141,18 @@ describe("simulation", () => {
     expect(onlyPrice.metrics.discountCost.mean).toBeLessThan(everyone.metrics.discountCost.mean);
   });
 
+  it("targets nobody when no cancel-intent subscriber is price-driven", () => {
+    const s = sampleParams(twin.params, new Rng(11));
+    const s0 = { ...s, priceReasonShare: Object.fromEntries(SEGMENTS.map((g) => [g, 0])) as typeof s.priceReasonShare };
+    expect(runOnce(twin, s0, precision.intervention, 12, 99).totalValue).toBe(runOnce(twin, s0, BASELINE.intervention, 12, 99).totalValue);
+  });
+
+  it("targets everyone when every cancel-intent subscriber is price-driven", () => {
+    const s = sampleParams(twin.params, new Rng(11));
+    const s1 = { ...s, priceReasonShare: Object.fromEntries(SEGMENTS.map((g) => [g, 1])) as typeof s.priceReasonShare };
+    expect(runOnce(twin, s1, precision.intervention, 12, 99)).toEqual(runOnce(twin, s1, cancelAny.intervention, 12, 99));
+  });
+
   it("responds to list price in the expected directions", () => {
     const r = compareStrategies(twin, [priceCut, priceRise], FAST);
     const [, cut, rise] = r.strategies;
@@ -161,5 +174,7 @@ describe("guardrails", () => {
     expect(InterventionSchema.safeParse({ ...ok, discountPct: 80 }).success).toBe(false);
     expect(InterventionSchema.safeParse({ ...ok, segment: "vip" }).success).toBe(false);
     expect(InterventionSchema.safeParse({ ...ok, reason: "loyalty" }).success).toBe(false);
+    expect(InterventionSchema.safeParse({ ...ok, reason: "price" }).success).toBe(false);
+    expect(InterventionSchema.safeParse({ ...ok, segment: "cancel_intent", reason: "price" }).success).toBe(true);
   });
 });

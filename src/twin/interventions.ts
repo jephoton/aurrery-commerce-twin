@@ -15,6 +15,9 @@ export const InterventionSchema = z.discriminatedUnion("kind", [
     reason: z.enum(["price", "any"]),
     discountPct: z.number().min(5).max(50),
     months: z.number().int().min(1).max(12),
+  }).refine((iv) => iv.reason === "any" || iv.segment === "cancel_intent", {
+    message: "Leaving reasons are only known for subscribers in the cancel flow; use reason \"any\" for other segments",
+    path: ["reason"],
   }),
   z.object({
     kind: z.literal("list_price_change"),
