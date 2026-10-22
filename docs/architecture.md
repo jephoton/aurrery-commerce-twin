@@ -11,7 +11,7 @@
 | Ledger | `src/ledger/` | SQLite (`node:sqlite`): sandbox subscribers, proposals state machine, executions, observations, audit events, kv settings. | twin types |
 | PayPal | `src/paypal/` | Sandbox-only SDK client, typed wrappers (`getSubscription`, `overrideSubscriptionPrice`), error normalisation. | SDK |
 | Execution | `src/execution/` | Runs an approved proposal: claim → PATCH each target → GET read-back → record → finish. | ledger, paypal |
-| Signals | `src/signals/` | Frozen synthetic feedback, isolated Gemini/Groq transport, validated batch classification and optional accepted-only cache. Evidence/evaluation integration follows. | twin types, ledger |
+| Signals | `src/signals/` | Frozen synthetic feedback, isolated Gemini/Groq transport, validated classification/cache, pure reason evidence, runtime pilot mapping and provider scoring. Evaluation CLI follows. | twin types, ledger |
 | Agent | `src/agent/` (next) | Provider-independent tool-use loop: read state, propose strategies, call simulator, recommend, create proposal. **No execute tool.** | twin, ledger |
 | API | `src/app/api/` | Thin route handlers with Zod validation. | all above |
 | UI | `src/app/page.tsx`, `src/components/` | Dashboard: KPIs, objective, AG Grid comparison, fan chart, assumptions, approval, execution, pilot cohort. | API |
@@ -69,7 +69,7 @@ The two-part hero story pairs the modest tactical save offer with annual prepay 
 
 ## Feedback classification boundary (M2)
 
-<!-- Generated handoff: M2 Task 2 implementation; independent reviews pending. -->
+<!-- Generated handoff: M2 Task 2 reviews passed; Task 3 implemented, independent reviews pending. -->
 
 `src/signals/contracts.ts` and the frozen `feedback-corpus-v1` fixture define observed feedback and the strict prediction contract. `corpus.ts` projects only ID, text, source and known segment for providers. Hidden labels are loaded separately for evaluation; classification never uses them or pilot identity.
 
@@ -77,7 +77,13 @@ The two-part hero story pairs the modest tactical save offer with annual prepay 
 
 `classify.ts` exports `validateBatch(inputs, raw)` and `classifyFeedback(inputs, { provider, cache?, onProgress? })`. Validation preserves valid members of partial batches while rejecting duplicates, missing/invalid predictions, unknown IDs and confidence below 0.70. `schemaValidCount` counts known, unique, schema-valid predictions before confidence filtering. Unknown IDs are diagnostics, never feedback entries. Classification processes pending inputs sequentially in batches of 20 and returns ordered accepted/unclassified records, diagnostics, coverage counts, attempted batches, safe failures and per-attempt/aggregate latency, usage and retry metrics. A terminal failure preserves accepted results and marks remaining inputs unclassified.
 
-Evaluation is fresh by default. Explicit `cache: true` enables the accepted-only SQLite cache in its own `feedback_prediction_cache` ledger table; an injected `PredictionCache` is also supported. Keys hash all four input fields plus provider, model and prompt/schema versions. Reads and writes validate prediction ID/schema/confidence. Cache hits are reported separately and all-hit runs make no provider POST. This layer does not change the merchant/twin or PayPal registry; evidence, scoring and evaluation commands follow in later M2 tasks.
+Evaluation is fresh by default. Explicit `cache: true` enables the accepted-only SQLite cache in its own `feedback_prediction_cache` ledger table; an injected `PredictionCache` is also supported. Keys hash all four input fields plus provider, model and prompt/schema versions. Reads and writes validate prediction ID/schema/confidence. Cache hits are reported separately and all-hit runs make no provider POST.
+
+`evidence.ts` is pure and imports neither provider clients, registry I/O nor hidden labels. `summarizeEvidence(messages, predictions)` revalidates the schema/confidence boundary, reports reason counts by observed segment and intent counts separately, and rejects duplicate/unknown IDs. `applyEvidence(twin, messages, accepted)` changes only a structured copy's affected reason shares to Beta(1 + price, 1 + other), with exact segment provenance and synthetic evidence counts. No evidence preserves the prior; repeated application replaces the estimate. Churn, transitions, discount effects and the default merchant stay unchanged.
+
+`pilotEligibility(messages, predictions, registryRows, labels)` receives current registry rows and stable `PILOT_COHORT` labels from its caller. It resolves indices 0–3 by label, preserving replacement IDs independently of registry order; missing/ambiguous labels or shared IDs produce explicit issues and no target for that pilot. Eligibility requires accepted cancel + price in known `cancel_intent`; registry reasons and hidden labels cannot repair predictions. It never changes registrations or historical proposals.
+
+`scoreClassification(messages, truth, result, toolSmokePassed)` is the scoring-only hidden-label boundary. It reports schema-valid rate before confidence filtering, accepted coverage, accepted-only and whole-corpus intent/reason/joint agreement, confusion matrices with unclassified columns, and all four pilot checks. Unclassified feedback stays in whole-corpus denominators; zero denominators yield zero. Suitability requires valid rate >=95%, coverage >=90%, whole-corpus joint >=90%, accepted correct intent/reason for every pilot, and passing tool smoke. The CLI, tool smoke, round trip and live comparison remain Task 4.
 
 ## Commands
 

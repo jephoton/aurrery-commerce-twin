@@ -15,7 +15,7 @@ _Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. All fo
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
 | `main` | M0/M1, sandbox verification and reviewed recovery fixes | yes |
-| `feat/m2-feedback-signals` | M2 design, reviewed corpus and classifier implementation pending review | yes through `9878193`; active |
+| `feat/m2-feedback-signals` | M2 design, reviewed corpus/classifier, evidence and scoring pending review | yes through `9878193`; active |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
 | `feat/m1-twin-v2` | M0/M1 and final sandbox acceptance | yes; merged into main |
@@ -143,7 +143,7 @@ Both provider credentials are present locally (values never printed). The Gemini
 
 Test-first evidence: the focused suite failed with 18 assertion failures before implementation, including metadata stripping and invalid predictions. `npx vitest run src/signals/corpus.test.ts` passes all 22 tests; `npm run typecheck` passes. The existing Vite config-format warning remains. Independent spec and code-quality reviews passed. No credentials or ignored data were read, and no live calls were made for this task.
 
-### M2 Task 2: provider transport, validation and cache (implemented; reviews pending)
+### M2 Task 2: provider transport, validation and cache (reviews passed)
 
 <!-- Generated handoff: M2 Task 2 implementation. -->
 
@@ -157,4 +157,16 @@ Provider results contain `payload?`, `metrics`, `error?` and `terminal`. Metrics
 
 Evaluation makes fresh calls by default. Explicit `cache: true` uses `createPredictionCache()`; `cache` may instead be an injected `PredictionCache` with `get`/`set`. The SQLite `feedback_prediction_cache` table is separate from PayPal tables; parameterized SQL stores only accepted predictions. SHA-256 keys include full projected input, provider/model and prompt/schema versions. Corrupt JSON, wrong IDs, invalid schema or confidence below 0.70 are misses, and an all-hit run makes no POST. `.env.example` documents both keys, the Gemini alias and explicit provider/model settings. ESLint now ignores the already Git-ignored `data/**`, because local helper scripts and raw evaluation artifacts are not source.
 
-Verification: the initial focused suite showed 30 failures against minimal stubs (including missing cache storage); a later regression run showed four expected failures for stalled terminal responses and absent quota details before those fixes. All 40 Task 2 tests now pass. `npm test` passes all 137 tests; `npm run typecheck` and normal `npm run lint` pass. Existing Vite config-format and experimental SQLite warnings remain. No live provider/PayPal calls were made and the 200-message corpus/labels were unchanged. The root lint command initially scanned ignored local `data` helpers; their contents were not opened or copied. Next: independent Task 2 spec and quality reviews, then evidence/scoring/pilot projection.
+Verification: the initial focused suite showed 30 failures against minimal stubs (including missing cache storage); a later regression run showed four expected failures for stalled terminal responses and absent quota details before those fixes. All 40 Task 2 tests pass. `npm test` passed all 137 tests; `npm run typecheck` and normal `npm run lint` passed. Independent spec and quality reviews passed. The branch is pushed through checkpoint `9878193`. Existing Vite config-format and experimental SQLite warnings remain. No live provider/PayPal calls were made and the 200-message corpus/labels were unchanged. The root lint command initially scanned ignored local `data` helpers; their contents were not opened or copied.
+
+### M2 Task 3: evidence, pilot mapping and scoring (implemented; reviews pending)
+
+<!-- Generated handoff: M2 Task 3 implementation. -->
+
+`src/signals/evidence.ts` exports pure `summarizeEvidence`, `applyEvidence`, and `pilotEligibility`. Predictions are schema/confidence checked again; duplicate feedback/prediction IDs, unknown prediction IDs and unknown segments fail closed. Reason counts use the observed segment and whole observations, with intent counts reported separately. Evidence replaces only affected price-reason distributions with Beta(1 + price, 1 + other) on a structured clone, recording exact `segments.<segment>.priceReasonShare` provenance, evidence count and an AI-classified synthetic feedback note. Missing evidence preserves priors/provenance; applying the same evidence again is identical. The canonical M1 merchant, churn, transitions, discount assumptions and grouped provenance remain unchanged.
+
+Pilot eligibility receives current registry rows plus stable cohort labels from its caller, resolving each pilot by label rather than row order or a fixed environment ID. A replaced A ID is used immediately. Missing/duplicate labels, missing feedback or subscription IDs shared by registrations produce explicit issues and no target for the affected pilot. Only accepted cancel + price in `cancel_intent` qualifies. Registry reason fields and truth cannot repair predictions; registry and proposal history are untouched.
+
+`scoreClassification(messages, truth, result, toolSmokePassed)` takes the classifier's accepted outputs and pre-confidence `schemaValidCount`. It reports full-corpus validity/coverage, accepted-only and full-corpus intent/reason/joint agreement, complete confusion counts including unclassified, and four pilot checks. Zero accepted outputs yield zero rates. Inconsistent counts, duplicate/unknown IDs and incomplete/invalid truth reject clearly. Suitability uses inclusive 95% validity, 90% coverage and 90% whole-corpus joint thresholds, all four accepted correct intent/reason labels, and passing tool smoke; even a mislabelled but excluded D fails the pilot gate.
+
+Test-first verification: 11 focused tests failed against minimal stubs before implementation, then all 11 passed. `npm test` passes all 148 tests; `npm run typecheck` and `npm run lint` pass. Existing Vite config-format and experimental SQLite warnings remain. No credentials/ignored data were read, no live calls were made, and corpus/prompt/provider files were unchanged. Next: independent Task 3 spec then quality reviews, followed by Task 4 tool smoke/evaluation CLI/round trip and live comparison. M0/M1 on `main` remain unchanged.

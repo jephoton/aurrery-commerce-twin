@@ -46,7 +46,7 @@ export const MIN_CONFIDENCE = 0.70;
 
 ## Task 2: Provider transport, validation and cache
 
-Implemented; independent spec and quality reviews pending. HTTP transport is split into `src/signals/transport.ts` so provider request/envelope handling stays separate from retry, timeout and safe metrics.
+Implemented; independent spec and quality reviews passed. HTTP transport is split into `src/signals/transport.ts` so provider request/envelope handling stays separate from retry, timeout and safe metrics.
 
 **Files:** `src/signals/providers.ts`, `prompt.ts`, `classify.ts`, `cache.ts`, `providers.test.ts`, `classify.test.ts`; `.env.example`.
 
@@ -78,13 +78,15 @@ const key = createHash('sha256').update(JSON.stringify({
 - [x] Permit at most one retry for a timeout/network error or HTTP 5xx; bounded Retry-After is at most 10 seconds. Authentication/model errors and HTTP 429 end that provider run, marking remaining inputs unclassified. Preserve accepted results from preceding batches. Do not retry JSON validation failures, switch models/providers or wait for quota reset. Report attempted batches, schema-valid count before confidence filtering, accepted/unclassified results, cache hits, duration, usage, retries and failure/quota evidence.
 
 - [x] Add env placeholders: `GEMINI_API_KEY`, alias comment `GOOGLE_GENERATIVE_AI_API_KEY`, `GROQ_API_KEY`, explicit optional model/provider configuration. Leave PayPal config untouched. Run task tests/typecheck/lint; update handoff and commit `feat(signals): classify feedback with isolated provider caches`.
-- [ ] Complete independent spec and quality reviews before Task 3. Implementation verification: 40 focused tests / 137 total tests, typecheck and lint pass. The global ESLint ignore now excludes already ignored local `data/**` helpers/evaluation artifacts.
+- [x] Complete independent spec and quality reviews before Task 3. Implementation verification: 40 focused tests / 137 total tests, typecheck and lint pass. Branch pushed through `9878193`. The global ESLint ignore now excludes already ignored local `data/**` helpers/evaluation artifacts.
 
 ## Task 3: Evidence projection, scoring and pilot eligibility
 
+Implemented; independent spec and quality reviews pending. Verification: 11 focused tests / 148 total tests, typecheck and lint pass.
+
 **Files:** `src/signals/evidence.ts`, `score.ts`, `evidence.test.ts`, `score.test.ts`.
 
-- [ ] Observe failing tests for exact Beta counts, provenance isolation, no source mutation, zero-evidence preservation, repeated application equality, duplicate evidence rejection, and A/B-only runtime pilot mapping. Score missing/unclassified items against the full corpus denominator and calculate accepted-only agreement separately.
+- [x] Observe failing tests for exact Beta counts, provenance isolation, no source mutation, zero-evidence preservation, repeated application equality, duplicate evidence rejection, and A/B-only runtime pilot mapping. Score missing/unclassified items against the full corpus denominator and calculate accepted-only agreement separately.
 
 ```ts
 expect(updated.params.segments.cancel_intent.priceReasonShare)
@@ -95,7 +97,7 @@ expect(updated.provenance['segments.cancel_intent.priceReasonShare'])
 expect(original).toEqual(before);
 ```
 
-- [ ] Implement evidence on a structured clone using known segments. Use Beta(1+price,1+other), evidenceCount=accepted count, and synthetic AI-evidence note. No confidence weighting. Never mutate currentMerchant(), global registry, churn or discount-effect assumptions. Duplicate input/prediction IDs must not double-count evidence. Ground truth is a scoring-only dependency, not imported by classify/providers/evidence.
+- [x] Implement evidence on a structured clone using known segments. Use Beta(1+price,1+other), evidenceCount=accepted count, and synthetic AI-evidence note. No confidence weighting. Never mutate currentMerchant(), global registry, churn or discount-effect assumptions. Duplicate input/prediction IDs must not double-count evidence. Ground truth is a scoring-only dependency, not imported by classify/providers/evidence.
 
 ```ts
 const eligible = messages.filter(m => m.segment === 'cancel_intent'
@@ -105,7 +107,8 @@ const eligible = messages.filter(m => m.segment === 'cancel_intent'
 // Missing/ambiguous pilot mappings fail closed and are reported, never substituted.
 ```
 
-- [ ] Report schema-valid rate and coverage over all 200, accepted/whole-corpus intent/reason/joint agreement, confusion counts and four pilot checks. Suitable requires valid >=.95, coverage >=.90, whole-corpus joint >=.90, all pilots correct and tool smoke passed. Run task tests, full tests/typecheck/lint, update docs and commit `feat(signals): project classified evidence and score provider agreement`. Complete spec then quality reviews.
+- [x] Report schema-valid rate and coverage over all 200, accepted/whole-corpus intent/reason/joint agreement, confusion counts and four pilot checks. Suitable requires valid >=.95, coverage >=.90, whole-corpus joint >=.90, all pilots' accepted intent/reason labels correct and tool smoke passed. Run task tests, full tests/typecheck/lint, update docs and commit `feat(signals): project classified evidence and score provider agreement`.
+- [ ] Complete independent Task 3 spec then quality reviews before Task 4.
 
 ## Task 4: Tool smoke, evaluation CLI, live comparison and integration
 
