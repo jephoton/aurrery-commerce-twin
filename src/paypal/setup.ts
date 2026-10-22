@@ -21,6 +21,14 @@ function approvalLink(raw: unknown): string | undefined {
   return links?.find((link) => link.rel === "approve")?.href;
 }
 
+function verifyReadbackId(snapshot: SubscriptionSnapshot, expectedId: string): void {
+  // The wrapper's normalized ID can fall back to the requested ID. Require PayPal's actual ID too.
+  const actualId = (snapshot.raw as { id?: unknown } | null)?.id;
+  if (snapshot.id !== expectedId || actualId !== expectedId) {
+    throw new Error(`Subscription read-back ID missing or mismatched for ${expectedId}; no registration changed.`);
+  }
+}
+
 function describe(label: string, snapshot: SubscriptionSnapshot, fallback?: unknown): string {
   const status = `${label} ${snapshot.id} ${snapshot.status}`;
   if (snapshot.status !== "APPROVAL_PENDING") return status;
@@ -49,7 +57,7 @@ export async function setupPilots(options: {
     if (existing) {
       const read = await getSubscription(existing.subscriptionId);
       if (read.ok) {
-        if (read.value.id !== existing.subscriptionId) throw new Error(`Read-back ID mismatch for ${existing.subscriptionId}.`);
+        verifyReadbackId(read.value, existing.subscriptionId);
         snapshot = read.value;
       } else {
         if (read.error.httpStatus !== 404) throw new Error(readFailure(existing.subscriptionId, read.error));
@@ -74,7 +82,7 @@ export async function setupPilots(options: {
       if (!id) throw new Error(`Create subscription returned no ID for ${member.label}; no registration changed.`);
       const read = await getSubscription(id);
       if (!read.ok) throw new Error(`Subscription read-back failed; no registration changed. ${readFailure(id, read.error)}`);
-      if (read.value.id !== id) throw new Error(`Subscription read-back ID mismatch for ${id}; no registration changed.`);
+      verifyReadbackId(read.value, id);
       snapshot = read.value;
       // Validate pending approval instructions before making the new registration durable.
       describe(member.label, snapshot, created);

@@ -13,7 +13,7 @@ const link = "https://example.test/approve";
 const snapshot = (id: string, status = "APPROVAL_PENDING", href: string | null = link): Result<SubscriptionSnapshot> => ({
   ok: true, debugId: null,
   value: { id, status, planId: "P-TEST", planOverridden: false, regularPrice: null, nextBillingTime: null, lastPayment: null,
-    raw: { links: href ? [{ rel: "approve", href }] : [] } },
+    raw: { id, links: href ? [{ rel: "approve", href }] : [] } },
 });
 const failure = (httpStatus: number | null): Result<SubscriptionSnapshot> => ({
   ok: false, error: { httpStatus, name: "READ_FAILED", message: "test read failed", debugId: null, details: null },
@@ -85,6 +85,26 @@ it("rejects a mismatched readback ID before registration", async () => {
   transport.read.mockResolvedValue(snapshot("I-WRONG"));
   await expect(setupPilots(options)).rejects.toThrow(/read.back.*ID/i);
   expect(listSandboxSubscribers()).toEqual([]);
+});
+
+it.each([
+  ["existing", undefined], ["new", undefined], ["recovered", undefined],
+  ["existing", "I-WRONG"], ["new", "I-WRONG"], ["recovered", "I-WRONG"],
+])("rejects %s readback whose actual response ID is %s despite a matching normalized ID", async (mode, actualId) => {
+  seed();
+  if (mode === "new") ledger().prepare("DELETE FROM sandbox_subscribers WHERE subscription_id = 'I-OLD0'").run();
+  const before = listSandboxSubscribers();
+  const onMessage = vi.fn();
+  transport.read.mockImplementation(async (id: string) => {
+    if (mode === "recovered" && id === "I-OLD0") return failure(404);
+    const read = snapshot(id);
+    if (read.ok) read.value.raw = { ...(actualId === undefined ? {} : { id: actualId }), links: [{ rel: "approve", href: link }] };
+    return read;
+  });
+  await expect(setupPilots({ ...options, recoverMissing: mode === "recovered", onMessage })).rejects.toThrow(/read.back.*ID/i);
+  expect(listSandboxSubscribers()).toEqual(before);
+  expect(onMessage).not.toHaveBeenCalled();
+  expect(transport.create).toHaveBeenCalledTimes(mode === "existing" ? 0 : 1);
 });
 
 it("uses the creation approval link only after successful readback", async () => {
