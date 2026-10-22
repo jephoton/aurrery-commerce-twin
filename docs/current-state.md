@@ -14,7 +14,8 @@ _Last material update: 2026-10-22. **M0 and M1 are complete and reviewed. All fo
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `main` | M0/M1, sandbox verification and reviewed recovery fixes | yes; resume M2 from here |
+| `main` | M0/M1, sandbox verification and reviewed recovery fixes | yes |
+| `feat/m2-feedback-signals` | M2 design addendum; implementation pending review | local; active |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
 | `feat/m1-twin-v2` | M0/M1 and final sandbox acceptance | yes; merged into main |
@@ -132,4 +133,4 @@ The core PayPal operation is proven on D: PATCH replace returned 204, GET showed
 
 ## M2 preparation
 
-Both provider credentials are present locally (values never printed). The Gemini credential is named `GOOGLE_GENERATIVE_AI_API_KEY`; support it as an alias for `GEMINI_API_KEY`. Authenticated model-list reads returned HTTP 200: Gemini exposes `gemini-3.8-flash` with generateContent and Groq exposes active `openai/gpt-oss-120b`. These reads establish authentication/model visibility only, not inference access, free-tier quotas or classification quality. No paid billing or fallback was enabled. A focused M2 design addendum is being prepared before implementation.
+Both provider credentials are present locally (values never printed). The Gemini credential is named `GOOGLE_GENERATIVE_AI_API_KEY`; support it as an alias for `GEMINI_API_KEY`. Authenticated model-list reads returned HTTP 200: Gemini exposes `gemini-3.8-flash` with generateContent and Groq exposes active `openai/gpt-oss-120b`. These reads establish authentication/model visibility only, not inference access, free-tier quotas or classification quality. No paid billing or fallback was enabled. The focused M2 design addendum is written at `docs/superpowers/specs/2026-10-22-m2-feedback-signals-design.md` on `feat/m2-feedback-signals` and awaits user review. It specifies the corpus, classification contract, evidence update, pilot boundaries and evaluation criteria. No M2 implementation or live inference has started.
