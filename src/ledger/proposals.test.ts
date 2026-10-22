@@ -41,6 +41,14 @@ const code = (f: () => unknown) => {
 };
 
 describe("proposal lifecycle", () => {
+  it("intersects a server allowlist before capping, preserves registry order, and never falls back from empty", () => {
+    expect(buildAction(strategy, 24, ["I-PRICE000002", "I-CORE0000001", "I-PRICE000001", "I-UNKNOWN"]).targets).toEqual(["I-PRICE000001", "I-PRICE000002"]);
+    expect(buildAction(strategy, 24, ["I-PRICE000002"]).targets).toEqual(["I-PRICE000002"]);
+    expect(code(() => buildAction(strategy, 24, []))).toBe("NO_TARGETS");
+    const proposal = createProposal({ objective: "reduce churn", strategy, result, listPrice: 24, eligibleTargetIds: ["I-PRICE000002"] });
+    expect(proposal.action.targets).toEqual(["I-PRICE000002"]);
+    expect(proposal.actionHash).toBe(hashAction(proposal.action));
+  });
   const discount = (reason: "price" | "any", campaignMonths = 0): Strategy => ({
     ...strategy,
     intervention: { kind: "targeted_discount", segment: "cancel_intent", reason, discountPct: 25, months: 3, campaignMonths },
@@ -94,6 +102,7 @@ describe("proposal lifecycle", () => {
       const action = buildAction(discount("price"), 24);
       expect(action.targets).toHaveLength(25);
       expect(action.targets).toEqual(["I-PRICE000001", "I-PRICE000002", ...Array.from({ length: 23 }, (_, i) => `I-EXTRA${i}`)]);
+      expect(buildAction(discount("price"), 24, ["I-EXTRA29"]).targets).toEqual(["I-EXTRA29"]);
     } finally {
       ledger().prepare("DELETE FROM sandbox_subscribers WHERE label = 'extra'").run();
     }

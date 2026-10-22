@@ -92,13 +92,14 @@ export function replaceSandboxSubscription(previousId: string, label: string, su
 }
 
 /** Snapshot today's matching pilots. Later campaign entrants require separate proposals and approvals. */
-export function buildAction(strategy: Strategy, listPrice: number): ProposalAction {
+export function buildAction(strategy: Strategy, listPrice: number, eligibleTargetIds?: readonly string[]): ProposalAction {
   const iv = strategy.intervention;
   if (iv.kind !== "targeted_discount") {
     throw new ProposalError(`Strategy kind "${iv.kind}" has no executable PayPal action in this build.`, "NOT_EXECUTABLE");
   }
   const targets = listSandboxSubscribers()
     .filter((s) => s.segment === iv.segment && (iv.reason === "any" || s.reason === iv.reason))
+    .filter((s) => eligibleTargetIds === undefined || eligibleTargetIds.includes(s.subscriptionId))
     .map((s) => s.subscriptionId)
     .slice(0, MAX_TARGETS_PER_ACTION);
   if (targets.length === 0) {
@@ -122,9 +123,10 @@ export function createProposal(input: {
   strategy: Strategy;
   result: StrategyResult;
   listPrice: number;
+  eligibleTargetIds?: readonly string[];
 }): Proposal {
   const strategy = StrategySchema.parse(input.strategy);
-  const action = buildAction(strategy, input.listPrice);
+  const action = buildAction(strategy, input.listPrice, input.eligibleTargetIds);
   const prediction = {
     metrics: input.result.metrics,
     vsBaseline: input.result.vsBaseline,

@@ -12,7 +12,7 @@
 | PayPal | `src/paypal/` | Sandbox-only SDK client, typed wrappers (`getSubscription`, `overrideSubscriptionPrice`), error normalisation. | SDK |
 | Execution | `src/execution/` | Runs an approved proposal: claim → PATCH each target → GET read-back → record → finish. | ledger, paypal |
 | Signals | `src/signals/` | Frozen synthetic feedback, isolated Gemini/Groq transport, validated classification/cache, pure reason evidence, runtime pilot mapping and provider scoring. Includes the evaluation CLI and read-only tool smoke. | twin types, ledger |
-| Agent | `src/agent/` (next) | Provider-independent tool-use loop: read state, propose strategies, call simulator, recommend, create proposal. **No execute tool.** | twin, ledger |
+| Agent | `src/agent/` | Public events and seven strict tools: isolated run state, classified evidence, explicit rules, cumulative simulation, stress, display-only drafts and one proposed action. Runner/provider loop follows in M3 Task 2. **No execute tool.** | signals, merchant, twin, ledger |
 | API | `src/app/api/` | Thin route handlers with Zod validation. | all above |
 | UI | `src/app/page.tsx`, `src/components/` | Dashboard: KPIs, objective, AG Grid comparison, fan chart, assumptions, approval, execution, pilot cohort. | API |
 
@@ -23,6 +23,10 @@ Groq `openai/gpt-oss-120b` is the selected M2/M3 provider after the ordered Gemi
 - Only `POST /api/proposals/{id}/approve` reaches PayPal. It requires the proposal's action hash, and execution is claimed atomically (`UPDATE … WHERE status='approved'`), so it happens at most once.
 - Proposal predictions are recomputed server-side; client numbers are never trusted.
 - Targets come from registered sandbox subscriptions matching the strategy's segment and assessed reason (or `any`), retaining registration order and capped at 25 per action.
+- Agent proposals additionally intersect current classifier-eligible pilots by stable cohort label before that cap. An empty allowlist never falls back to all registered pilots; manual proposal callers omitting it retain the existing behavior.
+- Agent comparisons/stress are server-owned and invalidated by evidence or rule revisions. A proposal requires classification, explicit rules, current simulation and stress, and passing base budget/risk bounds. Adverse stress remains visible; no model-supplied metrics or target IDs enter proposal creation.
+- Model-facing tool results contain compact means, source summaries and paired value deltas. Full comparison/stress evidence is carried by typed UI events. One proposed action freezes a run; the agent has no approval, execution or message-sending tool.
+- Explicit local classifier cache import validates the current provider/model and corpus/input/prompt/schema fingerprints and all 200 accepted predictions before an atomic transaction. Hidden evaluation labels never enter tools, imported cache identity, or provider inputs.
 - The PayPal client is hard-wired to `Environment.Sandbox`.
 - Execution records what PayPal reports on read-back (`verified` = read-back price equals the requested price), not what was requested.
 
