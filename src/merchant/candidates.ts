@@ -10,7 +10,7 @@ export const STARTER_STRATEGIES: Strategy[] = [
   },
   {
     id: "cancel-price-25-3m",
-    name: "Cancel-flow save offer: 25% off for 3 months to price-driven leavers (6-month campaign)",
+    name: "Price-driven cancel save: 25% off for 3 months (6-month campaign)",
     intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3, campaignMonths: 6 },
   },
   {

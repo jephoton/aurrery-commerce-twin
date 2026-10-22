@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. Execution resumed; **M1 Task 6 is implemented, with reviews pending**._
+_Last material update: 2026-10-22. Execution resumed; **M1 Task 6 passed independent spec-compliance and code-quality reviews; Task 7 is in progress**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -21,11 +21,11 @@ _Last material update: 2026-10-22. Execution resumed; **M1 Task 6 is implemented
 
 Task 6 verification: `npm test` (46 passing), `npm run typecheck`, and `npm run lint` pass. The build last passed after Task 5c; it was not rerun for the pure stress-test module. Test output still includes the Vite config-format warning and Node's experimental SQLite warning.
 
-## M1 Task 6 implementation (reviews pending)
+## M1 Task 6 implementation (reviews passed)
 
 `src/twin/stress.ts` exports `stressParams` and `stressTest`. The pure transform moves intervention-specific assumption means adversely by 0.8416 standard deviations, preserving Normal/Gamma spread and Beta concentration. This approximates an adverse 80th/20th percentile scenario; Gamma and Beta shifts are not exact quantiles. Discounts have weaker retention and more post-offer churn; annual uptake falls; price sensitivity rises for increases and falls for cuts. Baseline and unchanged list prices produce no shifts.
 
-`stressTest` runs base and stressed comparisons with the same options and seed, each against its own do-nothing baseline. It only shifts parameters explicitly marked as assumptions, retaining observed or estimated evidence (including calibrated reason-specific discount effects); exact parameter provenance takes precedence over group provenance. Historical churn, transitions, acquisition estimates and reason shares remain unchanged. Returned explanations list only shifts actually made. Eleven new tests cover the transforms, immutability, calibration preservation and adverse strategy comparisons. Spec-compliance and code-quality reviews are the next checkpoint.
+`stressTest` runs base and stressed comparisons with the same options and seed, each against its own do-nothing baseline. It only shifts parameters explicitly marked as assumptions, retaining observed or estimated evidence (including calibrated reason-specific discount effects); exact parameter provenance takes precedence over group provenance. Historical churn, transitions, acquisition estimates and reason shares remain unchanged. Returned explanations list only shifts actually made. Eleven new tests cover the transforms, immutability, calibration preservation and adverse strategy comparisons. Spec-compliance and code-quality reviews passed independently.
 
 ## Done (each task passed a spec-compliance review and a code-quality review)
 
@@ -84,3 +84,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 - **Reasons are assessed in the cancel flow,** so only cancel intent supports price targeting.
 - **No tuning of parameters for the story.** The only prior change, tightening the "other"-reason discount prior after review, made the broad strategy look *better*.
 - **Two-part payoff story** (see the spec, §3a).
+
+## Starter-strategy schema regression
+
+Shortened the hero strategy display name to satisfy the existing 80-character API limit. All actual starter strategies now pass the schema regression test (observed failing before the source fix, passing afterward). No simulation parameters changed.
