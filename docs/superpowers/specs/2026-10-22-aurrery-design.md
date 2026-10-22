@@ -1,6 +1,8 @@
 # Aurrery: design spec
 
 **Status:** approved in brainstorming on 2026-10-22. Supersedes the working name "Autonomous Commerce Lab".
+
+**Provider amendment (2026-10-22):** the user approved evaluating Gemini first, then Groq, before choosing the provider for M2/M3. Claude is no longer required. See [decision 0003](../../decisions/0003-ai-provider-evaluation.md); evaluation remains pending.
 **Event:** PayPal AI Hackathon. Submission deadline 2026-11-13 04:00 SGT.
 
 ## 1. Product
@@ -64,9 +66,9 @@ The save offer beats the broad discount but is only a modest win. So the hero is
 | Module | Responsibility | Status |
 | --- | --- | --- |
 | `twin/` | Pure model: cohort Monte Carlo, common random numbers, total-value metric, guardrails, Bayesian calibration | exists; extend (§5) |
-| `signals/` | Synthetic feedback corpus; Claude classifier with structured output `{intent, reason, confidence}`, cached by content hash | new |
+| `signals/` | Synthetic feedback corpus; provider-independent classifier with structured output `{intent, reason, confidence}`, cached by content hash and provider/model/prompt/schema version | new |
 | `import/` | CSV parse, validation and re-estimation, reusing the calibration functions | new |
-| `agent/` | Single Claude tool-use loop, at most 10 tool calls, every step streamed to the UI | new |
+| `agent/` | Single tool-use loop using the evaluated provider, at most 10 tool calls, every step streamed to the UI | new |
 | `ledger/` | SQLite: proposals state machine, executions, observations, audit, kv | exists |
 | `execution/` | Approved proposal → PayPal → read-back → record | exists; extend |
 | `paypal/` | Sandbox-only SDK client and typed wrappers | exists; extend |
@@ -113,7 +115,7 @@ The PATCH path format still needs live verification (first task in implementatio
 - The only route to PayPal is: a hash-bound proposal → merchant approval → an atomic single claim → execute → read back. Limits are enforced server-side; the client is sandbox-only.
 - **Hosted demo:** per-IP rate limit on agent runs, a token cap per run, and a spend cap on the API key.
 - **PayPal failures:** HTTP status, error name and debug ID are shown and stored. Partial failures are reported as partial.
-- **Claude unavailable:** stated plainly in the UI. The twin, grid and manual strategies still work. There is no scripted stand-in for the AI.
+- **AI provider unavailable:** stated plainly in the UI. The twin, grid and manual strategies still work. There is no scripted stand-in for the AI.
 - **Invalid classifier items:** marked as unclassified, never guessed.
 - **Agent at its tool-call cap:** returns its best result so far, marked incomplete.
 

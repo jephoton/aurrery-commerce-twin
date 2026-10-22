@@ -1,12 +1,12 @@
 # Free AI API options for Aurrery
 
-<!-- Generated research notes; provider choice is not yet approved. -->
+<!-- Generated research notes; Gemini-then-Groq evaluation order approved; final provider selection pending. -->
 
 Checked against official public sources on 2026-10-22. These are published offers, not account-level quota or model-quality tests. Recheck availability before implementation.
 
 ## Recommendation to evaluate
 
-Evaluate Gemini 3.8 Flash for both M2 classification and the M3 tool loop, with Groq as an alternative. Anthropic is not an implementation requirement: its SDK is installed, but the classifier and agent have not been built. Keep the provider choice separate from the pure twin and PayPal approval/execution boundary.
+The user approved evaluating Gemini first, then Groq, before selecting the M2/M3 default. Start with Gemini 3.8 Flash and Groq GPT-OSS 120B, subject to current account access; use the same fixture and record the measured results. Follow [decision 0003](../decisions/0003-ai-provider-evaluation.md). Anthropic is not an implementation requirement: its SDK is installed, but the classifier and agent have not been built. Keep the provider choice separate from the pure twin and PayPal approval/execution boundary.
 
 Google lists free input/output for `gemini-3.8-flash`, and its model page lists function calling and structured outputs. Active project quotas must be checked in AI Studio; there is no verified universal request allowance here. Singapore is a supported region. Free-tier content is used to improve Google's products; the current corpus is planned as synthetic, but real merchant feedback would require reviewing that choice.
 

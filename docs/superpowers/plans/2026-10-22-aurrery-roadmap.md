@@ -38,15 +38,18 @@ Each milestone ends with working, tested software, committed on its own branch a
 ## M2: Signals
 **Goal:** the AI reads customer text, and that becomes evidence the twin uses.
 - Synthetic corpus fixture (about 200 messages with hidden ground-truth labels) linked to segments and pilot subscriptions.
-- Claude classifier with structured output `{intent, reason, confidence}`, schema-validated, cached by content hash.
+- Evaluate **Gemini first, then Groq**, using the same synthetic fixture, schema and hidden ground truth, before selecting the default provider. See [decision 0003](../../decisions/0003-ai-provider-evaluation.md).
+- Provider-independent classifier with structured output `{intent, reason, confidence}`, schema-validated. Cache by content hash plus provider/model and prompt/schema version.
+- Record valid-output rate, intent/reason agreement, latency, token usage, errors/retries and actual free-tier quotas. Add a minimal tool-call smoke test for the M3 requirements; do not enable paid billing or automatic provider fallback.
 - Classifier counts become each segment's price-reason Beta distribution, with provenance changed to estimated.
 - An accuracy report against ground truth, run manually.
 
-**Done when:** a classify → re-estimate → simulate round trip works. Accuracy is reported, and invalid outputs are flagged as unclassified.
+**Done when:** Gemini and then Groq have been evaluated and the default selection is documented; a classify → re-estimate → simulate round trip works. Accuracy is reported, and invalid outputs are flagged as unclassified. If neither free option is suitable, report the results before selecting another provider.
 
 ## M3: Agent
 **Goal:** a single tool-use agent produces an auditable recommendation and proposal.
 - The seven tools from spec §4; at most 10 tool calls; no execute tool.
+- Use the provider selected by the M2 evaluation through a small provider boundary. Validate it on a complete agent run; classification results alone do not prove agent suitability.
 - Streaming endpoint; UI timeline of the agent's steps (tool calls, results, reasoning summaries).
 - Tests: tools with a fake model client; one recorded run replayed.
 

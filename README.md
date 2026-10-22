@@ -21,7 +21,7 @@ Requires Node.js 24+.
 
 ```bash
 npm install
-cp .env.example .env.local   # add PayPal Sandbox + Anthropic credentials
+cp .env.example .env.local   # add PayPal Sandbox credentials; AI setup is pending
 npm run dev                  # http://localhost:3000
 ```
 
@@ -45,7 +45,7 @@ See [docs/architecture.md](docs/architecture.md) and [docs/current-state.md](doc
 ## Tools used
 
 - **PayPal Subscriptions API** (Sandbox) via the official `@paypal/paypal-server-sdk`; Catalog Products REST API for setup.
-- **Anthropic Claude** for the strategy agent (in progress), which calls the simulator through structured tools and cannot execute payments itself.
+- **AI provider evaluation planned: Gemini first, then Groq.** The classifier and strategy agent are not implemented yet. The agent will call the simulator through structured tools and cannot execute payments itself. See [the evaluation decision](docs/decisions/0003-ai-provider-evaluation.md).
 - **AG Grid Community** for the scenario comparison grid.
 - Next.js, TypeScript, Zod, Node's built-in SQLite, Vitest.
 

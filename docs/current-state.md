@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. **M1 is complete. Tasks 6–8 passed independent spec-compliance and code-quality reviews, including a final review across the continuation. M0 sandbox setup succeeded; four buyer approvals are pending before live override verification**._
+_Last material update: 2026-10-22. **M1 is complete and reviewed. M0 setup created four pilots, but subsequent subscription reads return 404; buyer approval and live override verification remain pending. The user approved evaluating Gemini first, then Groq for M2/M3**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -68,8 +68,10 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
    - Approve all 4 links as the sandbox **personal** account, then run `npm run paypal:sync` and `npm run paypal:check`. The check defaults to loyal Pilot D; sync again afterward to verify its restored $24 price. Do not rerun setup just to poll approvals.
    - Record the verified override/revert request shape in [decision 0001](decisions/0001-scenario-and-paypal-action.md) only after the sandbox check succeeds. This live check remains incomplete.
    - Credentials and the SQLite ledger are local ignored state; Git does not transfer them to another machine. Keep credentials and approval links out of tracked files.
+   - Latest sync: all four subscriptions return HTTP 404 `RESOURCE_NOT_FOUND` / `INVALID_RESOURCE_ID`. The user confirmed credentials are unchanged. OAuth, product GET and plan GET succeed (plan is `ACTIVE`); direct subscription GET fails both with and without `fields=plan`, so this is not confined to SDK parsing. Root cause remains unresolved. Ask the user to try the existing approval links and report any PayPal page error, then retry reads after approval; do not issue price changes while reads fail.
+   - PayPal debug IDs from the failing sync (A–D): `f909333d2523b`, `f99635769b064`, `f99635728abea`, `f3253645fcb92`. Direct A reads: `f219277a94cce` (no fields), `f7146328de0e8` (`fields=plan`).
 3. **Merge and push M0/M1 into `main`** after the check and reviews (also making LICENSE visible on GitHub). M0 and M1 remain local and unpushed.
-4. **M2: Signals: feedback corpus and classifier.** Revisit the model provider before implementation: [free API research](research/free-ai-api-options.md) recommends evaluating Gemini Flash, with Groq/Mistral alternatives. Anthropic is not required; no provider switch has been approved or implemented. Public offers were checked on 2026-10-22; account quotas and end-to-end quality still need testing.
+4. **M2: Signals: feedback corpus and classifier.** The user approved evaluating **Gemini first, then Groq**, before selecting the default provider for M2/M3. Follow [decision 0003](decisions/0003-ai-provider-evaluation.md) and the [free API research](research/free-ai-api-options.md). Anthropic is no longer required; evaluation and provider implementation remain pending. Measure actual quotas, classification quality and tool-call behavior; verify the full agent loop in M3.
 5. **M3: Agent: tool loop and streamed timeline.**
 6. **M4: Product UI: headline card, orbit language, polish.**
 7. **M5: Hosting and observed loop: Render, webhooks, revert, reset.** Then the roadmap's cut checkpoint.
