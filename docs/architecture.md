@@ -1,6 +1,6 @@
 # Architecture
 
-**Product goal:** a subscription merchant states an objective, an AI agent proposes interventions, a digital twin simulates them under uncertainty, and the merchant approves one exact action, which is executed through PayPal Sandbox and read back. Target: PayPal AI Hackathon (deadline 2026-11-13 04:00 SGT). Judging criteria: technological implementation, design, potential impact, innovation, presentation.
+**Product:** Aurrery (repo `jephoton/aurrery-commerce-twin`). **Goal:** a subscription merchant states an objective, an AI agent proposes interventions, a digital twin simulates them under uncertainty, and the merchant approves one exact action, which is executed through PayPal Sandbox and read back. Target: PayPal AI Hackathon (deadline 2026-11-13 04:00 SGT). Judging criteria: technological implementation, design, potential impact, innovation, presentation.
 
 ## Modular monolith (Next.js 16, TypeScript)
 
@@ -25,7 +25,32 @@
 
 ## Model summary
 
-Monthly cohorts by segment (`new`, `core`, `price_sensitive`, `at_risk`) × plan (monthly/annual) × discount state. Each month: acquisition (Poisson, price-elastic), billing and fulfilment, voluntary churn (segment hazard × price elasticity, or × discount relative risk), involuntary churn, discount/annual countdown (with post-discount rebound), and segment transitions. The decision metric is **total value**: 12-month gross profit plus the discounted margin of the remaining base over the next 24 months, so short-term wins that shrink the base are penalised.
+**Cohorts.** Monthly cohorts by segment (`new`, `core`, `price_sensitive`, `at_risk`, `cancel_intent`) × leaving reason (`price`, `other`) × plan (monthly or annual) × discount state (`offer`, `offered`, `rebound`).
+
+**Each month:**
+1. Acquisition: Poisson, price-elastic, split by reason. Campaign offers apply here if the target segment is `new`.
+2. Billing and fulfilment.
+3. Voluntary churn: segment hazard × price elasticity, or × the reason's discount relative risk while discounted, × the post-discount spike.
+4. Involuntary churn, applied to voluntary survivors.
+5. Discount and annual countdown.
+6. Segment transitions:
+   - `new` → `core` or `price_sensitive`
+   - `core` and `price_sensitive` → `at_risk`
+   - `at_risk` → `core` (recovery first), then → `cancel_intent` (escalation)
+   - `cancel_intent` → `at_risk`
+
+**Reasons.** Reason affects discount response and targeting, not baseline churn. Reasons persist across moves, except that entrants to `cancel_intent` are re-split with that segment's price share, because reasons are assessed in the cancel flow. Targeting `reason: "price"` is only valid for `cancel_intent`.
+
+**Targeted discounts are save-offer campaigns.**
+- With `campaignMonths: 0` they reach today's stock only. With N > 0 they also reach entrants for N months, capped at the horizon.
+- Each subscriber gets one offer; flags reset after the window.
+- `discountedSubscribers` counts recipients.
+
+**Decision metric.** **Total value** is 12-month gross profit plus the value of the base remaining at month 12.
+- That value is the discounted margin over the next 24 months, propagating expected segment moves with a per-run `tailValuer`. It is checked against the simple reference `tailValue`.
+- Short-term wins that shrink the base are therefore penalised, and saved subscribers are credited with likely recoveries.
+
+**Common random numbers.** Every random draw is keyed by month, event, segment, reason and discount state, so subscribers an intervention doesn't touch draw identical randomness under every strategy. Exact tests pin this.
 
 ## Commands
 
