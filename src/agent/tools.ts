@@ -80,6 +80,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
   const labels = PILOT_COHORT.map(({ label }) => label);
   let accepted: ClassificationResult["accepted"] = [];
   let strategies = new Map<string, Strategy>();
+  const strategyDefinitions = new Map<string, Strategy>([[BASELINE.id, BASELINE]]);
   function checkAbort() { if (options.signal?.aborted) throw new ToolFailure("ABORTED", "Run cancelled."); }
   function invalidate() { state.revision++; strategies = new Map(); state.comparison = undefined; state.stresses = {}; }
   function currentResult(strategyId: string) {
@@ -168,13 +169,14 @@ export function createToolContext(options: ToolContextOptions = {}) {
         const next = new Map(strategies);
         for (const raw of candidates) {
           const candidate = StrategySchema.parse(raw);
-          const existing = next.get(candidate.id) ?? (candidate.id === BASELINE.id ? BASELINE : undefined);
+          const existing = next.get(candidate.id) ?? strategyDefinitions.get(candidate.id);
           if (existing && JSON.stringify(existing) !== JSON.stringify(candidate)) throw new ToolFailure("STRATEGY_CONFLICT", "Strategy IDs must retain the same definition in a run.");
           if (candidate.intervention.kind === "baseline" && candidate.id !== BASELINE.id) throw new ToolFailure("STRATEGY_CONFLICT", "Use the server baseline ID for do nothing.");
           next.set(candidate.id, candidate);
         }
         const comparison = (options.simulate ?? compareStrategies)(state.twin, [...next.values()], simulationOptions());
         checkAbort(); strategies = next; state.comparison = comparison;
+        for (const [id, strategy] of next) strategyDefinitions.set(id, strategy);
         emit({ type: "comparison", comparison });
         return { options: comparison.options, baselineId: comparison.baselineId, strategies: comparison.strategies.map((result) => ({ strategy: result.strategy, ...compactResult(result) })), assumptions: assumptions() };
       }

@@ -106,6 +106,14 @@ describe("agent tool boundary", () => {
     expect(ctx.state.comparison?.options).toEqual({ runs: 1000, seed: 20261113, horizonMonths: 1 });
     expect(await ctx.dispatch("simulate_strategies", { strategies: [{ ...strategy, name: "conflict" }] })).toMatchObject({ ok: false, code: "STRATEGY_CONFLICT" });
   });
+  it.each(["rules", "classification"])("retains immutable strategy definitions across %s invalidation", async (change) => {
+    const ctx = setup(); await ready(ctx);
+    if (change === "rules") await ctx.dispatch("set_decision_rules", { ...rules, horizonMonths: 2 });
+    else await ctx.dispatch("classify_feedback", {});
+    expect(ctx.state.comparison).toBeUndefined();
+    expect(await ctx.dispatch("simulate_strategies", { strategies: [{ ...strategy, name: "Reused ID with changed definition" }] })).toMatchObject({ ok: false, code: "STRATEGY_CONFLICT" });
+    expect(await ctx.dispatch("simulate_strategies", { strategies: [strategy] })).toMatchObject({ ok: true });
+  });
   it("returns compact merchant and paired comparison summaries while retaining full UI evidence", async () => {
     const events: unknown[] = [];
     const ctx = setup({ emit: (event) => events.push(event) });
