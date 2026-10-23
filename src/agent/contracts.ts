@@ -22,6 +22,7 @@ export interface ClassificationSummary {
 /** Public activity and evidence only; never provider reasoning or hidden labels. */
 export type AgentEvent =
   | { type: "status"; message: string }
+  | { type: "wait"; durationMs: number; message: string }
   | { type: "tool_started"; name: string }
   | { type: "tool_result"; name: string; result: ToolResult }
   | { type: "classification"; summary: ClassificationSummary; hitmap: EvidenceSummary["segments"]; provenance: MerchantTwin["provenance"] }
@@ -31,7 +32,7 @@ export type AgentEvent =
   | { type: "draft"; strategyId: string; message: string; displayOnly: true }
   | { type: "proposal"; proposal: Proposal; rationale: string; tradeoffs: string }
   | { type: "summary"; message: string }
-  | { type: "done"; proposalId?: string }
+  | { type: "done"; proposalId?: string; status?: "complete" | "incomplete" | "cancelled"; reason?: string }
   | { type: "error"; code: string; message: string };
 export interface ClassificationFailure { category: string; status?: number }
 export type ToolResult = { ok: true; data: unknown } | { ok: false; code: string; message: string; terminal?: true; failure?: ClassificationFailure };

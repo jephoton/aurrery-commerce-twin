@@ -14,7 +14,8 @@
     "twin:inspect": "tsx scripts/inspect-twin.ts",
     "paypal:check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/paypal-check.ts",
     "signals:evaluate": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/evaluate-signals.ts",
-    "signals:import-cache": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/import-signal-cache.ts"
+    "signals:import-cache": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/import-signal-cache.ts",
+    "agent:check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/check-agent.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.137.0",
