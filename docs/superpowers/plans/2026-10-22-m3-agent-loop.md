@@ -45,7 +45,7 @@ expect(buildAction(strategy, 24, ['I-PRICE000002', 'I-OTHER000001']).targets)
 
 **Files:** `src/agent/model.ts`, `run.ts`, `limits.ts`, their tests; `scripts/check-agent.ts`, package script, handoff.
 
-- [ ] Write failing fake-model tests for complete tool flow, malformed/unknown calls, count cap, proposal prerequisites, no execute tool, provider/quota failure, cancellation and token/run limits. Use injected clock, sleep, model and tool dependencies.
+- [x] Write failing fake-model tests for complete tool flow, malformed/unknown calls, count cap, proposal prerequisites, no execute tool, provider/quota failure, cancellation and token/run limits. Use injected clock, sleep, model and tool dependencies.
 
 ```ts
 expect(events.filter(e => e.type === 'tool_started')).toHaveLength(10);
@@ -54,10 +54,10 @@ expect(executeEleventh).not.toHaveBeenCalled();
 expect(approvalSpy).not.toHaveBeenCalled();
 ```
 
-- [ ] Implement the Groq model adapter with existing sanitized transport, normal tool calling (`parallel_tool_calls:false`, no classification response_format), compact schemas/results and matched tool_call_id history. Strip private reasoning. Bound output, validate model envelopes and call IDs, reject duplicate IDs, and preserve only public summaries/arguments in a recordable transcript. Respect AbortSignal in model fetch/waits and check it before side effects.
-- [ ] Implement a real loop with at most ten requested tool calls, at most eleven model turns, approximately 32,000 tokens per run and a ten-minute wall cap. Enforce conservative input/output reservation and process-local 8,000-TPM pacing before model requests; report waits. Unknown/missing usage consumes the reservation rather than claiming zero usage. The limiter is approximate and HTTP 429 still terminates. A process-local active-run lease prevents simultaneous runs; always release it on completion/failure/cancellation.
-- [ ] Prompt the agent to investigate the broad instinct, compare selective retention and annual prepay honestly, inspect assumptions/stress, draft display-only copy and recommend only a supported action that passes current rules. Do not hardcode a winner or bypass tool calls. Return complete only after a valid recommendation; otherwise report incomplete with available results/reason. If no strategy passes, do not fabricate a proposal.
-- [ ] Add `npm run agent:check` as an explicit live CLI with synthetic default objective, public event progress and a uniquely named ignored transcript artifact. It may create a proposed record but never approves or sends PayPal mutations. Tests always use fakes. Verify tests/typecheck/lint/build, update handoff and commit `feat(agent): run bounded Groq tool loop`. Complete both reviews before Task 3.
+- [x] Implement the Groq model adapter with existing sanitized transport, normal tool calling (`parallel_tool_calls:false`, no classification response_format), compact schemas/results and matched tool_call_id history. Strip private reasoning. Bound output, validate model envelopes and call IDs, reject duplicate IDs, and preserve only public summaries/arguments in a recordable transcript. Respect AbortSignal in model fetch/waits and check it before side effects.
+- [x] Implement a real loop with at most ten requested tool calls, at most eleven model turns, approximately 32,000 tokens per run and a ten-minute wall cap. Enforce conservative input/output reservation and process-local 8,000-TPM pacing before model requests; report waits. Unknown/missing usage consumes the reservation rather than claiming zero usage. The limiter is approximate and HTTP 429 still terminates. A process-local active-run lease prevents simultaneous runs; always release it on completion/failure/cancellation.
+- [x] Prompt the agent to investigate the broad instinct, compare selective retention and annual prepay honestly, inspect assumptions/stress, draft display-only copy and recommend only a supported action that passes current rules. Do not hardcode a winner or bypass tool calls. Return complete only after a valid recommendation; otherwise report incomplete with available results/reason. If no strategy passes, do not fabricate a proposal.
+- [x] Add `npm run agent:check` as an explicit live CLI with synthetic default objective, public event progress and a uniquely named ignored transcript artifact. It may create a proposed record but never approves or sends PayPal mutations. Tests always use fakes. Verify tests/typecheck/lint/build, update handoff and commit `feat(agent): run bounded Groq tool loop`. Complete both reviews before Task 3.
 
 ## Task 3: Streaming endpoint and existing dashboard integration
 

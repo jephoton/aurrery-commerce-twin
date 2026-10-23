@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. M3 Task 1 implements the validated seven-tool boundary and explicit cache import; independent spec and quality reviews passed. The runner, provider tool loop and streaming UI remain subsequent tasks. Aurrery uses port 3001**._
+_Last material update: 2026-10-23. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. M3 Task 1 implements the validated seven-tool boundary and explicit cache import; independent spec and quality reviews passed. The bounded Groq runner also passed independent spec and quality reviews; streaming UI and live acceptance remain. Aurrery uses port 3001**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -16,7 +16,7 @@ _Last material update: 2026-10-22. **M0/M1/M2 are complete, reviewed and publish
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
 | `main` | M0/M1/M2, selected Groq provider and measured report | yes |
-| `feat/m3-agent-loop` | M3 detailed plan; Task 1 reviewed; bounded runner is next | active |
+| `feat/m3-agent-loop` | M3 detailed plan; Tasks 1–2 reviewed; streaming UI and live acceptance next | active |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
@@ -36,7 +36,7 @@ Classification summaries identify the actual provider/model for fresh and cached
 
 Strategy definitions are immutable for the whole run: evidence/rule revisions clear current comparisons and stress results while retaining a separate ID-to-definition registry. Reusing an ID with changed content is rejected after either revision; resimulating the original definition remains allowed. Both regression assertions were observed failing before this correction.
 
-Task 1 verification: 235 tests across 15 files, typecheck and lint pass, using synthetic predictions and an in-memory ledger. Cache validation assertion failures were observed before implementation, and compact model/stress summary assertions were observed failing before their correction. Existing Vite configuration and experimental SQLite warnings remain. No live provider/PayPal calls, local artifact imports or UI changes were performed. Independent spec and quality reviews passed at f650a16; the bounded runner/provider adapter is next (Task 2).
+Task 1 verification: 235 tests across 15 files, typecheck and lint pass, using synthetic predictions and an in-memory ledger. Cache validation assertion failures were observed before implementation, and compact model/stress summary assertions were observed failing before their correction. Existing Vite configuration and experimental SQLite warnings remain. No live provider/PayPal calls, local artifact imports or UI changes were performed. Independent spec and quality reviews passed at f650a16; the bounded runner/provider adapter also passed both reviews (Task 2).
 
 Historical M1 Task 8 verification: `npm run twin:inspect` passes Amendment 2; `npm test` (53 passing across 5 files), `npm run typecheck`, `npm run lint`, and `npm run build` pass. Tests retain the Vite config-format warning and Node experimental SQLite warning; the build also prints the SQLite warning. Final integration verification passes all 75 tests, typecheck, lint and production build. The live PayPal override/restore check passed on Pilot D; all four registered pilots are now ACTIVE.
 
@@ -213,7 +213,7 @@ All four tasks passed independent spec and quality reviews. The final independen
 
 The user authorized continuing M3. The active plan is `docs/superpowers/plans/2026-10-22-m3-agent-loop.md`. Task 1 implements validated tools, per-run classified context, explicit cache import and classifier-bound proposal targets; Task 2 adds the bounded real Groq loop; Task 3 adds the streamed endpoint and timeline; Task 4 verifies an actual run, sanitized replay and browser flow. Each implementation task receives independent spec and quality reviews. No agent approval/execution tool is introduced; existing merchant approval remains required.
 
-### M3 Task 2: bounded Groq loop (implemented; independent reviews next)
+### M3 Task 2: bounded Groq loop (reviews passed)
 
 <!-- Generated handoff: M3 Task 2, 2026-10-23. -->
 
@@ -229,4 +229,4 @@ Pacing occurs before the existing transport's attempt timer starts; retry backof
 
 `npm run agent:check` is an explicit live CLI with a synthetic default objective. It prints public progress, creates only proposed records, and exclusively writes a uniquely named ignored `data/agent-run-<time>-<uuid>.json` artifact containing public events, model/tool transcript and usage metadata. Ctrl+C cancels the run. It does not approve or execute an action. No live CLI/provider/PayPal call was made for Task 2 implementation. During preparation, the parent workflow explicitly imported the genuine validated M2 Groq artifact: 200 accepted cache entries were imported and a separate read confirmed 200 cache hits with zero provider batches. This measured preparation did not make inference or PayPal mutations; the real agent run remains Task 4.
 
-Red/green evidence: 21 initial fake-model/limiter/adapter tests failed against minimal stubs before implementation and passed afterward. Additional observed failures covered truncated provider output, reused lease ownership, public CLI artifacts and crossing the deadline immediately before persistence. HTTP tests verify a full-minute preflight wait outside the attempt timeout, cold-classifier accounting and cache reuse, unknown-usage retries, terminal 429, stalled-body cancellation, and stopping tools after reported usage exceeds the run cap. Final verification passes `npm test` (266 tests across 20 files, including 59 agent tests), `npm run typecheck`, `npm run lint` and `npm run build`; `git diff --check` is clean. The existing Vite config-format and experimental SQLite warnings remain. Independent spec and quality reviews are next, then Task 3 integration; real-run success has not yet been claimed.
+Red/green evidence: 21 initial fake-model/limiter/adapter tests failed against minimal stubs before implementation and passed afterward. Additional observed failures covered truncated provider output, reused lease ownership, public CLI artifacts and crossing the deadline immediately before persistence. HTTP tests verify a full-minute preflight wait outside the attempt timeout, cold-classifier accounting and cache reuse, unknown-usage retries, terminal 429, stalled-body cancellation, and stopping tools after reported usage exceeds the run cap. Final verification passes `npm test` (266 tests across 20 files, including 59 agent tests), `npm run typecheck`, `npm run lint` and `npm run build`; `git diff --check` is clean. The existing Vite config-format and experimental SQLite warnings remain. Independent spec and quality reviews passed at 1b75bcf; Task 3 integration and live acceptance remain. Real-run success has not yet been claimed.
