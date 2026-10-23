@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-23. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. M3 Task 1 implements the validated seven-tool boundary and explicit cache import; independent spec and quality reviews passed. The bounded Groq runner also passed independent spec and quality reviews; streaming UI and live acceptance remain. Aurrery uses port 3001**._
+_Last material update: 2026-10-23. **M0/M1/M2 are complete, reviewed and published on main. Groq GPT-OSS 120B is selected (93.5% joint agreement on 200 synthetic messages; all pilots and tool smoke pass). Gemini returned HTTP 503 twice and remains unassessed for accuracy. M3 Tasks 1–2 passed independent spec and quality reviews. Task 3 implements the streamed dashboard with 313 passing tests, typecheck, lint and production build; its independent reviews and browser acceptance remain. The latest real CLI run safely ended incomplete without a proposal, so runner protocol follow-up and M3 live acceptance remain open. Aurrery uses port 3001**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -16,13 +16,23 @@ _Last material update: 2026-10-23. **M0/M1/M2 are complete, reviewed and publish
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
 | `main` | M0/M1/M2, selected Groq provider and measured report | yes |
-| `feat/m3-agent-loop` | M3 detailed plan; Tasks 1–2 reviewed; streaming UI and live acceptance next | active |
+| `feat/m3-agent-loop` | M3 Tasks 1–2 reviewed; Task 3 streaming UI implemented and locally verified; review, runner follow-up and live acceptance next | active |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
 | `feat/m1-twin-v2` | M0/M1 and final sandbox acceptance | yes; merged into main |
 
 Latest M2 verification: all 184 tests across 13 files, typecheck, lint and production build pass. Merged-main tests also pass. Scans of all 88 tracked files found no configured credential values or personal home-directory paths. The working tree is clean after the documentation commit.
+
+## M3 Task 3 implementation (awaiting independent reviews)
+
+Generated handoff: `POST /api/agent` accepts only a trimmed 1–2000-character objective, with a 16 KiB body bound and strict rejection of extra fields. Its server-only factory in `src/agent/http.ts` reserves the shared process lease before returning a stream, returns HTTP 409 for an active lease, forwards request disconnect and reader cancellation to the runner, and releases listeners/lease on completion or failure. `src/agent/stream.ts` is browser-safe: NDJSON frames carry a unique run ID and consecutive sequence; the decoder validates public event shapes, handles split UTF-8/lines, bounds frames at 512 KiB, and requires an explicit terminal status. Truncated, malformed, mixed-run or out-of-order streams remain incomplete. Raw asynchronous exceptions produce safe error/done frames. Cache Components requires the default Node.js runtime, so this route intentionally has no explicit `runtime` export.
+
+`AgentPanel` owns a stable `AgentSession` through rerenders. Stop and unmount abort the request, invalidate its generation and ignore late events; a local Stop displays cancelled even when final server frames cannot arrive. Public activity includes actual classification provider/model and cached/fresh/accepted/unclassified/eligible counts, rules, paired simulation summaries, adverse stress with assumption source, display-only customer drafts, proposal rationale/tradeoffs and safe incomplete states. A textual recommendation never becomes a proposal. The existing grid, fan chart and approval card receive typed full comparison/proposal events; confirmation stays unchecked. Conflicting manual, objective, selection, approve and reject controls are disabled during a run. New runs/manual simulations and evidence/rule changes clear stale review state; selecting another strategy clears its proposal/report/confirmation. Agent comparisons display classified provenance; manual comparisons retain canonical estimates. Manual preparation keeps the existing route behavior and labels that distinction. Horizon labels use actual comparison options; the one-month chart deduplicates its tick label.
+
+Task 3 verification: all 313 tests across 26 files, `npm run typecheck`, `npm run lint` and `npm run build` pass. New tests use fake fetch/runner dependencies, synthetic twins and the existing in-memory test ledger. Initial missing-feature failures were observed before API/decoder/session/reducer/panel implementation. Focused assertions were observed failing before corrections for oversized-frame sequence continuity, error-then-exception termination, stalled source cleanup, valid bounded long summaries, manual review reset and one-month chart labels. Existing Task 2 HTTP transport tests are preserved; endpoint tests live separately in `src/agent/route-handler.test.ts`. Existing Vite config-format and experimental SQLite warnings remain. No live provider/PayPal calls, browser checks, local artifact imports or credential reads were performed for this implementation task.
+
+Parent-reported real CLI follow-up at `b2897c8`: the second run safely ended `incomplete / NO_PROPOSAL` after five tools, six model turns, six HTTP 200 responses, no retries, 18,435 reported tokens and 241,618 ms. It classified 200/200 cached records with zero unclassified and two eligible pilots, then simulated, stressed and drafted before making a verbal recommendation without explicitly setting rules or invoking `recommend`. No proposal was created. Runner prerequisite/tool availability and bounded protocol repair are the next implementation follow-up; these local UI checks do not establish M3 live acceptance.
 
 ## M3 Task 1 implementation (reviews passed)
 
@@ -90,7 +100,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
    - The original cohort's earlier 404s remain unexplained. No expiration duration or TTL has been established.
 3. **Integration complete.** Main fast-forwarded to the tested M0/M1 tree; all 75 tests passed again on main. Main and both working branch refs were pushed and verified on origin. LICENSE is now on main. The user subsequently resumed M2 after adding provider keys.
 4. **M2 complete.** The fresh Gemini-then-Groq run completed: Gemini returned HTTP 503 twice; Groq passed all thresholds with 93.5% joint agreement, all four pilots correct and a successful tool round trip. The classify → evidence → simulate path worked. `AI_PROVIDER=groq` and `GROQ_MODEL=openai/gpt-oss-120b` record the default. See the [measured report](research/m2-provider-evaluation.md) and [decision 0003](decisions/0003-ai-provider-evaluation.md).
-5. **M3 next: agent tool loop and streamed timeline.** Write its detailed plan first. Use the selected Groq provider, validate the full tool loop/streaming under the observed 8,000-token-per-minute limit, consume the classified twin and classifier-derived pilot eligibility explicitly, and keep exact-payload merchant approval. The fresh benchmark left the cache cold; populate or explicitly validate/import cached results with version/hash checks. No agent or new UI is implemented yet.
+5. **M3 active: agent tool loop and streamed timeline.** Tasks 1–2 passed reviews; Task 3 is implemented and locally verified, awaiting independent reviews and browser acceptance. Fix the observed real-run prerequisite/protocol gap, then validate a complete live tool loop and streaming under the observed 8,000-token-per-minute limit. Keep classifier-derived pilot eligibility and exact-payload merchant approval. The latest real run safely stopped without creating a proposal; M3 is not complete.
 6. **M4: Product UI: headline card, orbit language, polish.**
 7. **M5: Hosting and observed loop: Render, webhooks, revert, reset.** Then the roadmap's cut checkpoint.
 8. **M7: Annual-plan execution** (required hero path; may precede M6).
@@ -106,7 +116,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 - **Reason targeting is resolved and reviewed.** The hero proposal now targets only price-driven cancel-intent pilots A and B; Pilot C is excluded.
 - **Legacy proposal display:** proposals persisted before reason/campaign metadata were added have no migration; the UI can display an incorrect reason fallback and undefined campaign month. New proposals carry both fields and display correctly.
 - **Annual-plan execution remains future M7 work.** Simulation exists; PayPal annual switching is not implemented.
-- **The UI is unverified.** It hasn't been checked in a browser since the foundation. `STARTER_STRATEGIES` now contains campaign strategies.
+- **Browser acceptance remains open.** The Task 3 stream/dashboard integration has automated coverage and a passing production build but has not yet been checked in a browser. `STARTER_STRATEGIES` contains campaign strategies.
 - **Optional test improvements from the 5c review:**
   - decouple test (d) from the `m0:acq` stream key, using `runOnce(...).newSubscribers`;
   - add a move-entrant boundary check (cancel_intent/"any": campaign 1 should match campaign 0);

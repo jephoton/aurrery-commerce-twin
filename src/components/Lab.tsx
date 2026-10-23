@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import type { AgentEvent } from "@/agent/contracts";
 import type { ExecutionReport } from "@/execution/execute";
 import type { Proposal } from "@/ledger/proposals";
 import type { Strategy } from "@/twin/interventions";
@@ -8,6 +9,8 @@ import type { ComparisonResult } from "@/twin/simulate";
 import type { Provenance, SegmentId } from "@/twin/types";
 import { FanChart } from "./FanChart";
 import { ScenarioGrid, toRows } from "./ScenarioGrid";
+import { AgentPanel } from "./AgentPanel";
+import { dashboardReducer, emptyDashboard } from "./lab-state";
 
 export interface MerchantSummary {
   name: string;
@@ -50,14 +53,14 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; starterStrategies: Strategy[] }) {
   const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
-  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<Proposal | null>(null);
-  const [report, setReport] = useState<ExecutionReport | null>(null);
+  const [{ comparison, selectedId, proposal, report, confirmed, evidence, comparisonSource }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
-  const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | null>(null);
+  const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const setConfirmed = (value: boolean) => dispatch({ type: "confirmed", value });
+  const startAgent = useCallback(() => { setBusy("agent"); setError(null); dispatch({ type: "reset" }); }, []);
+  const agentEvent = useCallback((event: AgentEvent) => dispatch({ type: "event", event }), []);
+  const finishAgent = useCallback(() => setBusy(null), []);
 
   const refreshPayPal = useCallback(() => {
     api<PayPalStatus>("/api/paypal/status").then(setPayPal).catch((e) => setError(e.message));
@@ -65,17 +68,13 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
   useEffect(refreshPayPal, [refreshPayPal]);
 
   const simulate = async () => {
+    if (busy) return;
     setBusy("simulate");
     setError(null);
-    setProposal(null);
-    setReport(null);
+    dispatch({ type: "reset" });
     try {
       const result = await api<ComparisonResult>("/api/simulate", { method: "POST", body: JSON.stringify({ strategies: starterStrategies }) });
-      setComparison(result);
-      const best = [...result.strategies]
-        .filter((s) => s.strategy.id !== result.baselineId)
-        .sort((a, b) => b.vsBaseline.totalValue.p50 - a.vsBaseline.totalValue.p50)[0];
-      setSelectedId(best?.strategy.id ?? null);
+      dispatch({ type: "comparison", comparison: result, source: "manual" });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -88,17 +87,16 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
   const rows = useMemo(() => (comparison ? toRows(comparison.strategies, comparison.baselineId) : []), [comparison]);
 
   const propose = async () => {
-    if (!selected) return;
+    if (!selected || busy) return;
     setBusy("propose");
     setError(null);
-    setReport(null);
-    setConfirmed(false);
+    dispatch({ type: "clear-review" });
     try {
       const { proposal } = await api<{ proposal: Proposal }>("/api/proposals", {
         method: "POST",
         body: JSON.stringify({ objective, strategy: selected.strategy }),
       });
-      setProposal(proposal);
+      dispatch({ type: "proposal", proposal });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -107,7 +105,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
   };
 
   const approve = async () => {
-    if (!proposal) return;
+    if (!proposal || busy || !confirmed) return;
     setBusy("execute");
     setError(null);
     try {
@@ -115,8 +113,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
         method: "POST",
         body: JSON.stringify({ actionHash: proposal.actionHash, approvedBy: "merchant (demo)" }),
       });
-      setReport(result);
-      setProposal(result.proposal);
+      dispatch({ type: "report", report: result });
       refreshPayPal();
     } catch (e) {
       setError((e as Error).message);
@@ -126,9 +123,13 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
   };
 
   const reject = async () => {
-    if (!proposal) return;
-    const { proposal: p } = await api<{ proposal: Proposal }>(`/api/proposals/${proposal.id}/reject`, { method: "POST", body: "{}" });
-    setProposal(p);
+    if (!proposal || busy) return;
+    setBusy("reject"); setError(null);
+    try {
+      const { proposal: p } = await api<{ proposal: Proposal }>(`/api/proposals/${proposal.id}/reject`, { method: "POST", body: "{}" });
+      dispatch({ type: "proposal", proposal: p });
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(null); }
   };
 
   const atRisk = summary.segments.find((s) => s.id === "at_risk")!;
@@ -185,6 +186,8 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
         <textarea
           id="objective"
           value={objective}
+          disabled={busy !== null}
+          maxLength={2000}
           onChange={(e) => setObjective(e.target.value)}
           rows={2}
           className="w-full rounded-lg border border-border bg-background px-3 py-2 outline-none focus:border-brand-accent"
@@ -197,8 +200,9 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
           >
             {busy === "simulate" ? "Simulating 1,000 futures…" : "Simulate strategies"}
           </button>
-          <span className="text-sm text-muted">{starterStrategies.length} candidate strategies · 1,000 Monte Carlo runs each · 12-month horizon</span>
+          <span className="text-sm text-muted">Manual comparison: {starterStrategies.length} candidate strategies · 1,000 futures each · 12-month horizon</span>
         </div>
+        <AgentPanel objective={objective} disabled={busy !== null} onStart={startAgent} onEvent={agentEvent} onFinish={finishAgent} />
       </section>
 
       {comparison && (
@@ -207,9 +211,9 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
             <h2 className="text-lg font-semibold">Scenario comparison</h2>
             <span className="rounded bg-sim/10 px-2 py-0.5 text-xs font-medium text-sim">Simulated, not observed</span>
           </div>
-          <ScenarioGrid rows={rows} selectedId={selectedId} onSelect={setSelectedId} />
+          <ScenarioGrid rows={rows} selectedId={selectedId} disabled={busy !== null} horizonMonths={comparison.options.horizonMonths} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
           <p className="mt-2 text-xs text-muted">
-            Value = 12-month gross profit + discounted margin of the subscribers remaining at month 12 (next 24 months, 1%/mo). Differences are paired
+            Value = {comparison.options.horizonMonths}-month gross profit + discounted margin of the subscribers remaining at month {comparison.options.horizonMonths} (next 24 months, 1%/mo). Differences are paired
             against the baseline under common random numbers.
           </p>
         </section>
@@ -231,8 +235,9 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
           </div>
           <div className="rounded-xl border border-border bg-surface p-5 lg:col-span-2">
             <h3 className="mb-2 font-semibold">What this rests on</h3>
+            <p className="mb-3 text-sm text-muted">{comparisonSource === "agent" ? `AI-classified synthetic feedback · ${evidence?.summary.provider ?? "provider unavailable"} / ${evidence?.summary.model ?? "model unavailable"}. Historical estimates and assumptions remain identified below.` : "Manual estimate from the canonical synthetic twin; no AI classification applied to this comparison."}</p>
             <ul className="space-y-2 text-sm">
-              {Object.entries(summary.provenance).map(([k, p]) => (
+              {Object.entries(comparisonSource === "agent" ? evidence?.provenance ?? {} : summary.provenance).map(([k, p]) => (
                 <li key={k} className="flex gap-2">
                   <span
                     className={`mt-0.5 h-fit shrink-0 rounded px-1.5 text-xs font-medium ${p.source === "assumption" ? "bg-amber-100 text-amber-800" : p.source === "observed" ? "bg-observed/10 text-observed" : "bg-brand-accent/10 text-brand-accent"}`}
@@ -257,6 +262,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
           ) : !proposal ? (
             <>
               <p className="mb-3 text-muted">Prepare the exact PayPal action for review. Nothing is sent to PayPal until you approve it.</p>
+              {comparisonSource === "agent" && <p className="mb-3 text-sm text-muted">Manual preparation uses canonical twin estimates and registered pilots. The agent&apos;s classified pilot filter applies only to its own proposal.</p>}
               <button
                 onClick={propose}
                 disabled={busy !== null}
@@ -271,7 +277,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
               paypal={paypal}
               confirmed={confirmed}
               setConfirmed={setConfirmed}
-              busy={busy === "execute"}
+              busy={busy !== null}
               onApprove={approve}
               onReject={reject}
             />
@@ -410,7 +416,7 @@ function ProposalCard({
             action.
           </p>
           <label className="mb-3 flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+            <input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => setConfirmed(e.target.checked)} />
             I approve changing the price of these {a.targets.length} PayPal Sandbox subscription(s).
           </label>
           <div className="flex gap-3">
@@ -419,7 +425,7 @@ function ProposalCard({
               disabled={!confirmed || busy || !paypal?.configured}
               className="rounded-lg bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 disabled:opacity-50"
             >
-              {busy ? "Executing in PayPal Sandbox…" : "Approve & execute"}
+              {busy ? "Working…" : "Approve & execute"}
             </button>
             <button onClick={onReject} disabled={busy} className="rounded-lg border border-border px-4 py-2 hover:bg-background">
               Reject

@@ -1,8 +1,8 @@
 "use client";
 
-import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ValueFormatterParams } from "ag-grid-community";
+import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type GridApi, type ValueFormatterParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { StrategyResult } from "@/twin/simulate";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -57,18 +57,28 @@ export function ScenarioGrid({
   rows,
   selectedId,
   onSelect,
+  disabled = false,
+  horizonMonths = 12,
 }: {
   rows: ScenarioRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  disabled?: boolean;
+  horizonMonths?: number;
 }) {
+  const api = useRef<GridApi<ScenarioRow> | null>(null);
+  useEffect(() => {
+    if (!api.current || api.current.isDestroyed()) return;
+    api.current.deselectAll();
+    if (selectedId) api.current.getRowNode(selectedId)?.setSelected(true);
+  }, [selectedId, rows]);
   const columns = useMemo<ColDef<ScenarioRow>[]>(
     () => [
       { field: "name", headerName: "Strategy", flex: 2, minWidth: 220, pinned: "left" },
       {
         field: "deltaValueP50",
         headerName: "Δ Value (median)",
-        headerTooltip: "12-month gross profit plus value of the subscriber base at month 12, versus doing nothing",
+        headerTooltip: `${horizonMonths}-month gross profit plus value of the subscriber base at month ${horizonMonths}, versus doing nothing`,
         valueFormatter: signed,
         cellClass: (p) => tone(p.value),
         sort: "desc",
@@ -89,7 +99,7 @@ export function ScenarioGrid({
         cellClass: (p) => (p.data?.isBaseline ? "" : (p.value ?? 0) > 0.35 ? "text-negative" : (p.value ?? 0) < 0.1 ? "text-positive" : ""),
         minWidth: 120,
       },
-      { field: "deltaProfitP50", headerName: "Δ 12-mo profit", valueFormatter: signed, cellClass: (p) => tone(p.value), minWidth: 130 },
+      { field: "deltaProfitP50", headerName: `Δ ${horizonMonths}-mo profit`, valueFormatter: signed, cellClass: (p) => tone(p.value), minWidth: 130 },
       {
         field: "deltaEndingActive",
         headerName: "Δ Subscribers",
@@ -113,19 +123,20 @@ export function ScenarioGrid({
         minWidth: 120,
       },
     ],
-    [],
+    [horizonMonths],
   );
 
   return (
-    <div style={{ height: 52 + rows.length * 44 + 4 }}>
+    <div aria-disabled={disabled} inert={disabled} style={{ height: 52 + rows.length * 44 + 4 }}>
       <AgGridReact<ScenarioRow>
         theme={theme}
         rowData={rows}
         columnDefs={columns}
         defaultColDef={{ sortable: true, resizable: true, flex: 1 }}
         getRowId={(p) => p.data.id}
-        rowSelection={{ mode: "singleRow", checkboxes: false, enableClickSelection: true }}
-        onRowClicked={(e) => e.data && onSelect(e.data.id)}
+        rowSelection={{ mode: "singleRow", checkboxes: false, enableClickSelection: !disabled }}
+        onGridReady={(e) => { api.current = e.api; }}
+        onRowClicked={(e) => !disabled && e.data && onSelect(e.data.id)}
         onFirstDataRendered={(e) => selectedId && e.api.getRowNode(selectedId)?.setSelected(true)}
       />
     </div>
