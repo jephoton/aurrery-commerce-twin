@@ -5,7 +5,7 @@ import { feedbackCorpus } from "@/signals/corpus";
 import { emptyMetrics } from "@/signals/providers";
 import type { ClassificationResult } from "@/signals/classify";
 import type { Prediction } from "@/signals/contracts";
-import type { Strategy } from "@/twin/interventions";
+import { BASELINE, type Strategy } from "@/twin/interventions";
 import { compareStrategies } from "@/twin/simulate";
 import { ledger } from "@/ledger/db";
 import { listProposals, listSandboxSubscribers, registerSandboxSubscriber, replaceSandboxSubscription } from "@/ledger/proposals";
@@ -28,6 +28,28 @@ async function ready(ctx: ReturnType<typeof setup>, candidate = strategy) {
 const recommend = (ctx: ReturnType<typeof setup>, id = "save") => ctx.dispatch("recommend", { strategyId: id, rationale: "A bounded offer", tradeoffs: "Discount costs and expiry risk" });
 
 describe("agent tool boundary", () => {
+  it("exposes the canonical automatic baseline and compares candidate-only or explicit-baseline inputs identically", async () => {
+    const ctx = setup({ simulate: (twin, candidates, options) => compareStrategies(twin, candidates, { ...options, runs: 10 }) });
+    const merchant = await ctx.dispatch("get_merchant_state", {});
+    expect(merchant).toMatchObject({ ok: true, data: { baseline: { strategy: BASELINE, automaticallyIncluded: true } } });
+    if (!merchant.ok) throw new Error("Expected merchant state");
+    const baseline = (merchant.data as { baseline: { strategy: Strategy } }).baseline.strategy;
+    const implicit = await ctx.dispatch("simulate_strategies", { strategies: [strategy] });
+    const explicit = await ctx.dispatch("simulate_strategies", { strategies: [baseline, strategy] });
+    if (!implicit.ok || !explicit.ok) throw new Error("Expected comparisons");
+    const comparison = implicit.data as { strategies: unknown[] };
+    expect(explicit.data).toEqual({ ...comparison, strategies: expect.arrayContaining(comparison.strategies) });
+    expect(ctx.state.comparison?.baselineId).toBe(baseline.id);
+    expect(ctx.state.comparison?.strategies).toHaveLength(2);
+    expect(ctx.state.comparison?.strategies.map((r) => r.strategy)).toEqual(expect.arrayContaining([baseline, strategy]));
+  });
+  it.each([{ ...BASELINE, name: "Do nothing" }, { ...BASELINE, id: "do_nothing" }])("explains the automatic baseline contract for an incompatible baseline %j", async (baseline) => {
+    const ctx = setup();
+    expect(await ctx.dispatch("simulate_strategies", { strategies: [baseline, strategy] })).toMatchObject({ ok: false, code: "STRATEGY_CONFLICT", message: expect.stringContaining("automatically") });
+    expect(ctx.state.comparison).toBeUndefined();
+    expect(await ctx.dispatch("simulate_strategies", { strategies: [strategy] })).toMatchObject({ ok: true });
+    expect(ctx.state.comparison?.strategies.map((r) => r.strategy.id)).toEqual([BASELINE.id, strategy.id]);
+  });
   it("exposes exactly seven strict tools and returns safe errors for unknown tools and extra arguments", async () => {
     const ctx = setup();
     expect(TOOL_DEFINITIONS.map((t) => t.function.name)).toEqual(["get_merchant_state", "classify_feedback", "set_decision_rules", "simulate_strategies", "stress_test", "draft_customer_message", "recommend"]);

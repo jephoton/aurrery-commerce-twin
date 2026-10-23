@@ -38,7 +38,7 @@ const descriptions: Record<ToolName, string> = {
   get_merchant_state: "Read merchant estimates, visible default rules and run progress.",
   classify_feedback: "Classify synthetic feedback using the selected provider and cache; update reason estimates and pilot eligibility.",
   set_decision_rules: "Explicitly set the maximum discount cost, probability of worse value and simulation horizon.",
-  simulate_strategies: "Compare bounded candidates cumulatively against do nothing using the server twin.",
+  simulate_strategies: "Compare candidates cumulatively. The server automatically adds the do-nothing baseline; submit intervention candidates only. Classify feedback and explicitly set rules first; either change invalidates comparisons and stress tests.",
   stress_test: "Test a previously simulated candidate with adverse assumption shifts.",
   draft_customer_message: "Display customer message copy for a simulated candidate. Does not send.",
   recommend: "Create one proposed action from a classified, simulated and stressed candidate within the rules. Merchant approval is separate.",
@@ -116,6 +116,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
           }),
           assumptions: assumptions(), evidenceNote: "Synthetic history estimates churn; classified feedback estimates leaving reasons. Intervention effects are uncertain and stress tested.",
           starterStrategies: STARTER_STRATEGIES,
+          baseline: { strategy: BASELINE, automaticallyIncluded: true },
           rules: state.rules, rulesExplicit: state.rulesExplicit, classified: state.classified, classification: state.classification, terminalFailure: state.terminalFailure, revision: state.revision, comparedStrategyIds: [...strategies.keys()], proposalId: state.proposal?.id,
         };
       }
@@ -169,9 +170,9 @@ export function createToolContext(options: ToolContextOptions = {}) {
         const next = new Map(strategies);
         for (const raw of candidates) {
           const candidate = StrategySchema.parse(raw);
+          if ((candidate.id === BASELINE.id || candidate.intervention.kind === "baseline") && JSON.stringify(candidate) !== JSON.stringify(BASELINE)) throw new ToolFailure("STRATEGY_CONFLICT", "Server adds do nothing automatically; submit intervention candidates only, or use the exact baseline from get_merchant_state.");
           const existing = next.get(candidate.id) ?? strategyDefinitions.get(candidate.id);
           if (existing && JSON.stringify(existing) !== JSON.stringify(candidate)) throw new ToolFailure("STRATEGY_CONFLICT", "Strategy IDs must retain the same definition in a run.");
-          if (candidate.intervention.kind === "baseline" && candidate.id !== BASELINE.id) throw new ToolFailure("STRATEGY_CONFLICT", "Use the server baseline ID for do nothing.");
           next.set(candidate.id, candidate);
         }
         const comparison = (options.simulate ?? compareStrategies)(state.twin, [...next.values()], simulationOptions());
