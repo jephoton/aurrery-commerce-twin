@@ -1,5 +1,6 @@
 import "server-only";
 import { createProvider } from "@/signals/providers";
+import type { SafeProviderError } from "@/signals/transport";
 import { CLASSIFICATION_INSTRUCTION, CLASSIFICATION_JSON_SCHEMA, modelInputJSON } from "@/signals/prompt";
 import { createProposal, type Proposal } from "@/ledger/proposals";
 import type { ComparisonResult } from "@/twin/simulate";
@@ -24,9 +25,18 @@ export interface RunOptions extends BudgetOptions {
 export type RunReason = "COMPLETE" | "NO_PROPOSAL" | "TOOL_LIMIT" | "TURN_LIMIT" | "PROTOCOL" | "QUOTA" | "PROVIDER_FAILED" | "CLASSIFICATION_FAILED" | "CONFIGURATION" | "INVALID_OBJECTIVE" | "FAILED" | "BUSY" | "CANCELLED" | "DEADLINE" | "TOKEN_LIMIT";
 export interface RunResult {
   status: "complete" | "incomplete" | "cancelled"; reason: RunReason; proposalId?: string;
+  providerFailure?: Pick<SafeProviderError, "category" | "status">;
   counters: { requestedTools: number; executedTools: number; modelTurns: number; accountedTokens: number; reportedTokens: number; httpRequests: number; elapsedMs: number };
   transcript: PublicMessage[];
   requests: RequestUsage[];
+}
+function providerFailureFrom(value: unknown): RunResult["providerFailure"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  const error = value as Record<string, unknown>;
+  const category = (["configuration", "auth", "model", "request", "quota", "network", "timeout", "server", "malformed_json", "envelope", "response_size"] as const).find((category) => category === error.category);
+  if (!category) return;
+  const status = error.status;
+  return { category, ...(typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599 ? { status } : {}) };
 }
 /** A supplied lease must come from acquireAgentLease; the runner always releases it. */
 export async function runAgent(options: RunOptions): Promise<RunResult> {
@@ -36,11 +46,12 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
   let lease: AgentLease | undefined;
   let budget: ReturnType<typeof createRunBudget> | undefined;
   const emit = options.emit ?? (() => {});
-  function finish(reason: RunReason): RunResult {
+  function finish(reason: RunReason, providerFailure?: RunResult["providerFailure"]): RunResult {
     const status = reason === "COMPLETE" ? "complete" : reason === "CANCELLED" ? "cancelled" : "incomplete";
     const proposalId = tools?.state.proposal?.id;
-    if (status !== "complete") emit({ type: "error", code: reason, message: reason === "CANCELLED" ? "Run cancelled." : `Run incomplete: ${reason}.` });
-    const result: RunResult = { status, reason, ...(proposalId ? { proposalId } : {}), counters: { requestedTools, executedTools, modelTurns, accountedTokens: 0, reportedTokens: 0, httpRequests: 0, elapsedMs: 0, ...budget?.counters() }, transcript, requests: budget?.requests ?? [] };
+    const detail = providerFailure ? ` Provider failure: ${providerFailure.category}${providerFailure.status ? ` (HTTP ${providerFailure.status})` : ""}.` : "";
+    if (status !== "complete") emit({ type: "error", code: reason, message: reason === "CANCELLED" ? "Run cancelled." : `Run incomplete: ${reason}.${detail}` });
+    const result: RunResult = { status, reason, ...(proposalId ? { proposalId } : {}), ...(providerFailure ? { providerFailure } : {}), counters: { requestedTools, executedTools, modelTurns, accountedTokens: 0, reportedTokens: 0, httpRequests: 0, elapsedMs: 0, ...budget?.counters() }, transcript, requests: budget?.requests ?? [] };
     emit({ type: "done", status, reason, ...(proposalId ? { proposalId } : {}) });
     return result;
   }
@@ -87,7 +98,10 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
       }
       const result = await model.respond(structuredClone(transcript), definitions, { final, requireTool });
       budget.check();
-      if (result.error) return finish(result.error.category === "quota" ? "QUOTA" : result.error.category === "envelope" ? "PROTOCOL" : "PROVIDER_FAILED");
+      if (result.error) {
+        const failure = providerFailureFrom(result.error);
+        return finish(failure?.category === "quota" ? "QUOTA" : failure?.category === "envelope" ? "PROTOCOL" : "PROVIDER_FAILED", failure);
+      }
       const message = publicAssistant(result.message);
       if (!message) return finish("PROTOCOL");
       const calls = message.tool_calls ?? [];
