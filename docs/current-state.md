@@ -15,8 +15,8 @@ _Last material update: 2026-10-25. **M0–M3 are complete and reviewed. Gemini 3
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `main` | M0–M3, selected Gemini provider, measured validation and both genuine replays | final fast-forward/push in progress; verify origin before handoff |
-| `feat/m3-agent-loop` | Reviewed M3, Gemini adapter/pacing, genuine Groq/Gemini replays and accepted functional dashboard flow | reviewed checkpoint pushed; final acceptance commit being published |
+| `main` | M0–M3, selected Gemini provider, measured validation and both genuine replays | yes; M3 fast-forwarded and origin verified at `5e2bb55` before this publication-note update |
+| `feat/m3-agent-loop` | Reviewed M3, Gemini adapter/pacing, genuine Groq/Gemini replays and accepted functional dashboard flow | yes; merged into main; preserved milestone ref |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
@@ -29,6 +29,8 @@ M2 checkpoint verification: all 184 tests across 13 files, typecheck, lint and p
 The actual production browser flow at `31186fb` showed advancing activity and completed seven tools/eight model calls with 200 cache hits, eight HTTP 200 responses, no observed retry/429 and 28,634 reported tokens. The HTTP sequence spanned about 30.1 seconds; completion was observed within 38 seconds. Warm-cache results are not a guarantee for fresh classification or other quota conditions. Comparison/stress/draft refreshed; the exact A/B-only $24 → $18 action retained its correct payload hash, unchecked confirmation and disabled execution control. The ledger has three proposed rows, zero approval audit events and zero executions. Fresh PayPal GETs confirmed all four pilots ACTIVE at $24. Nothing was approved, executed or sent.
 
 All implementation tasks and deltas passed independent spec then quality reviews; final integrated review passed. Parent checks: 421 tests/32 files, typecheck, zero-warning lint, production build, diff check and all 128 tracked files scanned for configured secrets/personal paths. See [the measured report](research/m3-agent-validation.md) for retained failures, source hashes, screenshots and limitations. Existing Vite config-format and experimental SQLite notices remain.
+
+Publication: `main` fast-forwarded to the accepted milestone at `5e2bb55`, all 421 tests passed again on merged main, and both main and the M3 branch were pushed with matching remote refs. This following documentation-only commit records that verified publication; it does not change the tested application code.
 
 **M4 is next.** Improve typed source/statistical labels before product polish: 18 active cancel-intent subscribers are distinct from 42 classified feedback records (21 price/21 other); save-offer median is $89.27 and mean is $105.08. The model still says “median expected” and misleadingly connects sample counts to active subscribers. Functional browser acceptance passed; fully grounded narrative did not. Preserve genuine recordings and honest assumptions rather than editing model history or forcing a winner. Keep annual execution in M7 and CSV as the only cut candidate. The running production app is on port 3001; local credentials/cache/ledger remain ignored and need secure setup on another machine.
 
