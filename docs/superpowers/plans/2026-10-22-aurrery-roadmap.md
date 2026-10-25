@@ -36,7 +36,7 @@ Each milestone ends with working, tested software, committed on its own branch a
 **Done when:** tests pass. `twin:inspect` shows the precision discount beating the broad one on median value, and the stress test is never better than the base case. If the precision discount does *not* beat baseline under honest assumptions, we stop and revisit the story rather than tune numbers.
 
 ## M2: Signals
-**Status:** completed; Groq GPT-OSS 120B selected. See [measured results](../../research/m2-provider-evaluation.md); Gemini accuracy remains unassessed after HTTP 503. M3 live CLI has since completed; its endpoint/browser acceptance remains open.
+**Status:** complete. The original evaluation selected Groq; a later Gemini reevaluation passed all frozen gates and selected Gemini 3.5 Flash-Lite for M3. See [measured results](../../research/m2-provider-evaluation.md) and decision 0004.
 **Goal:** the AI reads customer text, and that becomes evidence the twin uses.
 - Synthetic corpus fixture (about 200 messages with hidden ground-truth labels) linked to segments and pilot subscriptions.
 - Evaluate **Gemini first, then Groq**, using the same synthetic fixture, schema and hidden ground truth, before selecting the default provider. See [decision 0003](../../decisions/0003-ai-provider-evaluation.md).
@@ -48,7 +48,7 @@ Each milestone ends with working, tested software, committed on its own branch a
 **Done when:** Gemini and then Groq have been evaluated and the default selection is documented; a classify → re-estimate → simulate round trip works. Accuracy is reported, and invalid outputs are flagged as unclassified. If neither free option is suitable, report the results before selecting another provider.
 
 ## M3: Agent
-**Status:** implementation and runner corrections passed independent spec/quality reviews. One real CLI flow at `36be5dd` completed with a proposed-only A/B action; a genuine recorded replay passes locally. Endpoint/browser acceptance, replay/final reviews and final verification remain pending. M3 is **not complete or merged**. See [measured validation](../../research/m3-agent-validation.md). M4 begins after remaining M3 acceptance passes.
+**Status:** complete and reviewed. Gemini 3.5 Flash-Lite passed reevaluation and the real default-objective production dashboard flow; genuine Groq/Gemini replays and all 421 tests pass. A/B-only $18 approval remained unchecked, with zero executions. Narrative grounding remains partial: M4 must distinguish feedback sample from active population and median from mean in typed labels. See [measured validation](../../research/m3-agent-validation.md). M4 is next.
 
 **Goal:** a single tool-use agent produces an auditable recommendation and proposal.
 - The seven tools from spec §4; at most 10 tool calls; no execute tool.

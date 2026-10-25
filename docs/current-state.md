@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-25. **M0/M1/M2 are complete, reviewed and published on main. Gemini 3.5 Flash-Lite is selected for M3 after 200 valid accepted predictions, 96.0% joint agreement, all four pilots correct and a separate corrected fresh two-request tool smoke; rescoring unchanged classifications passed every frozen suitability gate. The original failed artifact is retained. The adapter/wiring and opt-in rate profile passed independent reviews. Gemini runtime/cache import and the verified-project 100,000-TPM/12-RPM opt-in are active. A genuine Gemini CLI completed seven tools/eight turns with an unapproved A/B-only $18 proposal under the original rate profile; its public prose has two known numeric interpretation errors. Genuine Gemini and historical Groq offline replays preserve their exact public responses. Browser progress, visible error handling and Stop are verified; a completed Gemini dashboard flow under the opt-in profile and unchecked A/B $18 approval card remain unverified. M3 is incomplete and unmerged. Aurrery uses port 3001**._
+_Last material update: 2026-10-25. **M0–M3 are complete and reviewed. Gemini 3.5 Flash-Lite is primary; Groq remains explicitly selectable, with no automatic fallback. The real production dashboard completed the default objective with the reviewed 100,000-TPM/12-RPM profile, correct comparison/stress and an A/B-only $18 proposal. Confirmation stayed unchecked and execution disabled. All 421 tests, typecheck, zero-warning lint and production build pass; final integrated review passed. Narrative grounding is partial: model prose still conflates median/mean wording and active population/feedback sample. Those limitations are accepted for M3 and carried into M4. No approval or execution occurred. Aurrery uses port 3001**._
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -15,14 +15,26 @@ _Last material update: 2026-10-25. **M0/M1/M2 are complete, reviewed and publish
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `main` | M0/M1/M2, selected Groq provider and measured report | yes |
-| `feat/m3-agent-loop` | Original M3 tasks/corrections reviewed; genuine Groq and Gemini replays retained; Gemini adapter/wiring and opt-in rate profile reviewed and activated; live dashboard acceptance pending | active; unmerged |
+| `main` | M0–M3, selected Gemini provider, measured validation and both genuine replays | final fast-forward/push in progress; verify origin before handoff |
+| `feat/m3-agent-loop` | Reviewed M3, Gemini adapter/pacing, genuine Groq/Gemini replays and accepted functional dashboard flow | reviewed checkpoint pushed; final acceptance commit being published |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
 | `chore/m0-rename-paypal-check` | M0 Tasks 1–3 (Steps 1–3); remaining M0 acceptance is on main | yes; preserved handoff ref |
 | `feat/m1-twin-v2` | M0/M1 and final sandbox acceptance | yes; merged into main |
 
 M2 checkpoint verification: all 184 tests across 13 files, typecheck, lint and production build passed. Merged-main tests also passed. Scans of all 88 then-tracked files found no configured credential values or personal home-directory paths. Current M3 verification and remaining acceptance are recorded below.
+
+## M3 final acceptance and M4 handoff
+
+The actual production browser flow at `31186fb` showed advancing activity and completed seven tools/eight model calls with 200 cache hits, eight HTTP 200 responses, no observed retry/429 and 28,634 reported tokens. The HTTP sequence spanned about 30.1 seconds; completion was observed within 38 seconds. Warm-cache results are not a guarantee for fresh classification or other quota conditions. Comparison/stress/draft refreshed; the exact A/B-only $24 → $18 action retained its correct payload hash, unchecked confirmation and disabled execution control. The ledger has three proposed rows, zero approval audit events and zero executions. Fresh PayPal GETs confirmed all four pilots ACTIVE at $24. Nothing was approved, executed or sent.
+
+All implementation tasks and deltas passed independent spec then quality reviews; final integrated review passed. Parent checks: 421 tests/32 files, typecheck, zero-warning lint, production build, diff check and all 128 tracked files scanned for configured secrets/personal paths. See [the measured report](research/m3-agent-validation.md) for retained failures, source hashes, screenshots and limitations. Existing Vite config-format and experimental SQLite notices remain.
+
+**M4 is next.** Improve typed source/statistical labels before product polish: 18 active cancel-intent subscribers are distinct from 42 classified feedback records (21 price/21 other); save-offer median is $89.27 and mean is $105.08. The model still says “median expected” and misleadingly connects sample counts to active subscribers. Functional browser acceptance passed; fully grounded narrative did not. Preserve genuine recordings and honest assumptions rather than editing model history or forcing a winner. Keep annual execution in M7 and CSV as the only cut candidate. The running production app is on port 3001; local credentials/cache/ledger remain ignored and need secure setup on another machine.
+
+### Historical implementation checkpoints
+
+The sections below retain the state at each checkpoint, including then-pending reviews and acceptance. The final acceptance above supersedes those historical pending statuses.
 
 ## M3 Gemini rate-profile follow-up (reviewed; browser acceptance pending)
 
@@ -144,7 +156,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
    - The original cohort's earlier 404s remain unexplained. No expiration duration or TTL has been established.
 3. **Integration complete.** Main fast-forwarded to the tested M0/M1 tree; all 75 tests passed again on main. Main and both working branch refs were pushed and verified on origin. LICENSE is now on main. The user subsequently resumed M2 after adding provider keys.
 4. **M2 complete.** The fresh Gemini-then-Groq run completed: Gemini returned HTTP 503 twice; Groq passed all thresholds with 93.5% joint agreement, all four pilots correct and a successful tool round trip. The classify → evidence → simulate path worked. `AI_PROVIDER=groq` and `GROQ_MODEL=openai/gpt-oss-120b` record the default. See the [measured report](research/m2-provider-evaluation.md) and [decision 0003](decisions/0003-ai-provider-evaluation.md).
-5. **M3 active: review the rate-profile follow-up, then finish acceptance.** The Gemini adapter/wiring passed independent reviews and was activated with 200 matching cached predictions. Complete rate-profile spec then quality review before parent configures the planned 100,000 TPM/12 RPM. The first original-profile CLI completed a proposed-only A/B $18 action, but its numeric commentary needs a separate instruction follow-up and real revalidation. Run the actual default dashboard objective and inspect both numerical prose and the unchecked A/B-only $18 approval payload. Retain genuine Groq/Gemini attempts. Browser progress, error and Stop behavior were verified; complete revised-profile acceptance remains open. Keep approval unchecked and execution separate. Complete a genuine Gemini replay/final review, verification and hygiene scan before merging/pushing M3. See [M3 validation](research/m3-agent-validation.md). M3 is not complete.
+5. **M3 complete; start M4 next.** Functional dashboard acceptance, both genuine replays, independent reviews and final checks passed. Preserve separate approval and the documented narrative limitations; add explicit typed sample/population and median/mean labels during M4. See the final acceptance at the top and measured M3 report.
 6. **M4: Product UI: headline card, orbit language, polish, after M3 acceptance.**
 7. **M5: Hosting and observed loop: Render, webhooks, revert, reset.** Then the roadmap's cut checkpoint.
 8. **M7: Annual-plan execution** (required hero path; may precede M6).
@@ -160,7 +172,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 - **Reason targeting is resolved and reviewed.** The hero proposal now targets only price-driven cancel-intent pilots A and B; Pilot C is excluded.
 - **Legacy proposal display:** proposals persisted before reason/campaign metadata were added have no migration; the UI can display an incorrect reason fallback and undefined campaign month. New proposals carry both fields and display correctly.
 - **Annual-plan execution remains future M7 work.** Simulation exists; PayPal annual switching is not implemented.
-- **Complete endpoint/browser acceptance remains open.** Browser tooling was restored; real progress, error handling and Stop were observed. Groq's default dashboard run then failed with invalid simulation arguments despite the reviewed stable tool catalog. The causal role of missing state-reading is unestablished; no forced workflow repair, predetermined winner or weakened schema was added. Gemini integration review and a complete actual default dashboard run with the unchecked A/B $18 approval card are pending. `STARTER_STRATEGIES` contains campaign strategies.
+- **Model narrative grounding is partial.** Functional Gemini dashboard acceptance passed. The actual prose still says “median expected” and connects 18 active subscribers to 42 classified feedback records; these are distinct statistics/datasets. Typed comparison and approval values are correct. Carry deterministic source/statistical labels into M4. Earlier Groq failures remain in the measured report; no assumptions, winners or strict schemas were tuned to hide them. `STARTER_STRATEGIES` contains campaign strategies.
 - **Optional test improvements from the 5c review:**
   - decouple test (d) from the `m0:acq` stream key, using `runOnce(...).newSubscribers`;
   - add a move-entrant boundary check (cancel_intent/"any": campaign 1 should match campaign 0);

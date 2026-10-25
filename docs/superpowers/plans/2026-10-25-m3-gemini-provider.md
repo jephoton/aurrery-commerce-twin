@@ -34,10 +34,10 @@ Task 1 implementation uses the existing seven tools and shared HTTP transport. F
 
 ## Task 2: Selected Gemini live acceptance
 
-- [ ] Parent changes only the relevant ignored runtime settings after Task 1 review and explicitly imports the qualifying Gemini artifact. Keep credentials out of output and chat.
-- [ ] Run the real default dashboard objective and observe progress before completion, computed comparison/stress/draft, a supported proposed action, exact A/B-only $18 payload and unchecked approval. Test Stop/error behavior and verify no automatic approval or execution. Preserve failed attempts and account for conservative pacing.
-- [ ] Record measured results and a sanitized genuine Gemini replay through actual tools/ledger, with fictitious registration IDs and network forbidden. Keep the historical Groq replay and do not fabricate model responses.
-- [ ] Complete independent replay/final review, final checks and tracked secret/personal-path scan. Update provider decision, roadmap and handoff honestly. Merge/push M3 only after all existing acceptance items pass; M4 follows and annual execution stays M7.
+- [x] Parent changes only the relevant ignored runtime settings after Task 1 review and explicitly imports the qualifying Gemini artifact. Keep credentials out of output and chat.
+- [x] Run the real default dashboard objective and observe progress before completion, computed comparison/stress/draft, a supported proposed action, exact A/B-only $18 payload and unchecked approval. Test Stop/error behavior and verify no automatic approval or execution. Preserve failed attempts and account for conservative pacing.
+- [x] Record measured results and a sanitized genuine Gemini replay through actual tools/ledger, with fictitious registration IDs and network forbidden. Keep the historical Groq replay and do not fabricate model responses.
+- [x] Complete independent replay/final review, final checks and tracked secret/personal-path scan. Update provider decision, roadmap and handoff honestly. Merge/push M3 only after all existing acceptance items pass; M4 follows and annual execution stays M7.
 
 ## Primary references
 
@@ -64,4 +64,9 @@ The first parent-owned Gemini CLI at `12b9dd7` completed seven tools/eight turns
 - [x] Add `m3-recorded-gemini.json` from the prepared sanitized source with exact eight public responses and 200 accepted predictions, source hashes, fictitious expected-action IDs and a concise limitation annotation. No public-response edits or ID replacements were needed.
 - [x] Extend `replay.test.ts` for both genuine provider fixtures, each using its matching cache identity, actual tools/simulation/stress/ledger, 1,000 runs, 12 months and seed 20261113, with network forbidden. Preserve the historical Groq fixture and do not recharge historical tokens offline.
 - [x] Clarify the agent instruction narrowly: distinguish priors from classified counts, require segment and numerator/denominator for feedback percentages, avoid causal/population claims from counts, and distinguish p50 median from mean expected value. No forced winner or other behavior change.
-- [ ] Independently review this follow-up, then run new browser acceptance under the activated profile and assess the public narrative. M3 completion/merge remains conditional on all original acceptance requirements.
+- [x] Independently review this follow-up, then run new browser acceptance under the activated profile and assess the public narrative. M3 completion/merge remains conditional on all original acceptance requirements.
+
+
+<!-- Generated final checkpoint, 2026-10-25. -->
+
+Functional M3 acceptance and final integrated review passed at the `31186fb` code checkpoint. Parent verification: 421 tests, typecheck, zero-warning lint, production build and tracked hygiene scan. The actual Gemini dashboard run used the verified-project 100,000-TPM/12-RPM profile, displayed comparison/stress and an A/B-only $18 proposal with unchecked approval and disabled execution. No approval, execution or message occurred. Historical pending notes above are superseded by this checkpoint. Narrative acceptance is partial: model prose still blurs median/mean wording and active population/feedback sample. Carry deterministic source/statistical labels into M4; preserve original recordings. See the measured M3 report for exact evidence and limitations.
