@@ -38,7 +38,7 @@ export async function toolSmoke(config: ProviderConfig): Promise<ToolSmokeResult
   const contents = [{ role: "user", parts: [{ text: instruction }] }];
   const messages = [{ role: "user", content: instruction }];
   const base = gemini
-    ? { tools: [{ functionDeclarations: [declaration] }], generationConfig: { maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: "LOW" } } }
+    ? { tools: [{ functionDeclarations: [{ name: declaration.name, description: declaration.description, parametersJsonSchema: declaration.parameters }] }], generationConfig: { maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: "LOW" } } }
     : { tools: [{ type: "function", function: declaration }], max_completion_tokens: 1024, reasoning_effort: "low", stream: false, parallel_tool_calls: false };
   const first = await transport.send(gemini
     ? { ...base, contents, toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [name] } } }

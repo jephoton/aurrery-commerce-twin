@@ -31,6 +31,12 @@ describe.each(["gemini", "groq"] as const)("%s read-only tool smoke", (provider)
     expect(JSON.stringify(bodies[0])).not.toContain(String(state.listPrice));
     expect(JSON.stringify(bodies)).not.toContain("response_format");
     expect(JSON.stringify(bodies)).not.toContain("responseFormat");
+    const parameters = { type: "object", properties: {}, required: [], additionalProperties: false };
+    for (const body of bodies) {
+      expect(body.tools).toEqual(provider === "gemini"
+        ? [{ functionDeclarations: [{ name: "get_merchant_state", description: "Read synthetic merchant state for this evaluation.", parametersJsonSchema: parameters }] }]
+        : [{ type: "function", function: { name: "get_merchant_state", description: "Read synthetic merchant state for this evaluation.", parameters } }]);
+    }
     if (provider === "gemini") {
       expect(bodies[0].toolConfig).toEqual({ functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["get_merchant_state"] } });
       const contents = bodies[1].contents as unknown[];
@@ -72,6 +78,24 @@ describe.each(["gemini", "groq"] as const)("%s read-only tool smoke", (provider)
     expect(bodies).toHaveLength(1);
     expect(JSON.stringify(result)).not.toContain("secret-test-key");
   });
+});
+it("completes Gemini smoke when the endpoint rejects JSON Schema in parameters", async () => {
+  const bodies: Record<string, unknown>[] = [];
+  const config: ProviderConfig = { provider: "gemini", env: { GEMINI_API_KEY: "secret-test-key" }, fetch: async (_url, init) => {
+    const body = JSON.parse(String(init?.body));
+    bodies.push(body);
+    const declaration = body.tools[0].functionDeclarations[0];
+    if (declaration.parameters?.additionalProperties !== undefined) {
+      return new Response(JSON.stringify({ error: { message: "Unknown name additionalProperties at parameters" } }), { status: 400 });
+    }
+    return new Response(JSON.stringify(bodies.length === 1 ? call("gemini") : final("gemini")));
+  } };
+  const result = await toolSmoke(config);
+  expect(result.passed).toBe(true);
+  expect(result.observedState).toEqual(state);
+  expect(result.metrics.attempts.map((attempt) => attempt.status)).toEqual([200, 200]);
+  expect(result.metrics.retries).toBe(0);
+  expect(bodies).toHaveLength(2);
 });
 it("requires a nonempty Groq call ID", async () => {
   const payload = { choices: [{ message: { role: "assistant", tool_calls: [{ type: "function", function: { name: "get_merchant_state", arguments: "{}" } }] } }] };
