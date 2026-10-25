@@ -77,10 +77,15 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
       budget.check();
       const state = tools.state;
       const final = !!state.proposal;
+      const requireTool = !final && !readyForAnalysis();
       modelTurns++;
-      const definitions = final ? [] : readyForAnalysis() ? tools.definitions : tools.definitions.filter(({ function: { name } }) =>
+      const definitions = final ? [] : !requireTool ? tools.definitions : tools.definitions.filter(({ function: { name } }) =>
         name === "get_merchant_state" || (name === "classify_feedback" && !state.classified) || (name === "set_decision_rules" && !state.rulesExplicit));
-      const result = await model.respond(structuredClone(transcript), definitions, { final });
+      if (requireTool) {
+        const missing = [!state.classified && "classify_feedback", !state.rulesExplicit && "set_decision_rules"].filter(Boolean);
+        transcript.push({ role: "system", content: `Runner preparation: analysis tools are intentionally held back until both prerequisites are complete. Missing prerequisites: ${missing.join(", ")}. Invoke the missing prerequisites using the available tools; analysis tools become available afterward.` });
+      }
+      const result = await model.respond(structuredClone(transcript), definitions, { final, requireTool });
       budget.check();
       if (result.error) return finish(result.error.category === "quota" ? "QUOTA" : result.error.category === "envelope" ? "PROTOCOL" : "PROVIDER_FAILED");
       const message = publicAssistant(result.message);

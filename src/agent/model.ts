@@ -9,7 +9,7 @@ export type ToolCall = z.infer<typeof callSchema>;
 export interface AssistantMessage { role: "assistant"; content: string | null; tool_calls?: ToolCall[] }
 export type PublicMessage = { role: "system" | "user"; content: string } | AssistantMessage | { role: "tool"; tool_call_id: string; content: string };
 export interface ModelResult { message?: AssistantMessage; metrics: ProviderMetrics; error?: Pick<SafeProviderError, "category" | "status"> }
-export interface AgentModel { respond(messages: PublicMessage[], tools: typeof TOOL_DEFINITIONS, options?: { final?: boolean }): Promise<ModelResult> }
+export interface AgentModel { respond(messages: PublicMessage[], tools: typeof TOOL_DEFINITIONS, options?: { final?: boolean; requireTool?: boolean }): Promise<ModelResult> }
 
 /** Object projection strips every undeclared provider field, including private reasoning. */
 export function publicAssistant(raw: unknown): AssistantMessage | undefined {
@@ -29,7 +29,7 @@ export function createAgentModel(config: Omit<ProviderConfig, "provider"> & { be
   const model = selectedGroq(env);
   const transport = createTransport({ ...config, env, model, provider: "groq" });
   return { async respond(messages, tools, options) {
-    const body = { messages, stream: false, max_completion_tokens: 1024, reasoning_effort: "low", ...(options?.final ? { tool_choice: "none" } : { tools, parallel_tool_calls: false }) };
+    const body = { messages, stream: false, max_completion_tokens: 1024, reasoning_effort: "low", ...(options?.final ? { tool_choice: "none" } : { tools, parallel_tool_calls: false, temperature: 0, ...(options?.requireTool ? { tool_choice: "required" } : {}) }) };
     await config.beforeSend?.({ ...body, model });
     const result = await transport.send(body);
     if (result.error) return { metrics: result.metrics, error: { category: result.error.category, ...(result.error.status ? { status: result.error.status } : {}) } };
