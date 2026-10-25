@@ -55,4 +55,13 @@ The operator checked the configured key's AI Studio project: free tier, Flash-Li
 - [x] Add server-only `GEMINI_AGENT_TPM`/`GEMINI_AGENT_RPM`: Gemini defaults 8000/5, positive integer bounds 250000/15, safe CONFIGURATION on invalid values, Groq unchanged. Derive runtime rates from validated selected settings, never client inputs/tools.
 - [x] Apply both rolling limits to actual shared HTTP entries, with no preflight double count and a direct wait to the earliest sufficient expiration. Preserve all run caps, terminal 429, strict schemas and approval boundaries.
 - [x] Complete serial tests, typecheck, zero-warning lint, diff check and atomic commit: 420 tests/32 files, typecheck, zero-warning lint and diff check pass. No build was run during this follow-up; parent coordinates the next production build after reviews/instruction follow-up.
-- [ ] Complete independent spec then quality review before parent edits ignored rate settings, builds production or claims live opt-in acceptance. Parent handles provider report/decision and actual dashboard flow.
+- [x] Complete independent spec then quality review before parent edits ignored rate settings, builds production or claims live opt-in acceptance. Both reviews passed at `2e19814`; the parent activated 100,000 TPM/12 RPM for the verified project. The new browser flow remains pending.
+
+## Follow-up: genuine Gemini replay and public numeric language
+
+The first parent-owned Gemini CLI at `12b9dd7` completed seven tools/eight turns and proposed an unapproved A/B-only $18 action under the original conservative rate. Its public prose misstated simulation priors as observed classified shares and called a p50 median an expected value. Preserve the original responses as evidence, including these limitations. This run cannot establish that the newly activated rate profile or a future narrative works in the browser.
+
+- [x] Add `m3-recorded-gemini.json` from the prepared sanitized source with exact eight public responses and 200 accepted predictions, source hashes, fictitious expected-action IDs and a concise limitation annotation. No public-response edits or ID replacements were needed.
+- [x] Extend `replay.test.ts` for both genuine provider fixtures, each using its matching cache identity, actual tools/simulation/stress/ledger, 1,000 runs, 12 months and seed 20261113, with network forbidden. Preserve the historical Groq fixture and do not recharge historical tokens offline.
+- [x] Clarify the agent instruction narrowly: distinguish priors from classified counts, require segment and numerator/denominator for feedback percentages, avoid causal/population claims from counts, and distinguish p50 median from mean expected value. No forced winner or other behavior change.
+- [ ] Independently review this follow-up, then run new browser acceptance under the activated profile and assess the public narrative. M3 completion/merge remains conditional on all original acceptance requirements.

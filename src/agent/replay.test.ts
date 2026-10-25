@@ -11,6 +11,7 @@ import { emptyMetrics } from "@/signals/providers";
 import type { Summary } from "@/twin/types";
 import type { AgentEvent } from "./contracts";
 import recording from "./fixtures/m3-recorded-groq.json";
+import geminiRecording from "./fixtures/m3-recorded-gemini.json";
 import { createTokenWindow } from "./limits";
 import { publicAssistant, type AgentModel } from "./model";
 import { runAgent } from "./run";
@@ -23,7 +24,7 @@ function expectSummary(actual: Summary & { probPositive: number }, expected: Sum
   }
 }
 
-it("replays the genuine Groq run through cached classification, paired simulation, stress and proposed-only ledger", async () => {
+it.each([recording, geminiRecording])("replays the genuine $provider run through cached classification, paired simulation, stress and proposed-only ledger", async (recording) => {
   const network = vi.fn<typeof fetch>(async () => { throw new Error("Network is forbidden in recorded replay"); });
   vi.stubGlobal("fetch", network);
   const db = ledger();
@@ -36,7 +37,7 @@ it("replays the genuine Groq run through cached classification, paired simulatio
   for (const input of feedbackCorpus.map(toModelInput)) {
     const prediction = predictions.find(({ id }) => id === input.id);
     expect(prediction, input.id).toBeDefined();
-    cache.set(input, { provider: "groq", model: recording.model }, prediction!);
+    cache.set(input, { provider: recording.provider as "groq" | "gemini", model: recording.model }, prediction!);
   }
   const original = structuredClone(currentMerchant().twin);
   const events: AgentEvent[] = [];
@@ -51,7 +52,9 @@ it("replays the genuine Groq run through cached classification, paired simulatio
   }) };
   const result = await runAgent({
     objective: recording.objective, model, fetch: network, window: createTokenWindow(),
-    env: { AI_PROVIDER: "groq", GROQ_MODEL: recording.model, GROQ_API_KEY: "replay-placeholder" },
+    env: recording.provider === "groq"
+      ? { AI_PROVIDER: "groq", GROQ_MODEL: recording.model, GROQ_API_KEY: "replay-placeholder" }
+      : { AI_PROVIDER: "gemini", GEMINI_MODEL: recording.model, GEMINI_API_KEY: "replay-placeholder" },
     emit: (event) => events.push(event),
   });
   expect(result).toMatchObject({ status: "complete", reason: "COMPLETE", counters: {
