@@ -90,11 +90,10 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
       const final = !!state.proposal;
       const requireTool = !final && !readyForAnalysis();
       modelTurns++;
-      const definitions = final ? [] : !requireTool ? tools.definitions : tools.definitions.filter(({ function: { name } }) =>
-        name === "get_merchant_state" || (name === "classify_feedback" && !state.classified) || (name === "set_decision_rules" && !state.rulesExplicit));
+      const definitions = final ? [] : tools.definitions;
       if (requireTool) {
         const missing = [!state.classified && "classify_feedback", !state.rulesExplicit && "set_decision_rules"].filter(Boolean);
-        transcript.push({ role: "system", content: `Runner preparation: analysis tools are intentionally held back until both prerequisites are complete. Missing prerequisites: ${missing.join(", ")}. Invoke the missing prerequisites using the available tools; analysis tools become available afterward.` });
+        transcript.push({ role: "system", content: `Runner preparation: analysis calls are rejected with PREREQUISITE until classification and explicit rules are complete. Missing prerequisites: ${missing.join(", ")}. Invoke these prerequisites before analysis.` });
       }
       const result = await model.respond(structuredClone(transcript), definitions, { final, requireTool });
       budget.check();

@@ -31,15 +31,15 @@ function setup() {
   } };
 }
 const names = (tools: typeof TOOL_DEFINITIONS) => tools.map((t) => t.function.name);
-it("requires preparation tools for a model that otherwise stops when analysis tools are held back", async () => {
+it("requires preparation tools for a model that otherwise stops before completing prerequisites", async () => {
   let readState = false;
   const afterPreparation = [analysis()[3], call("stress", "stress_test", { strategyId: "save" }), call("draft", "draft_customer_message", { strategyId: "save", message: "Temporary offer" }), recommend(), say("Proposed only")];
-  const model = { respond: vi.fn<AgentModel["respond"]>(async (_messages, definitions, options) => {
+  const model = { respond: vi.fn<AgentModel["respond"]>(async (messages, definitions, options) => {
     const available = names(definitions);
     let message: AssistantMessage;
     if (options?.requireTool) {
       if (!readState) { readState = true; message = analysis()[0]; }
-      else if (available.includes("classify_feedback")) message = analysis()[1];
+      else if (!messages.some((m) => m.role === "tool" && m.tool_call_id === "classify" && JSON.parse(m.content).ok)) message = analysis()[1];
       else message = analysis()[2];
     } else message = available.includes("simulate_strategies") || options?.final ? afterPreparation.shift()! : say("Analysis tools are unavailable.");
     return { message, metrics: emptyMetrics() };
@@ -77,22 +77,42 @@ it("stops safely on a preparation-mode HTTP 400 without retrying or exposing its
   expect(JSON.stringify(result)).not.toContain("RAW_PRIVATE_PROVIDER_DETAILS");
   expect(listProposals()).toEqual([]);
 });
-it("advertises missing prerequisites from actual tool state, then all seven and no tools after proposal", async () => {
+it("keeps all seven tools advertised throughout nonfinal turns and no tools after proposal", async () => {
   const model = modelFor([...analysis(), call("stress", "stress_test", { strategyId: "save" }), recommend(), say("Proposed only")]);
   const result = await runAgent({ ...setup(), model });
   expect(result.status).toBe("complete");
-  expect(names(model.respond.mock.calls[0][1])).toEqual(["get_merchant_state", "classify_feedback", "set_decision_rules"]);
-  expect(names(model.respond.mock.calls[2][1])).toEqual(["get_merchant_state", "set_decision_rules"]);
-  expect(names(model.respond.mock.calls[3][1])).toEqual(names(TOOL_DEFINITIONS));
+  expect(model.respond.mock.calls.slice(0, -1).map((args) => names(args[1]))).toEqual(Array(6).fill(names(TOOL_DEFINITIONS)));
   expect(names(model.respond.mock.calls.at(-1)![1])).toEqual([]);
   expect(listProposals()).toHaveLength(1);
   expect(listProposals()[0].status).toBe("proposed");
 });
-it("also hides an already completed rule prerequisite when classification is still missing", async () => {
+it("retains the stable catalog when rules are explicit but classification is still missing", async () => {
   const model = modelFor([analysis()[2], say("Stop before analysis")]);
   expect((await runAgent({ ...setup(), model })).reason).toBe("NO_PROPOSAL");
-  expect(names(model.respond.mock.calls[1][1])).toEqual(["get_merchant_state", "classify_feedback"]);
+  expect(names(model.respond.mock.calls[1][1])).toEqual(names(TOOL_DEFINITIONS));
   expect(model.respond).toHaveBeenCalledTimes(2);
+});
+it("lets a provider accept a known premature analysis call, then matches its prerequisite reply and recovers", async () => {
+  const messages = [analysis()[0], analysis()[1], call("premature", "simulate_strategies", { strategies: [candidate] }), analysis()[2], analysis()[3], call("stress", "stress_test", { strategyId: "save" }), call("draft", "draft_customer_message", { strategyId: "save", message: "Temporary offer" }), recommend(), say("Proposed only")];
+  const options = setup();
+  const simulate = vi.fn(options.toolOptions.simulate);
+  let turn = 0;
+  const fetcher = vi.fn<typeof fetch>(async (_input, init) => {
+    const body = JSON.parse(init!.body as string);
+    const message = messages[turn++];
+    const advertised = (body.tools ?? []).map((tool: { function: { name: string } }) => tool.function.name);
+    if (message.tool_calls?.some((call) => !advertised.includes(call.function.name))) return new Response('{"error":{"code":"tool_use_failed"}}', { status: 400 });
+    return new Response(JSON.stringify({ choices: [{ message }], usage: { total_tokens: 100 } }));
+  });
+  const result = await runAgent({ ...options, fetch: fetcher, toolOptions: { ...options.toolOptions, simulate } });
+  expect(result).toMatchObject({ status: "complete", counters: { requestedTools: 8, executedTools: 8, modelTurns: 9, httpRequests: 9 } });
+  expect(simulate).toHaveBeenCalledTimes(1);
+  const preparationReply = result.transcript.find((m) => m.role === "tool" && m.tool_call_id === "premature");
+  expect(preparationReply?.role === "tool" && JSON.parse(preparationReply.content)).toMatchObject({ ok: false, code: "PREREQUISITE" });
+  const nextBody = JSON.parse(fetcher.mock.calls[3][1]!.body as string);
+  expect(nextBody.messages).toContainEqual(preparationReply);
+  expect(listProposals()).toHaveLength(1);
+  expect(listProposals()[0].status).toBe("proposed");
 });
 it.each([{}, { classified: true }, { rulesExplicit: true }])("counts premature analysis calls with prerequisites %j and supplies matched errors without dispatch", async (state) => {
   const dispatch = vi.fn(async () => ({ ok: true as const, data: {} }));
