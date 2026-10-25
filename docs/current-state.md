@@ -1,20 +1,21 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-25. **M0–M3 are complete and reviewed. Gemini 3.5 Flash-Lite is primary; Groq remains explicitly selectable, with no automatic fallback. The real production dashboard completed the default objective with the reviewed 100,000-TPM/12-RPM profile, correct comparison/stress and an A/B-only $18 proposal. Confirmation stayed unchecked and execution disabled. All 421 tests, typecheck, zero-warning lint and production build pass; final integrated review passed. Narrative grounding is partial: model prose still conflates median/mean wording and active population/feedback sample. Those limitations are accepted for M3 and carried into M4. No approval or execution occurred. Aurrery uses port 3001**._
+_Last material update: 2026-10-25. **M0–M3 are complete and reviewed. M4 is active on `feat/m4-product-ui`; Task 1 implements typed decision/evidence presentation and awaits independent review. The prior M3 production app remains on port 3001. Gemini 3.5 Flash-Lite is primary; Groq remains explicitly selectable, with no automatic fallback. M3's real dashboard flow produced the A/B-only $18 proposal with confirmation unchecked and execution disabled. No approval or execution occurred.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
 **Read in this order:**
 1. `docs/superpowers/specs/2026-10-22-aurrery-design.md`: the design, including §3a, the story revision.
 2. `docs/superpowers/plans/2026-10-22-aurrery-roadmap.md`: milestones in order.
-3. `docs/superpowers/plans/2026-10-22-m3-agent-loop.md`: the active M3 implementation plan. The completed M2 design/plan remain prerequisite context. M0/M1 amendments remain historical context in their plan.
-4. `docs/research/m3-agent-validation.md`: measured live attempts, recorded replay and remaining acceptance. `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the conditional Gemini selection; `docs/superpowers/plans/2026-10-25-m3-gemini-provider.md` covers its active integration and acceptance.
+3. `docs/superpowers/specs/2026-10-25-m4-product-ui-design.md` and `docs/superpowers/plans/2026-10-25-m4-product-ui.md`: approved M4 design and active implementation plan.
+4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
 ## Branches
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
+| `feat/m4-product-ui` | Active M4 implementation; Task 1 typed decision/evidence presentation awaits independent review | local |
 | `main` | M0–M3, selected Gemini provider, measured validation and both genuine replays | yes; M3 fast-forwarded and origin verified at `5e2bb55` before this publication-note update |
 | `feat/m3-agent-loop` | Reviewed M3, Gemini adapter/pacing, genuine Groq/Gemini replays and accepted functional dashboard flow | yes; merged into main; preserved milestone ref |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
@@ -32,7 +33,9 @@ All implementation tasks and deltas passed independent spec then quality reviews
 
 Publication: `main` fast-forwarded to the accepted milestone at `5e2bb55`, all 421 tests passed again on merged main, and both main and the M3 branch were pushed with matching remote refs. This following documentation-only commit records that verified publication; it does not change the tested application code.
 
-**M4 is next.** Improve typed source/statistical labels before product polish: 18 active cancel-intent subscribers are distinct from 42 classified feedback records (21 price/21 other); save-offer median is $89.27 and mean is $105.08. The model still says “median expected” and misleadingly connects sample counts to active subscribers. Functional browser acceptance passed; fully grounded narrative did not. Preserve genuine recordings and honest assumptions rather than editing model history or forcing a winner. Keep annual execution in M7 and CSV as the only cut candidate. The running production app is on port 3001; local credentials/cache/ledger remain ignored and need secure setup on another machine.
+**M4 Task 1 implementation checkpoint (independent review pending):** `DecisionSummary` displays the selected strategy's typed mean, median, p10–p90 interval, downside probability, mean discount cost and actual horizon. It labels manual scenarios, selected agent scenarios and actual proposals distinctly; only a matching proposed action links to `#approval`, which retains the existing exact-payload review/confirmation controls. Matching adverse stress remains visible without becoming a new recommendation. `EvidencePanel` places active subscriber counts and AI-classified synthetic feedback counts in separate labelled columns, with canonical/manual and estimated/assumption provenance. The reducer retains current rules and matching stress, discards stale or mismatched stress on evidence/rule/comparison replacement and resets, and preserves existing objective/selection review invalidation. Focused tests, typecheck and zero-warning lint passed; M4 design/layout, integrated browser acceptance, full suite/build and independent reviews remain pending. The running production app is the prior M3 build on port 3001; it has not been restarted for Task 1. No provider, PayPal or approval actions were used for this implementation.
+
+The M3 narrative limitation remains the motivation: 18 active cancel-intent subscribers are distinct from 42 classified feedback records (21 price/21 other); save-offer median is $89.27 and mean is $105.08. Keep annual execution in M7 and CSV as the only cut candidate. Local credentials/cache/ledger remain ignored and need secure setup on another machine.
 
 ### Historical implementation checkpoints
 

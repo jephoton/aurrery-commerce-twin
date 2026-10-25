@@ -11,6 +11,8 @@ import { FanChart } from "./FanChart";
 import { ScenarioGrid, toRows } from "./ScenarioGrid";
 import { AgentPanel } from "./AgentPanel";
 import { dashboardReducer, emptyDashboard } from "./lab-state";
+import { DecisionSummary } from "./DecisionSummary";
+import { EvidencePanel } from "./EvidencePanel";
 
 export interface MerchantSummary {
   name: string;
@@ -53,7 +55,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; starterStrategies: Strategy[] }) {
   const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
-  const [{ comparison, selectedId, proposal, report, confirmed, evidence, comparisonSource }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
+  const [{ comparison, selectedId, proposal, report, confirmed, evidence, comparisonSource, rules, stress }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +156,8 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
 
       {error && <div className="mb-4 rounded-lg border border-negative/30 bg-negative/5 px-4 py-3 text-sm text-negative">{error}</div>}
 
+      <DecisionSummary selected={selected} proposal={proposal} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} />
+
       <section className="mb-6 rounded-xl border border-border bg-surface p-5">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold">
@@ -236,27 +240,12 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
               ]}
             />
           </div>
-          <div className="rounded-xl border border-border bg-surface p-5 lg:col-span-2">
-            <h3 className="mb-2 font-semibold">What this rests on</h3>
-            <p className="mb-3 text-sm text-muted">{comparisonSource === "agent" ? `AI-classified synthetic feedback · ${evidence?.summary.provider ?? "provider unavailable"} / ${evidence?.summary.model ?? "model unavailable"}. Historical estimates and assumptions remain identified below.` : "Manual estimate from the canonical synthetic twin; no AI classification applied to this comparison."}</p>
-            <ul className="space-y-2 text-sm">
-              {Object.entries(comparisonSource === "agent" ? evidence?.provenance ?? {} : summary.provenance).map(([k, p]) => (
-                <li key={k} className="flex gap-2">
-                  <span
-                    className={`mt-0.5 h-fit shrink-0 rounded px-1.5 text-xs font-medium ${p.source === "assumption" ? "bg-amber-100 text-amber-800" : p.source === "observed" ? "bg-observed/10 text-observed" : "bg-brand-accent/10 text-brand-accent"}`}
-                  >
-                    {p.source}
-                  </span>
-                  <span className="text-muted">{p.note}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <div className="lg:col-span-2"><EvidencePanel summary={summary} evidence={evidence} source={comparisonSource} /></div>
         </section>
       )}
 
       {selected && selected.strategy.id !== comparison?.baselineId && (
-        <section className="mb-6 rounded-xl border border-border bg-surface p-5">
+        <section id="approval" className="mb-6 rounded-xl border border-border bg-surface p-5">
           <h2 className="mb-1 text-lg font-semibold">Approval</h2>
           {!executable ? (
             <p className="text-muted">

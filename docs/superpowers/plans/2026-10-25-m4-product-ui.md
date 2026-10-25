@@ -14,13 +14,13 @@ Design: `docs/superpowers/specs/2026-10-25-m4-product-ui-design.md`. Work on `fe
 
 Files: `src/components/lab-state.ts`, `lab-state.test.ts`; new `DecisionSummary.tsx`, `EvidencePanel.tsx` and meaningful rendering tests; integrate in `Lab.tsx`. Update architecture/current state after completion.
 
-- [ ] Add RED reducer cases for retaining rules/matching stress and invalidating stale stress on classification/rule/comparison revisions/new run. Keep objective/selection review invalidation. A stress event without a current matching strategy must not become headline evidence.
-- [ ] Extend state with `rules: DecisionRules | null` and `stress: Extract<AgentEvent,{type:"stress"}> | null`. Reset stress whenever comparison/evidence/rules are replaced; retain only stress whose strategy belongs to the current comparison. Present stress only for the selected ID.
-- [ ] Add RED rendering checks using computed results whose mean differs from median: expected value uses `.vsBaseline.totalValue.mean`; median uses `.p50`; interval `.p10/.p90`; risk `.probValueBelowBaseline`; cost `.metrics.discountCost.mean`. Verify selected/manual/scenario versus actual proposal labels and review anchor without approval control.
-- [ ] Add `DecisionSummary` with typed selected result, optional matching proposal/rules/stress, horizon/source and busy state. Display non-recommendation/empty/simulate-only/status variants honestly. Review link targets `#approval` only for the currently shown proposal; no approval/preparation callbacks.
-- [ ] Add `EvidencePanel` with summary segment population and optional current classification counts as distinct datasets, synthetic source labels and provenance badges. Test 18 active versus 42 records (21/21) as separate labelled values; model commentary is not the source of metrics.
-- [ ] Integrate components into existing Lab without changing API calls, winner selection or payload controls. Preserve no-secrets client boundary. Use existing theme tokens pending Task 2.
-- [ ] Run focused tests, typecheck, zero-warning lint, update handoff; atomic commit. Independent spec then quality review before Task 2.
+- [x] Add RED reducer cases for retaining rules/matching stress and invalidating stale stress on classification/rule/comparison revisions/new run. Keep objective/selection review invalidation. A stress event without a current matching strategy must not become headline evidence.
+- [x] Extend state with `rules: DecisionRules | null` and `stress: Extract<AgentEvent,{type:"stress"}> | null`. Reset stress whenever comparison/evidence/rules are replaced; retain only stress whose strategy belongs to the current comparison. Present stress only for the selected ID.
+- [x] Add RED rendering checks using computed results whose mean differs from median: expected value uses `.vsBaseline.totalValue.mean`; median uses `.p50`; interval `.p10/.p90`; risk `.probValueBelowBaseline`; cost `.metrics.discountCost.mean`. Verify selected/manual/scenario versus actual proposal labels and review anchor without approval control.
+- [x] Add `DecisionSummary` with typed selected result, optional matching proposal/rules/stress, horizon/source and busy state. Display non-recommendation/empty/simulate-only/status variants honestly. Review link targets `#approval` only for the currently shown proposal; no approval/preparation callbacks.
+- [x] Add `EvidencePanel` with summary segment population and optional current classification counts as distinct datasets, synthetic source labels and provenance badges. Test 18 active versus 42 records (21/21) as separate labelled values; model commentary is not the source of metrics.
+- [x] Integrate components into existing Lab without changing API calls, winner selection or payload controls. Preserve no-secrets client boundary. Use existing theme tokens pending Task 2.
+- [x] Run focused tests, typecheck, zero-warning lint, update handoff; atomic commit. Independent spec then quality review before Task 2.
 
 ## Task 2: Navy/gold workspace and orbit hierarchy
 
