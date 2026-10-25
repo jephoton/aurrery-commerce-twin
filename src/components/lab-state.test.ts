@@ -4,6 +4,7 @@ import { compareStrategies } from "@/twin/simulate";
 import { buildDemoTwin } from "@/merchant/demo";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import type { Proposal } from "@/ledger/proposals";
+import type { ExecutionReport } from "@/execution/execute";
 
 const comparison = compareStrategies(buildDemoTwin().twin, STARTER_STRATEGIES, { runs: 2, horizonMonths: 2 });
 const proposal = { id: "p1", strategy: STARTER_STRATEGIES[0] } as Proposal;
@@ -29,4 +30,12 @@ it("clears review state when manually preparing a new action", () => {
 it("keeps verbal recommendations separate from actual proposal events", () => {
   const state = dashboardReducer({ ...emptyDashboard, comparison }, { type: "event", event: { type: "summary", message: "I recommend a save offer." } });
   expect(state.proposal).toBeNull();
+});
+it("clears a confirmed proposal and execution report when the objective is edited", () => {
+  const report: ExecutionReport = { proposal, outcomes: [] };
+  const state = { ...emptyDashboard, comparison, comparisonSource: "agent" as const, proposal, report, confirmed: true, selectedId: proposal.strategy.id };
+  const updated = dashboardReducer(state, { type: "objective-edited" });
+  expect(updated).toEqual({ ...state, proposal: null, report: null, confirmed: false });
+  expect(state.proposal).toBe(proposal);
+  expect(state.report).toBe(report);
 });

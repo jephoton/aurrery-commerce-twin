@@ -16,6 +16,7 @@ export const emptyDashboard: DashboardState = { comparison: null, selectedId: nu
 type Action =
   | { type: "reset" }
   | { type: "clear-review" }
+  | { type: "objective-edited" }
   | { type: "select"; id: string }
   | { type: "confirmed"; value: boolean }
   | { type: "proposal"; proposal: Proposal }
@@ -26,7 +27,8 @@ const clearReview = { proposal: null, report: null, confirmed: false };
 export function dashboardReducer(state: DashboardState, action: Action): DashboardState {
   switch (action.type) {
     case "reset": return emptyDashboard;
-    case "clear-review": return { ...state, ...clearReview };
+    case "clear-review":
+    case "objective-edited": return { ...state, ...clearReview };
     case "select": return action.id === state.selectedId ? state : { ...state, ...clearReview, selectedId: action.id };
     case "confirmed": return { ...state, confirmed: action.value };
     case "proposal": return { ...state, ...clearReview, proposal: action.proposal };
