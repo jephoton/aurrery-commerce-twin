@@ -19,7 +19,28 @@ it("clears stale proposal, execution and confirmation when another strategy is s
 });
 it("selects the exact proposed strategy and keeps merchant confirmation unchecked", () => {
   const state = dashboardReducer({ ...emptyDashboard, comparison, confirmed: true }, { type: "event", event: { type: "proposal", proposal, rationale: "Evidence", tradeoffs: "Risk" } });
-  expect(state).toMatchObject({ selectedId: proposal.strategy.id, proposal, confirmed: false });
+  expect(state).toMatchObject({ selectedId: proposal.strategy.id, proposal, proposalSource: "agent", confirmed: false });
+});
+it("tracks a manual action separately from an agent comparison and clears its origin with review state", () => {
+  const compared = dashboardReducer({ ...emptyDashboard, comparison, comparisonSource: "agent" }, { type: "proposal", proposal });
+  expect(compared).toMatchObject({ comparisonSource: "agent", proposalSource: "manual", proposal });
+  expect(dashboardReducer(compared, { type: "clear-review" }).proposalSource).toBeNull();
+  expect(dashboardReducer(compared, { type: "select", id: "another" }).proposalSource).toBeNull();
+  expect(dashboardReducer(compared, { type: "reset" }).proposalSource).toBeNull();
+});
+it("keeps matching action origin through a report and drops it for an unrelated report", () => {
+  const compared = dashboardReducer({ ...emptyDashboard, comparison }, { type: "proposal", proposal });
+  const matching = dashboardReducer(compared, { type: "report", report: { proposal, outcomes: [] } });
+  expect(matching.proposalSource).toBe("manual");
+  const unrelated = dashboardReducer(compared, { type: "report", report: { proposal: { ...proposal, id: "other" }, outcomes: [] } });
+  expect(unrelated.proposalSource).toBeNull();
+});
+it("preserves an agent proposal's origin when its rejected status is returned", () => {
+  const agent = dashboardReducer({ ...emptyDashboard, comparison }, { type: "event", event: { type: "proposal", proposal, rationale: "Evidence", tradeoffs: "Risk" } });
+  const rejected = dashboardReducer({ ...agent, confirmed: true }, { type: "proposal-updated", proposal: { ...proposal, status: "rejected" } });
+  expect(rejected).toMatchObject({ proposalSource: "agent", proposal: { status: "rejected" }, confirmed: false });
+  const unrelated = dashboardReducer(agent, { type: "proposal-updated", proposal: { ...proposal, id: "other", status: "rejected" } });
+  expect(unrelated).toBe(agent);
 });
 it("invalidates an old comparison after a rules revision", () => {
   const state = dashboardReducer({ ...emptyDashboard, comparison, proposal, confirmed: true }, { type: "event", event: { type: "rules", rules: { horizonMonths: 3, discountBudget: 1000, maxProbWorse: .5 } } });
@@ -43,6 +64,7 @@ it("clears a confirmed proposal and execution report when the objective is edite
 
 const rulesEvent: Extract<AgentEvent, { type: "rules" }> = { type: "rules", rules: { horizonMonths: 3, discountBudget: 1000, maxProbWorse: .5 } };
 const stressEvent: Extract<AgentEvent, { type: "stress" }> = { type: "stress", strategyId: proposal.strategy.id, stress: { base: comparison.strategies[1], stressed: comparison.strategies[1], stressedParams: buildDemoTwin().twin.params, shifted: [] } };
+const classificationEvent = { type: "classification", summary: { provider: "gemini", model: "test" }, hitmap: {}, provenance: {} } as Extract<AgentEvent, { type: "classification" }>;
 
 it("retains current rules and matching stress until the comparison is replaced", () => {
   const ruled = dashboardReducer(emptyDashboard, { type: "event", event: rulesEvent });
@@ -68,13 +90,20 @@ it("does not carry agent rules into a replacement manual comparison", () => {
   expect(state).toMatchObject({ rules: null, stress: null, comparisonSource: "manual" });
 });
 
-it("invalidates stress and rules on classification and revised rules, and clears both on a new run", () => {
+it("invalidates stress on classification and revised rules, and clears both on a new run", () => {
   const state = { ...emptyDashboard, comparison, rules: rulesEvent.rules, stress: stressEvent };
   const revised = dashboardReducer(state, { type: "event", event: rulesEvent });
   expect(revised.stress).toBeNull();
   expect(revised.rules).toEqual(rulesEvent.rules);
-  const classification = { type: "classification", summary: { provider: "gemini", model: "test" }, hitmap: {}, provenance: {} } as AgentEvent;
-  const classified = dashboardReducer(state, { type: "event", event: classification });
-  expect(classified).toMatchObject({ rules: null, stress: null, comparison: null });
+  const classified = dashboardReducer(state, { type: "event", event: classificationEvent });
+  expect(classified).toMatchObject({ rules: rulesEvent.rules, stress: null, comparison: null });
   expect(dashboardReducer(state, { type: "reset" })).toEqual(emptyDashboard);
+});
+
+it("keeps explicit decision rules through refreshed classification and the next agent comparison", () => {
+  const ruled = dashboardReducer(emptyDashboard, { type: "event", event: rulesEvent });
+  const classified = dashboardReducer(ruled, { type: "event", event: classificationEvent });
+  const compared = dashboardReducer(classified, { type: "event", event: { type: "comparison", comparison } });
+  expect(classified).toMatchObject({ rules: rulesEvent.rules, evidence: classificationEvent, comparison: null, stress: null });
+  expect(compared).toMatchObject({ rules: rulesEvent.rules, comparison, comparisonSource: "agent", stress: null });
 });

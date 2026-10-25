@@ -15,7 +15,7 @@ const selected = {
   metrics: { ...result.metrics, discountCost: { ...result.metrics.discountCost, mean: 78 } },
   probValueBelowBaseline: .25,
 };
-const baseProps = { selected, proposal: null, rules: null, stress: null, horizonMonths: 12, source: "manual" as const, busy: false };
+const baseProps = { selected, proposal: null, proposalSource: null, rules: null, stress: null, horizonMonths: 12, source: "manual" as const, busy: false };
 const render = (props: Parameters<typeof DecisionSummary>[0]) => renderToStaticMarkup(createElement(DecisionSummary, props));
 
 it("labels mean, median, interval, downside risk and cost from distinct typed fields", () => {
@@ -39,14 +39,28 @@ it("starts without a recommendation or fabricated statistics", () => {
 
 it("links only the currently selected proposed action to review without an approval control", () => {
   const proposal = { strategy: selected.strategy, status: "proposed" } as Proposal;
-  const current = render({ ...baseProps, proposal, source: "agent" });
+  const current = render({ ...baseProps, proposal, proposalSource: "agent", source: "agent" });
   expect(current).toContain("Agent proposal");
   expect(current).toContain('href="#approval"');
   expect(current).toContain("Review exact action");
   expect(current).not.toContain("Approve &amp; execute");
-  expect(render({ ...baseProps, proposal })).toContain("Prepared action");
+  expect(render({ ...baseProps, proposal, proposalSource: "manual" })).toContain("Prepared action");
   expect(render({ ...baseProps, proposal: { ...proposal, strategy: STARTER_STRATEGIES[2] }, source: "agent" })).not.toContain('href="#approval"');
   expect(render({ ...baseProps, proposal: { ...proposal, status: "rejected" }, source: "agent" })).not.toContain('href="#approval"');
+});
+
+it("keeps agent-comparison statistics distinct from a separately prepared manual action", () => {
+  const manual = { strategy: selected.strategy, status: "proposed", prediction: { vsBaseline: { totalValue: { mean: 987654 } } } } as Proposal;
+  const html = render({ ...baseProps, source: "agent", proposal: manual, proposalSource: "manual" });
+  expect(html).toContain("Selected scenario");
+  expect(html).toContain("agent-classified comparison");
+  expect(html).toContain("manual action");
+  expect(html).toContain("canonical estimates");
+  expect(html).toContain("+$1,234");
+  expect(html).not.toContain("987,654");
+  expect(html).not.toContain("Agent proposal");
+  expect(html).not.toContain("Prepared action");
+  expect(html).toContain('href="#approval"');
 });
 
 it("keeps simulate-only and adverse stress tied to the displayed strategy", () => {

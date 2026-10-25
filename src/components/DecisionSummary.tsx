@@ -5,6 +5,7 @@ import type { StrategyResult } from "@/twin/simulate";
 interface Props {
   selected: StrategyResult | null;
   proposal: Proposal | null;
+  proposalSource: "manual" | "agent" | null;
   rules: DecisionRules | null;
   stress: Extract<AgentEvent, { type: "stress" }> | null;
   horizonMonths: number | null;
@@ -16,9 +17,10 @@ const signedMoney = (value: number) => `${value < 0 ? "−" : "+"}$${Math.round(
 const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
-export function DecisionSummary({ selected, proposal, rules, stress, horizonMonths, source, busy }: Props) {
+export function DecisionSummary({ selected, proposal, proposalSource, rules, stress, horizonMonths, source, busy }: Props) {
   const currentProposal = selected && proposal?.strategy.id === selected.strategy.id ? proposal : null;
   const matchingStress = selected && stress?.strategyId === selected.strategy.id ? stress : null;
+  const manualActionAfterAgentComparison = !!currentProposal && proposalSource === "manual" && source === "agent";
   if (!selected) return (
     <section aria-labelledby="decision-title" className="mb-6 rounded-xl border border-border bg-surface p-5">
       <h2 id="decision-title" className="text-lg font-semibold">Your decision workspace</h2>
@@ -29,8 +31,8 @@ export function DecisionSummary({ selected, proposal, rules, stress, horizonMont
 
   const value = selected.vsBaseline.totalValue;
   const status = currentProposal?.status;
-  const label = currentProposal
-    ? status === "proposed" ? source === "agent" ? "Agent proposal" : "Prepared action" : `Action ${status?.replaceAll("_", " ")}`
+  const label = manualActionAfterAgentComparison ? "Selected scenario" : currentProposal
+    ? status === "proposed" ? proposalSource === "agent" ? "Agent proposal" : "Prepared action" : `Action ${status?.replaceAll("_", " ")}`
     : source === "manual" ? "Manual scenario" : "Selected scenario";
   return (
     <section aria-labelledby="decision-title" className="mb-6 rounded-xl border border-border bg-surface p-5">
@@ -44,6 +46,7 @@ export function DecisionSummary({ selected, proposal, rules, stress, horizonMont
         <div><dt className="text-muted">Chance of worse value</dt><dd className="text-xl font-semibold">{percent(selected.probValueBelowBaseline)}</dd><small className="text-muted">versus baseline</small></div>
         <div><dt className="text-muted">Mean discount cost</dt><dd className="text-xl font-semibold">{money(selected.metrics.discountCost.mean)}</dd><small className="text-muted">simulated spend</small></div>
       </dl>
+      {manualActionAfterAgentComparison && <p className="mt-3 text-sm text-muted">These figures belong to the agent-classified comparison. A separate manual action using canonical estimates is shown in Approval below.</p>}
       {rules && source === "agent" && <p className="mt-3 text-sm text-muted">Decision rules: {money(rules.discountBudget)} discount budget · at most {percent(rules.maxProbWorse)} chance worse · {rules.horizonMonths}-month horizon.</p>}
       {matchingStress && (
         <p className="mt-3 rounded-lg border border-border bg-background px-3 py-2 text-sm">

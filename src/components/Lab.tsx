@@ -55,7 +55,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; starterStrategies: Strategy[] }) {
   const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
-  const [{ comparison, selectedId, proposal, report, confirmed, evidence, comparisonSource, rules, stress }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
+  const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +129,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
     setBusy("reject"); setError(null);
     try {
       const { proposal: p } = await api<{ proposal: Proposal }>(`/api/proposals/${proposal.id}/reject`, { method: "POST", body: "{}" });
-      dispatch({ type: "proposal", proposal: p });
+      dispatch({ type: "proposal-updated", proposal: p });
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(null); }
   };
@@ -156,7 +156,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
 
       {error && <div className="mb-4 rounded-lg border border-negative/30 bg-negative/5 px-4 py-3 text-sm text-negative">{error}</div>}
 
-      <DecisionSummary selected={selected} proposal={proposal} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} />
+      <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} />
 
       <section className="mb-6 rounded-xl border border-border bg-surface p-5">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
