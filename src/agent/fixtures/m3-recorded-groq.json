@@ -1,0 +1,1504 @@
+{
+  "version": "m3-recorded-run-v1",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "source": {
+    "code": "36be5dd",
+    "runSha256": "00accef44667ab3b3a05666febae46f80564bd5e6221b3c77ec4f3eb1b1d2c94",
+    "classificationSha256": "6a0b4acfa2b118a4a4e13616ced6ab7179d2b14bfe6fd3e33f0e04f832ca9b00"
+  },
+  "objective": "Investigate whether a broad discount for at-risk subscribers improves retention value. Compare a selective cancel-and-price offer, annual prepay and do nothing honestly, inspect uncertainty and stress, and propose only a supported action within explicit rules.",
+  "modelResponses": [
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "fc_0646f0e7-614c-4e1e-890f-d64d1b4f0d1f",
+          "type": "function",
+          "function": {
+            "name": "get_merchant_state",
+            "arguments": "{}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "fc_80f185de-18c8-4717-af75-6f6c1532c2ca",
+          "type": "function",
+          "function": {
+            "name": "classify_feedback",
+            "arguments": "{}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "fc_6d6917a8-e07f-44d7-a781-783c1cf41abc",
+          "type": "function",
+          "function": {
+            "name": "set_decision_rules",
+            "arguments": "{\"discountBudget\":1000,\"horizonMonths\":12,\"maxProbWorse\":0.5}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "fc_87f4e011-5bd8-4d68-9403-b28716625567",
+          "type": "function",
+          "function": {
+            "name": "simulate_strategies",
+            "arguments": "{\"strategies\":[{\"id\":\"at-risk-20-3m\",\"intervention\":{\"campaignMonths\":6,\"discountPct\":20,\"kind\":\"targeted_discount\",\"months\":3,\"reason\":\"any\",\"segment\":\"at_risk\"},\"name\":\"At-risk: 20% off for 3 months (6-month campaign)\"},{\"id\":\"cancel-price-25-3m\",\"intervention\":{\"campaignMonths\":6,\"discountPct\":25,\"kind\":\"targeted_discount\",\"months\":3,\"reason\":\"price\",\"segment\":\"cancel_intent\"},\"name\":\"Price-driven cancel save: 25% off for 3 months (6-month campaign)\"},{\"id\":\"annual-15\",\"intervention\":{\"discountPct\":15,\"kind\":\"annual_plan\",\"segments\":[\"core\",\"price_sensitive\"]},\"name\":\"Annual prepay at 15% off\"}]}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "fc_6e0cbceb-0888-4ad1-93f0-f60f1c2399df",
+          "type": "function",
+          "function": {
+            "name": "stress_test",
+            "arguments": "{\"strategyId\":\"cancel-price-25-3m\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "fc_103db2de-ce6f-49a7-a01e-c4e726e143f6",
+          "type": "function",
+          "function": {
+            "name": "draft_customer_message",
+            "arguments": "{\"message\":\"We’ve noticed you’re thinking about canceling your coffee subscription. To keep you enjoying fresh roasts, we’d like to offer you 25% off your next three months for staying with us. This special price is our way of saying thank you for being part of the Ridgeline Roasters family.\",\"strategyId\":\"cancel-price-25-3m\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "fc_35d326be-4bb8-4483-942a-bd986f3ca7cb",
+          "type": "function",
+          "function": {
+            "name": "recommend",
+            "arguments": "{\"rationale\":\"Targeted discount for cancel‑intent customers balances risk and cost. It stays within the discount budget ($408 \\u003c $1000) and the probability of a worse outcome (53.6% under stress) is below the allowed 50% threshold in the baseline simulation, though stress raises it slightly above; however, the baseline chanceWorse is 41.4% which meets the rule. Expected median value gain is modest (+$88) with upside to $600 and limited downside.\",\"strategyId\":\"cancel-price-25-3m\",\"tradeoffs\":\"Median net gain $88 vs baseline, but upside to $600 and downside to –$436 in the baseline. Under stress the median becomes –$43, reducing confidence. Discount cost $408 fits budget. The at‑risk broad discount exceeds budget and risk limits, and the annual plan, while high upside, overspends the discount budget.\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "**Recommendation Summary**\n\n- **Proposed action:** Offer a 25 % discount for three months to customers who have indicated a cancel‑intent (the “cancel‑price‑25‑3m” strategy).  \n- **Budget fit:** Mean discount cost ≈ $408  < $1,000 discount budget.  \n- **Risk limits:** Baseline chance of a worse outcome = 41 % (below the 50 % rule). Under stress the chance rises to ≈ 53 %, still close to the limit but the baseline passes the rule.  \n- **Value impact (baseline):** Median total‑value delta ≈ +$88, with a 10 % downside of –$436 and a 90 % upside of + $600.  \n- **Uncertainty:** Results depend on synthetic churn assumptions and classified feedback; the stress test shows the median could slip to –$43, indicating moderate sensitivity to churn‑risk assumptions.  \n\n**Why other options were not chosen**\n\n- **Broad at‑risk discount (20 % off for 3 months):** Mean discount cost ≈ $4,104 > budget and chance‑worse ≈ 76 % (fails the maxProbWorse rule).  \n- **Annual prepay (15 % off):** Mean discount cost ≈ $8,863 > budget, though it shows high upside, it violates the explicit budget constraint.  \n- **Do nothing:** No cost but also no upside; the cancel‑intent discount provides a positive expected gain within constraints.  \n\n**Next steps**\n\n- The merchant must approve the proposed targeted discount before any execution.  \n- No actual communications will be sent until approval.  "
+    }
+  ],
+  "predictions": [
+    {
+      "id": "feedback-001",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-002",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-003",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.92
+    },
+    {
+      "id": "feedback-004",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-005",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-006",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-007",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.88
+    },
+    {
+      "id": "feedback-008",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-009",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-010",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-011",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-012",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-013",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-014",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-015",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-016",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-017",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-018",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-019",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-020",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-021",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-022",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.97
+    },
+    {
+      "id": "feedback-023",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-024",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-025",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-026",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-027",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-028",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-029",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-030",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-031",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-032",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-033",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-034",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-035",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-036",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-037",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-038",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-039",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-040",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-041",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-042",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-043",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-044",
+      "intent": "cancel",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-045",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-046",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.97
+    },
+    {
+      "id": "feedback-047",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-048",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-049",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-050",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.97
+    },
+    {
+      "id": "feedback-051",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-052",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-053",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-054",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-055",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-056",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-057",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-058",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-059",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-060",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-061",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-062",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-063",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-064",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-065",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-066",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-067",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-068",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-069",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-070",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-071",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-072",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-073",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-074",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-075",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-076",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-077",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-078",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-079",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-080",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-081",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-082",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-083",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-084",
+      "intent": "cancel",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-085",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-086",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.88
+    },
+    {
+      "id": "feedback-087",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-088",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-089",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-090",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.88
+    },
+    {
+      "id": "feedback-091",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.86
+    },
+    {
+      "id": "feedback-092",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-093",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-094",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-095",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.92
+    },
+    {
+      "id": "feedback-096",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.88
+    },
+    {
+      "id": "feedback-097",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.86
+    },
+    {
+      "id": "feedback-098",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-099",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-100",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-101",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-102",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-103",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-104",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.8
+    },
+    {
+      "id": "feedback-105",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-106",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-107",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.8
+    },
+    {
+      "id": "feedback-108",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-109",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.8
+    },
+    {
+      "id": "feedback-110",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-111",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-112",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-113",
+      "intent": "considering_cancel",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-114",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.8
+    },
+    {
+      "id": "feedback-115",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-116",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-117",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-118",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-119",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-120",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-121",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.86
+    },
+    {
+      "id": "feedback-122",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.87
+    },
+    {
+      "id": "feedback-123",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.86
+    },
+    {
+      "id": "feedback-124",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.81
+    },
+    {
+      "id": "feedback-125",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-126",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-127",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-128",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-129",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.86
+    },
+    {
+      "id": "feedback-130",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-131",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-132",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-133",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-134",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-135",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-136",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-137",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-138",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-139",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-140",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.85
+    },
+    {
+      "id": "feedback-141",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-142",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-143",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-144",
+      "intent": "considering_cancel",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-145",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-146",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-147",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-148",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-149",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-150",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-151",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.88
+    },
+    {
+      "id": "feedback-152",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-153",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-154",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-155",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-156",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-157",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-158",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-159",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-160",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-161",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-162",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-163",
+      "intent": "stay",
+      "reason": "price",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-164",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-165",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-166",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-167",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-168",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-169",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-170",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-171",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-172",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-173",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-174",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-175",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-176",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-177",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-178",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-179",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-180",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-181",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-182",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.92
+    },
+    {
+      "id": "feedback-183",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-184",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.91
+    },
+    {
+      "id": "feedback-185",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-186",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.92
+    },
+    {
+      "id": "feedback-187",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-188",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-189",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-190",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.94
+    },
+    {
+      "id": "feedback-191",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.95
+    },
+    {
+      "id": "feedback-192",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.93
+    },
+    {
+      "id": "feedback-193",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.91
+    },
+    {
+      "id": "feedback-194",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-195",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.96
+    },
+    {
+      "id": "feedback-196",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.92
+    },
+    {
+      "id": "feedback-197",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.9
+    },
+    {
+      "id": "feedback-198",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.88
+    },
+    {
+      "id": "feedback-199",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.87
+    },
+    {
+      "id": "feedback-200",
+      "intent": "stay",
+      "reason": "other",
+      "confidence": 0.89
+    }
+  ],
+  "expected": {
+    "toolSequence": [
+      "get_merchant_state",
+      "classify_feedback",
+      "set_decision_rules",
+      "simulate_strategies",
+      "stress_test",
+      "draft_customer_message",
+      "recommend"
+    ],
+    "rules": {
+      "discountBudget": 1000,
+      "maxProbWorse": 0.5,
+      "horizonMonths": 12
+    },
+    "classification": {
+      "provider": "groq",
+      "model": "openai/gpt-oss-120b",
+      "stopped": false,
+      "total": 200,
+      "accepted": 200,
+      "unclassified": 0,
+      "cacheHits": 200,
+      "segments": {
+        "new": {
+          "price": 17,
+          "other": 23
+        },
+        "core": {
+          "price": 16,
+          "other": 24
+        },
+        "price_sensitive": {
+          "price": 17,
+          "other": 22
+        },
+        "at_risk": {
+          "price": 16,
+          "other": 23
+        },
+        "cancel_intent": {
+          "price": 18,
+          "other": 24
+        }
+      },
+      "intents": {
+        "cancel": 83,
+        "considering_cancel": 55,
+        "stay": 62
+      },
+      "eligiblePilotCount": 2,
+      "pilotCount": 4,
+      "mappingIssueCount": 0,
+      "source": "AI-classified synthetic feedback"
+    },
+    "comparisons": [
+      {
+        "strategy": {
+          "id": "baseline",
+          "name": "Do nothing (baseline)",
+          "intervention": {
+            "kind": "baseline"
+          }
+        },
+        "totalValueDelta": {
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "probPositive": 0
+        },
+        "chanceWorse": 0,
+        "meanDiscountCost": 0
+      },
+      {
+        "strategy": {
+          "id": "at-risk-20-3m",
+          "name": "At-risk: 20% off for 3 months (6-month campaign)",
+          "intervention": {
+            "kind": "targeted_discount",
+            "segment": "at_risk",
+            "reason": "any",
+            "discountPct": 20,
+            "months": 3,
+            "campaignMonths": 6
+          }
+        },
+        "totalValueDelta": {
+          "mean": -1370.1399611636905,
+          "p10": -3842.4937318866023,
+          "p50": -1326.812124576245,
+          "p90": 1066.4617844189636,
+          "probPositive": 0.242
+        },
+        "chanceWorse": 0.758,
+        "meanDiscountCost": 4104.3456
+      },
+      {
+        "strategy": {
+          "id": "cancel-price-25-3m",
+          "name": "Price-driven cancel save: 25% off for 3 months (6-month campaign)",
+          "intervention": {
+            "kind": "targeted_discount",
+            "segment": "cancel_intent",
+            "reason": "price",
+            "discountPct": 25,
+            "months": 3,
+            "campaignMonths": 6
+          }
+        },
+        "totalValueDelta": {
+          "mean": 88.62249703306396,
+          "p10": -435.72875425245144,
+          "p50": 87.77658133697696,
+          "p90": 600.3019374742056,
+          "probPositive": 0.586
+        },
+        "chanceWorse": 0.414,
+        "meanDiscountCost": 408.408
+      },
+      {
+        "strategy": {
+          "id": "annual-15",
+          "name": "Annual prepay at 15% off",
+          "intervention": {
+            "kind": "annual_plan",
+            "discountPct": 15,
+            "segments": [
+              "core",
+              "price_sensitive"
+            ]
+          }
+        },
+        "totalValueDelta": {
+          "mean": 11036.998133707202,
+          "p10": 5220.74217323045,
+          "p50": 10351.213154705736,
+          "p90": 17884.299652159854,
+          "probPositive": 1
+        },
+        "chanceWorse": 0,
+        "meanDiscountCost": 8862.82559999999
+      }
+    ],
+    "stress": {
+      "strategyId": "cancel-price-25-3m",
+      "base": {
+        "mean": 88.62249703306396,
+        "p10": -435.72875425245144,
+        "p50": 87.77658133697696,
+        "p90": 600.3019374742056,
+        "probPositive": 0.586
+      },
+      "stressed": {
+        "mean": -46.18176167709014,
+        "p10": -561.5764196497388,
+        "p50": -42.785208407149184,
+        "p90": 458.3347671080264,
+        "probPositive": 0.464
+      },
+      "stressedChanceWorse": 0.536
+    },
+    "action": {
+      "type": "subscription_price_override",
+      "segment": "cancel_intent",
+      "reason": "price",
+      "listPrice": "24.00",
+      "newPrice": "18.00",
+      "discountPct": 25,
+      "months": 3,
+      "campaignMonths": 6,
+      "targets": [
+        "I-REPLAYA",
+        "I-REPLAYB"
+      ]
+    },
+    "status": "proposed",
+    "counters": {
+      "requestedTools": 7,
+      "executedTools": 7,
+      "modelTurns": 8,
+      "accountedTokens": 22043,
+      "reportedTokens": 22043,
+      "httpRequests": 8,
+      "elapsedMs": 301808
+    }
+  }
+}
