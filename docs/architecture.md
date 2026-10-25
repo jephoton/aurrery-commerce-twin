@@ -18,7 +18,7 @@
 
 ## Key invariants
 
-Groq `openai/gpt-oss-120b` is the selected M2/M3 provider after the ordered Gemini/Groq evaluation. Groq achieved 93.5% joint agreement on 200 synthetic messages, all pilot labels correct and tool smoke passed; Gemini returned HTTP 503 twice and its accuracy remains unassessed. See [decision 0003](decisions/0003-ai-provider-evaluation.md) and the [measured report](research/m2-provider-evaluation.md). Both explicit adapters remain available with no fallback. Classification begins only after an explicit agent run or CLI invocation; a complete live agent recommendation remains M3 acceptance work.
+Groq `openai/gpt-oss-120b` is the selected M2/M3 provider after the ordered Gemini/Groq evaluation. Groq achieved 93.5% joint agreement on 200 synthetic messages, all pilot labels correct and tool smoke passed; Gemini returned HTTP 503 twice and its accuracy remains unassessed. See [decision 0003](decisions/0003-ai-provider-evaluation.md) and the [measured report](research/m2-provider-evaluation.md). Both explicit adapters remain available with no fallback. Classification begins only after an explicit agent run or CLI invocation. A complete live CLI run at `36be5dd` created a proposed action using cached classifications; [M3 validation](research/m3-agent-validation.md) records the result and remaining browser acceptance.
 
 - Only `POST /api/proposals/{id}/approve` reaches PayPal. It requires the proposal's action hash, and execution is claimed atomically (`UPDATE … WHERE status='approved'`), so it happens at most once.
 - Proposal predictions are recomputed server-side; client numbers are never trusted.
@@ -32,6 +32,16 @@ Groq `openai/gpt-oss-120b` is the selected M2/M3 provider after the ordered Gemi
 - Explicit local classifier cache import validates the current provider/model and corpus/input/prompt/schema fingerprints and all 200 accepted predictions before an atomic transaction. Hidden evaluation labels never enter tools, imported cache identity, or provider inputs.
 - The PayPal client is hard-wired to `Environment.Sandbox`.
 - Execution records what PayPal reports on read-back (`verified` = read-back price equals the requested price), not what was requested.
+
+## Agent run and timeline (M3)
+
+`src/agent/tools.ts` owns isolated twin/evidence/rule state and seven strict tools. `model.ts` projects Groq responses to public assistant content/calls, retaining opaque tool-call IDs. `run.ts` requires classification and explicit rules before analysis: it temporarily exposes only merchant state and missing prerequisites with required tool choice and a bounded recorded preparation explanation. It then exposes all tools with automatic choice; after a proposal it permits only the public summary. A single neutral clarification can recover a prose-only recommendation after analysis, without forcing an action when none is supported.
+
+`limits.ts` enforces the ten-call/eleven-turn/32,000-accounted-token/ten-minute caps, process-local active lease and conservative shared 8,000-TPM pacing. Model and cold-classifier HTTP attempts use the same budget and cancellation signal. Received 429 stops the run; estimates and missing-usage reservations do not guarantee quotas or billing. Multi-instance coordination remains M5 work.
+
+`http.ts` reserves the lease before `POST /api/agent` opens an NDJSON stream; `stream.ts` validates framing and public event shapes. `src/components/agent-session.ts` owns browser request lifecycle and rejects stale events; `AgentPanel.tsx` renders public progress, Stop and terminal states; the dashboard reducer clears stale approvals as objective, selection or analysis changes. The existing grid/charts/approval card consume typed computed events. Automated tests establish stream/session behavior; production SSR alone does not establish browser acceptance.
+
+`scripts/check-agent.ts` runs the explicit live CLI and saves an exclusively created ignored public artifact. `src/agent/fixtures/m3-recorded-groq.json` preserves eight genuine public responses plus accepted predictions and expected summaries; `replay.test.ts` feeds them through actual cache, tools, simulation, stress and in-memory proposal persistence with network forbidden. No hidden evaluation labels or live pilot identifiers are needed. Live inference, deterministic replay and pending browser observation are reported separately.
 
 ## Model summary
 

@@ -9,7 +9,7 @@ Built for the PayPal AI Hackathon (2026).
 1. **Twin from data.** Segment churn, payment-failure churn, acquisition and segment transitions are Beta/normal posteriors estimated from 18 months of subscriber history. Parameters history can't identify (price sensitivity, discount effect, annual uptake) are explicit priors, labelled as assumptions.
 2. **Strategies.** Targeted retention discounts, list-price changes and annual prepay plans, each bounded by server-side guardrails.
 3. **Monte Carlo comparison.** 1,000 runs per strategy over 12 months. Every strategy sees the same parameter draws and random streams (common random numbers), so paired differences against "do nothing" isolate the intervention. Output: median and 80% interval of value change, and the probability of doing worse than baseline.
-4. **Approval.** A recommended action becomes a proposal bound to a SHA-256 hash of its exact PayPal payload. Approval moves `proposed → approved`; execution atomically claims `approved → executing`, so it runs at most once.
+4. **Agent and approval.** Run the Groq agent to classify feedback, set explicit rules, compare strategies, inspect adverse stress and draft customer copy. A supported action becomes a proposal bound to a SHA-256 hash of its exact PayPal payload. Merchant approval moves `proposed → approved`; execution atomically claims `approved → executing`, so it runs at most once.
 5. **PayPal execution.** `PATCH /v1/billing/subscriptions/{id}` overrides the regular-cycle price for each targeted sandbox subscription. This is merchant-side; PayPal does not require buyer consent for it, and billing within 10 days is unaffected. Each subscription is then read back with `GET` and the observed price is recorded.
 6. **Feedback.** Observed outcomes update the discount-effect posterior (Gamma–Poisson rate ratio).
 
@@ -52,6 +52,24 @@ npm run twin:inspect # print a strategy comparison from the command line
 
 See [docs/architecture.md](docs/architecture.md) and [docs/current-state.md](docs/current-state.md).
 
+## Run the agent
+
+Configure `AI_PROVIDER=groq`, `GROQ_MODEL=openai/gpt-oss-120b` and `GROQ_API_KEY` in `.env.local`. The server requires all three explicitly and has no automatic fallback. Open `http://localhost:3001`, enter an objective and select **Run agent**. The timeline shows actual tool progress, cached/fresh classification counts, decision rules, simulated comparisons, adverse stress, display-only customer copy and the proposed action. **Stop** cancels further work; an interrupted or failed run stays visibly incomplete. A textual recommendation alone does not create a proposal.
+
+Runs allow at most ten requested tools, eleven model turns, approximately 32,000 accounted tokens and ten minutes. Conservative pacing uses the observed 8,000-token-per-minute allowance and announces waits. A shared process lease permits one active run; a busy endpoint returns HTTP 409. Received quota failures stop the run. These estimates do not establish free usage or charges; account billing remains unverified.
+
+The agent uses the accepted prediction cache when fingerprints match. A cold cache makes live classification requests. Optionally import a genuine local M2 Groq evaluation artifact; the importer validates provider/model, corpus/input/prompt/schema fingerprints and every prediction before an atomic cache write. Use the full evaluation artifact, not the replay fixture:
+
+```bash
+npm run signals:import-cache -- data/<matching-groq-evaluation-artifact>.json
+npm run agent:check   # explicit live CLI; proposed-only; Ctrl+C stops it
+npm test -- src/agent/replay.test.ts --maxWorkers=1 # offline recorded replay
+```
+
+The CLI saves a unique public transcript artifact under ignored `data/`. The agent can only propose: inspect the exact target list, price, duration and hash in the existing approval card, then separately check its confirmation before approving. It cannot approve, execute or send customer messages. Annual plans remain simulation-only until M7. Manual **Run simulations** and **Prepare selected action** remain available with canonical merchant estimates; the agent comparison labels its classified evidence separately.
+
+One complete live CLI run and its offline replay are documented in the [M3 validation report](docs/research/m3-agent-validation.md). Dashboard visual acceptance and final review remain pending, so M3 is not yet marked complete.
+
 ## Feedback provider evaluation
 
 M2 is complete. **Groq `openai/gpt-oss-120b` is selected**: 93.5% joint agreement on the 200-message synthetic fixture, all four pilots correct, and tool smoke passed. Gemini returned HTTP 503 twice, so its accuracy remains unassessed. See the [measured report](docs/research/m2-provider-evaluation.md). Configure Gemini with `GEMINI_API_KEY` (or `GOOGLE_GENERATIVE_AI_API_KEY`) and Groq with `GROQ_API_KEY` in `.env.local`. Optional `GEMINI_MODEL` and `GROQ_MODEL` override the initial `gemini-3.8-flash` and `openai/gpt-oss-120b` models. Keys are read by the server-only adapter and are never printed.
@@ -74,7 +92,7 @@ Suitability requires >=95% schema-valid output, >=90% accepted coverage, >=90% w
 ## Tools used
 
 - **PayPal Subscriptions API** (Sandbox) via the official `@paypal/paypal-server-sdk`; Catalog Products REST API for setup.
-- **Groq GPT-OSS 120B**, selected after the ordered Gemini/Groq evaluation; the full strategy agent is future M3 work. The agent will call the simulator through structured tools and cannot execute payments itself. See [the evaluation decision](docs/decisions/0003-ai-provider-evaluation.md).
+- **Groq GPT-OSS 120B**, selected after the ordered Gemini/Groq evaluation; the implemented strategy agent calls classification, simulation and stress tools and creates proposed actions. One complete live CLI flow is verified; dashboard visual acceptance remains pending. The agent cannot execute payments itself. See [the evaluation decision](docs/decisions/0003-ai-provider-evaluation.md) and [M3 validation](docs/research/m3-agent-validation.md).
 - **AG Grid Community** for the scenario comparison grid.
 - Next.js, TypeScript, Zod, Node's built-in SQLite, Vitest.
 
