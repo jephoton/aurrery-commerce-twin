@@ -17,3 +17,9 @@ Verify the selected theme, meaningful orbit overview, Community-compatible famil
 ## Current result
 
 Implementation is in progress. No M4 completion or publication is claimed yet. Prior M3 421-test/build acceptance remains the baseline, with narrative wording limitations preserved in its genuine recordings.
+
+## Task 1 review findings
+
+The initial typed-summary/evidence implementation at `36609b9` passed 23 focused component tests, typecheck and zero-warning lint. Spec review found that classification incorrectly cleared explicit UI rules even though the server preserves them. The correction must keep rules while invalidating comparison/stress/review and test rules → classification → comparison ordering.
+
+Parent inspection also identified that manually preparing an action after an agent comparison inherited the comparison's agent label. Manual preparation uses canonical estimates, potentially with a different horizon, while the classified comparison is separate. Track proposal origin independently, keep headline scenario statistics bound to their own source, explain the separately prepared canonical action and preserve origin on same-ID status updates. No provider, model, simulation or approval change is required. These corrections require re-review before the next task.
