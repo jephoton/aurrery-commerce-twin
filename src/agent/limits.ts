@@ -61,7 +61,7 @@ export function createRunBudget(options: BudgetOptions = {}) {
       window.entries = window.entries.filter((entry) => now() - entry.at < 60000);
       if (window.entries.reduce((sum, e) => sum + e.tokens, 0) + tokens <= 8000) break;
       const durationMs = Math.max(1, 60000 - (now() - window.entries[0].at));
-      options.emit?.({ type: "wait", durationMs, message: "Pacing Groq token allowance." });
+      options.emit?.({ type: "wait", durationMs, message: "Pacing the conservative shared token budget." });
       await sleep(durationMs);
     }
     check();
@@ -87,8 +87,19 @@ export function createRunBudget(options: BudgetOptions = {}) {
 
 function estimateRequest(body: string) {
   let output = 4096;
-  try { const parsed = JSON.parse(body); output = parsed.max_completion_tokens ?? output; } catch { /* Conservative fallback. */ }
+  try {
+    const parsed = JSON.parse(body);
+    const limit = parsed.max_completion_tokens ?? parsed.generationConfig?.maxOutputTokens;
+    if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) output = Math.ceil(limit);
+  } catch { /* Conservative fallback. */ }
   return Math.ceil(Buffer.byteLength(body, "utf8") / 3) + output + 128;
+}
+function requestKind(body: string): RequestUsage["kind"] {
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed.response_format || parsed.generationConfig?.responseFormat) return "classification";
+  } catch { /* Unknown requests retain conservative model accounting. */ }
+  return "model";
 }
 
 /** Every HTTP attempt, including classifier calls and retries, shares this boundary. */
@@ -100,7 +111,7 @@ export function budgetedFetch(fetcher: typeof fetch, budget: ReturnType<typeof c
     const reservation = estimateRequest(body);
     const settle = await budget.reserve(reservation);
     budget.check();
-    const record: RequestUsage = { kind: body.includes('"response_format"') ? "classification" : "model", reservation };
+    const record: RequestUsage = { kind: requestKind(body), reservation };
     budget.requests.push(record);
     const signal = init?.signal ? AbortSignal.any([init.signal, budget.signal]) : budget.signal;
     const response = await fetcher(input, { ...init, signal });
@@ -127,7 +138,8 @@ export function budgetedFetch(fetcher: typeof fetch, budget: ReturnType<typeof c
               try {
                 const raw = JSON.parse(Buffer.concat(chunks).toString("utf8"));
                 const usage = raw?.usage;
-                const actual = usage?.total_tokens ?? (typeof usage?.prompt_tokens === "number" && typeof usage?.completion_tokens === "number" ? usage.prompt_tokens + usage.completion_tokens : undefined);
+                // Gemini's total includes thinking; prompt + candidate tokens alone undercounts it.
+                const actual = raw?.usageMetadata?.totalTokenCount ?? usage?.total_tokens ?? (typeof usage?.prompt_tokens === "number" && typeof usage?.completion_tokens === "number" ? usage.prompt_tokens + usage.completion_tokens : undefined);
                 settle(typeof actual === "number" ? actual : undefined);
                 if (typeof actual === "number" && Number.isFinite(actual) && actual > 0) record.reportedTokens = actual;
               } catch { settle(); }

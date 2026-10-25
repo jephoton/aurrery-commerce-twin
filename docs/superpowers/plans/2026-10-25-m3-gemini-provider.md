@@ -6,7 +6,7 @@
 
 The user requested a fresh Gemini evaluation and explicitly chose “Use Gemini if it passes.” Activate this integration only after Gemini passes the frozen benchmark's schema, coverage, joint agreement, all four pilot checks and read-only tool smoke. Preserve every attempted evaluation, including unavailable models and failed request formats. No automatic fallback or billing change is authorized by this plan.
 
-The initial reevaluation of `gemini-3.8-flash` timed out and then returned HTTP 503. `gemini-3.5-flash-lite` classified all 200 inputs with 96.0% joint agreement and all pilots correct, but its tool smoke exposed an invalid declaration field. Correct that wire format and verify the complete gate before activating this plan. The prompt, corpus, hidden truth, thresholds and classifier transport remain frozen.
+The initial reevaluation of `gemini-3.8-flash` timed out and then returned HTTP 503. `gemini-3.5-flash-lite` classified all 200 inputs with 96.0% joint agreement and all pilots correct, but its tool smoke exposed an invalid declaration field. The reviewed correction at `e34c899` subsequently passed a separate fresh two-request smoke. Rescoring the unchanged fresh classification with that smoke passed every frozen suitability gate, so this plan is active. The original failed artifact is preserved; this is combined measured evidence, not a fresh full evaluation rerun. The prompt, corpus, hidden truth, thresholds and classifier transport remain frozen. See [decision 0004](../../decisions/0004-gemini-flash-lite-primary.md).
 
 ## Design
 
@@ -22,12 +22,15 @@ All HTTP attempts, classification calls and retries must remain inside the exist
 
 ## Task 1: Adapter and complete provider wiring
 
-- [ ] Inspect existing Groq adapter and both M2 tool-smoke implementations. Check current official Gemini API documentation before writing wire code.
-- [ ] Add failing fake-HTTP tests for required/automatic/final modes, complete matching tool history, opaque signature preservation without public leakage, generated IDs when provider IDs are absent, multiple calls, malformed/truncated/blocked output and safe errors. Preserve existing Groq tests/replay.
-- [ ] Implement the Gemini adapter using the existing transport; generalize explicit provider selection, runner/classification configuration and accurate public status. Missing or unsupported settings fail clearly without fallback.
-- [ ] Add accounting regressions for Gemini request output bounds, usage metadata, unknown usage, fresh-classification attribution, retries, cancellation and limits. Preserve Groq behavior.
-- [ ] Generalize tools/contracts/decoder/cache importer/import CLI to provider/model identity. Test cross-provider cache rejection, valid Gemini import, terminal classifier failures, stream validation and eligible proposed-only targeting.
-- [ ] Run serial tests, typecheck, zero-warning lint and build (coordinate owned production server first). Update architecture/current state and commit atomically. Complete spec and quality reviews before any live acceptance claim.
+- [x] Inspect existing Groq adapter and both M2 tool-smoke implementations. Check current official Gemini API documentation before writing wire code.
+- [x] Add failing fake-HTTP tests for required/automatic/final modes, complete matching tool history, opaque signature preservation without public leakage, generated IDs when provider IDs are absent, multiple calls, malformed/truncated/blocked output and safe errors. Preserve existing Groq tests/replay.
+- [x] Implement the Gemini adapter using the existing transport; generalize explicit provider selection, runner/classification configuration and accurate public status. Missing or unsupported settings fail clearly without fallback.
+- [x] Add accounting regressions for Gemini request output bounds, usage metadata, unknown usage, fresh-classification attribution, retries, cancellation and limits. Preserve Groq behavior.
+- [x] Generalize tools/contracts/decoder/cache importer/import CLI to provider/model identity. Test cross-provider cache rejection, valid Gemini import, terminal classifier failures, stream validation and eligible proposed-only targeting.
+- [x] Run serial tests, typecheck, zero-warning lint and build (owned production server stopped). Update architecture/current state and commit atomically: 402 tests/31 files, typecheck, zero-warning lint, production build and diff check pass.
+- [ ] Complete independent spec and quality reviews before runtime activation or any live acceptance claim.
+
+Task 1 implementation uses the existing seven tools and shared HTTP transport. Fake Gemini HTTP completes seven tools/eight turns with ten cold classification batches, creating one unapproved A/B-only $18 proposal with no executions. Its returned private thoughts/signatures are absent from public transcripts and events. The genuine Groq replay remains unchanged. Independent spec and quality reviews and all Task 2 live acceptance remain pending.
 
 ## Task 2: Selected Gemini live acceptance
 

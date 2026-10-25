@@ -14,6 +14,7 @@ import { compareStrategies, type ComparisonResult, type StrategyResult } from "@
 import { stressTest, type StressResult } from "@/twin/stress";
 import { SEGMENTS, type MerchantTwin } from "@/twin/types";
 import { DEFAULT_DECISION_RULES, DecisionRulesSchema, type AgentEvent, type ClassificationFailure, type ClassificationSummary, type DecisionRules, type ToolResult } from "./contracts";
+import { selectedProvider } from "./model";
 
 // Existing simulator schemas preserve manual API compatibility. Tighten recursively at the tool boundary.
 const intervention = z.discriminatedUnion("kind", [
@@ -52,6 +53,7 @@ class ToolFailure extends Error {
 }
 const safeClassificationFailure = z.object({ category: z.enum(["configuration", "auth", "model", "request", "quota", "network", "timeout", "server", "malformed_json", "envelope", "response_size"]), status: z.number().int().min(100).max(599).optional() });
 export interface ToolContextOptions {
+  env?: Record<string, string | undefined>;
   objective?: string;
   twin?: MerchantTwin;
   signal?: AbortSignal;
@@ -122,10 +124,13 @@ export function createToolContext(options: ToolContextOptions = {}) {
       }
       case "classify_feedback": {
         state.classified = false; state.classification = undefined; invalidate();
-        const provider = options.provider ?? createProvider({ provider: "groq" });
-        if (provider.provider !== "groq") {
+        let provider: ClassificationProvider;
+        try {
+          provider = options.provider ?? createProvider({ ...selectedProvider(options.env ?? process.env), env: options.env });
+          if (!z.object({ provider: z.enum(["gemini", "groq"]), model: z.string().regex(/^[a-zA-Z0-9_./-]{1,120}$/) }).safeParse(provider).success) throw new Error("configuration");
+        } catch {
           state.terminalFailure = { category: "configuration" };
-          throw new ToolFailure("CONFIGURATION", "The selected classifier must be Groq.", true, state.terminalFailure);
+          throw new ToolFailure("CONFIGURATION", "Configure an explicit supported classifier, model and key.", true, state.terminalFailure);
         }
         let called = false;
         const paced: ClassificationProvider = { ...provider, async classify(inputs) {
@@ -153,7 +158,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
         checkAbort();
         accepted = evidence.accepted;
         state.twin = updated; state.classified = accepted.length > 0 && !failed;
-        state.classification = { provider: "groq", model: provider.model, stopped: result.stopped, total: result.total, accepted: accepted.length, unclassified: result.unclassified.length, cacheHits: result.cacheHits, segments: evidence.segments, intents: evidence.intents, eligiblePilotCount: eligibility.eligibleSubscriptionIds.length, pilotCount: eligibility.pilots.length, mappingIssueCount: eligibility.issues.length, source: "AI-classified synthetic feedback" };
+        state.classification = { provider: provider.provider, model: provider.model, stopped: result.stopped, total: result.total, accepted: accepted.length, unclassified: result.unclassified.length, cacheHits: result.cacheHits, segments: evidence.segments, intents: evidence.intents, eligiblePilotCount: eligibility.eligibleSubscriptionIds.length, pilotCount: eligibility.pilots.length, mappingIssueCount: eligibility.issues.length, source: "AI-classified synthetic feedback" };
         emit({ type: "classification", summary: state.classification, hitmap: evidence.segments, provenance: state.twin.provenance });
         if (failed || accepted.length === 0) {
           const safe = safeClassificationFailure.safeParse(error);

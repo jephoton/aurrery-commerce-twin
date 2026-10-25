@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { createTransport, type ProviderConfig, type ProviderMetrics, type SafeProviderError } from "@/signals/transport";
 import type { TOOL_DEFINITIONS } from "./tools";
+import { createGeminiAgentModel } from "./gemini";
 
 const callSchema = z.object({ id: z.string().min(1).max(256).refine((id) => !/[\u0000-\u001f\u007f]/.test(id)), type: z.literal("function"), function: z.object({ name: z.string().min(1).max(120), arguments: z.string().max(32000) }) });
 const messageSchema = z.object({ role: z.literal("assistant").optional(), content: z.string().max(16000).nullable().optional(), tool_calls: z.array(callSchema).max(32).optional() });
@@ -19,15 +20,25 @@ export function publicAssistant(raw: unknown): AssistantMessage | undefined {
   if ((!content?.trim() && !tool_calls?.length) || (tool_calls && new Set(tool_calls.map((c) => c.id)).size !== tool_calls.length)) return;
   return { role: "assistant", content: content ?? null, ...(tool_calls?.length ? { tool_calls } : {}) };
 }
+export function selectedProvider(env: Record<string, string | undefined>): { provider: ProviderConfig["provider"]; model: string } {
+  const provider = env.AI_PROVIDER;
+  if (provider !== "groq" && provider !== "gemini") throw new Error("configuration");
+  const model = env[provider === "gemini" ? "GEMINI_MODEL" : "GROQ_MODEL"]?.trim();
+  const key = provider === "gemini" ? env.GEMINI_API_KEY?.trim() || env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() : env.GROQ_API_KEY?.trim();
+  if (!model || !/^[a-zA-Z0-9_./-]{1,120}$/.test(model) || !key) throw new Error("configuration");
+  return { provider, model };
+}
+/** Compatibility for callers that explicitly require Groq. */
 export function selectedGroq(env: Record<string, string | undefined>) {
-  const model = env.GROQ_MODEL?.trim();
-  if (env.AI_PROVIDER !== "groq" || !model || !/^[a-zA-Z0-9_./-]{1,120}$/.test(model) || !env.GROQ_API_KEY?.trim()) throw new Error("configuration");
-  return model;
+  const selected = selectedProvider(env);
+  if (selected.provider !== "groq") throw new Error("configuration");
+  return selected.model;
 }
 export function createAgentModel(config: Omit<ProviderConfig, "provider"> & { beforeSend?: (body: unknown) => Promise<void> } = {}): AgentModel {
   const env = config.env ?? process.env;
-  const model = selectedGroq(env);
-  const transport = createTransport({ ...config, env, model, provider: "groq" });
+  const { provider, model } = selectedProvider(env);
+  const transport = createTransport({ ...config, env, model, provider });
+  if (provider === "gemini") return createGeminiAgentModel(transport, config.beforeSend);
   return { async respond(messages, tools, options) {
     const body = { messages, stream: false, max_completion_tokens: 1024, reasoning_effort: "low", ...(options?.final ? { tool_choice: "none" } : { tools, parallel_tool_calls: false, temperature: 0, ...(options?.requireTool ? { tool_choice: "required" } : {}) }) };
     await config.beforeSend?.({ ...body, model });

@@ -17,6 +17,20 @@ function artifact() {
   } };
 }
 describe("explicit classifier cache import", () => {
+  it("accepts a complete Gemini evaluation only under its actual selected provider and model", () => {
+    const gemini = { provider: "gemini" as const, model: "gemini-3.5-flash-lite" };
+    const source = artifact();
+    Object.assign(source.evaluation, gemini);
+    expect(importSignalCache(source, gemini)).toEqual({ ...gemini, imported: 200 });
+    const cache = createPredictionCache();
+    expect(cache.get(toModelInput(feedbackCorpus[0]), gemini)?.id).toBe(feedbackCorpus[0].id);
+    const set = vi.fn();
+    for (const configured of [context, { ...gemini, model: "other-model" }, { ...gemini, provider: "groq" as const }]) {
+      expect(() => importSignalCache(source, configured, { cache: { get: () => undefined, set } })).toThrow();
+    }
+    expect(() => importSignalCache(artifact(), gemini, { cache: { get: () => undefined, set } })).toThrow();
+    expect(set).not.toHaveBeenCalled();
+  });
   it("validates the complete fresh evaluation and writes all 200 projected inputs", () => {
     const source = artifact();
     expect(validateSignalCacheArtifact(source, context)).toHaveLength(200);

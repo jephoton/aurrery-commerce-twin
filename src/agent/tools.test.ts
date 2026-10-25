@@ -17,7 +17,7 @@ const classified = (): ClassificationResult => ({ accepted: predictions(), total
 function setup(options: Parameters<typeof createToolContext>[0] = {}) {
   ledger().exec("DELETE FROM sandbox_subscribers; DELETE FROM proposals;");
   PILOT_COHORT.forEach((pilot, i) => registerSandboxSubscriber({ ...pilot, subscriptionId: `I-PILOT${i}` }));
-  return createToolContext({ objective: "Reduce churn", classify: vi.fn(async () => classified()), ...options });
+  return createToolContext({ objective: "Reduce churn", provider: { provider: "groq", model: "openai/gpt-oss-120b", classify: vi.fn() }, classify: vi.fn(async () => classified()), ...options });
 }
 const rules = { discountBudget: 100000, maxProbWorse: 1, horizonMonths: 1 };
 async function ready(ctx: ReturnType<typeof setup>, candidate = strategy) {

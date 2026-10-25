@@ -13,7 +13,7 @@ export const DecisionRulesSchema = z.strictObject({
 export type DecisionRules = z.infer<typeof DecisionRulesSchema>;
 export const DEFAULT_DECISION_RULES: DecisionRules = { discountBudget: 1000, maxProbWorse: .5, horizonMonths: 12 };
 export interface ClassificationSummary {
-  provider: "groq"; model: string; stopped: boolean;
+  provider: "gemini" | "groq"; model: string; stopped: boolean;
   total: number; accepted: number; unclassified: number; cacheHits: number;
   segments: EvidenceSummary["segments"]; intents: EvidenceSummary["intents"];
   eligiblePilotCount: number; pilotCount: number; mappingIssueCount: number;

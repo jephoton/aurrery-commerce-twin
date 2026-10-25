@@ -8,9 +8,9 @@ import { corpusVersion, feedbackCorpus, toModelInput } from "./corpus";
 import { CLASSIFICATION_INSTRUCTION, CLASSIFICATION_JSON_SCHEMA } from "./prompt";
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-const contextSchema = z.object({ provider: z.literal("groq"), model: z.string().regex(/^[a-zA-Z0-9_./-]{1,120}$/) });
+const contextSchema = z.object({ provider: z.enum(["gemini", "groq"]), model: z.string().regex(/^[a-zA-Z0-9_./-]{1,120}$/) });
 const artifactSchema = z.object({ evaluation: z.object({
-  provider: z.literal("groq"), model: z.string(),
+  provider: z.enum(["gemini", "groq"]), model: z.string(),
   dimensions: z.object({ corpusVersion: z.string(), promptVersion: z.string(), schemaVersion: z.string(), fixtureSha256: z.string(), inputSha256: z.string(), promptSha256: z.string(), schemaSha256: z.string(), hashEncoding: z.literal("JSON.stringify / UTF-8") }),
   cache: z.object({ enabled: z.literal(false), hits: z.literal(0) }),
   classification: z.object({ accepted: z.array(PredictionSchema), total: z.literal(200), schemaValidCount: z.literal(200), cacheHits: z.literal(0), stopped: z.literal(false), unclassified: z.array(z.unknown()).length(0), diagnostics: z.array(z.unknown()).length(0) }),
