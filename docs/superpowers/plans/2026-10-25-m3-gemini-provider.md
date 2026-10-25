@@ -28,9 +28,9 @@ All HTTP attempts, classification calls and retries must remain inside the exist
 - [x] Add accounting regressions for Gemini request output bounds, usage metadata, unknown usage, fresh-classification attribution, retries, cancellation and limits. Preserve Groq behavior.
 - [x] Generalize tools/contracts/decoder/cache importer/import CLI to provider/model identity. Test cross-provider cache rejection, valid Gemini import, terminal classifier failures, stream validation and eligible proposed-only targeting.
 - [x] Run serial tests, typecheck, zero-warning lint and build (owned production server stopped). Update architecture/current state and commit atomically: 402 tests/31 files, typecheck, zero-warning lint, production build and diff check pass.
-- [ ] Complete independent spec and quality reviews before runtime activation or any live acceptance claim.
+- [x] Complete independent spec and quality reviews before runtime activation or any live acceptance claim. Both passed at `12b9dd7`; parent activated Gemini and explicitly imported its 200 matching predictions afterward.
 
-Task 1 implementation uses the existing seven tools and shared HTTP transport. Fake Gemini HTTP completes seven tools/eight turns with ten cold classification batches, creating one unapproved A/B-only $18 proposal with no executions. Its returned private thoughts/signatures are absent from public transcripts and events. The genuine Groq replay remains unchanged. Independent spec and quality reviews and all Task 2 live acceptance remain pending.
+Task 1 implementation uses the existing seven tools and shared HTTP transport. Fake Gemini HTTP completes seven tools/eight turns with ten cold classification batches, creating one unapproved A/B-only $18 proposal with no executions. Its returned private thoughts/signatures are absent from public transcripts and events. The genuine Groq replay remains unchanged. Independent spec and quality reviews passed; complete Task 2 live acceptance remains pending.
 
 ## Task 2: Selected Gemini live acceptance
 
@@ -46,3 +46,13 @@ Task 1 implementation uses the existing seven tools and shared HTTP transport. F
 - [Gemini rate limits and account-specific limits](https://ai.google.dev/gemini-api/docs/rate-limits)
 
 The shared transport is already responsible for authentication, bounded responses, safe failures and its one permitted network/timeout/5xx retry. Reuse it rather than adding another HTTP client or arbitrary HTTP 400 retries.
+
+## Follow-up: Verified-project opt-in rate profile
+
+The operator checked the configured key's AI Studio project: free tier, Flash-Lite 250,000 TPM, 15 RPM and 500 RPD. The user explicitly confirmed key/project identity. Preserve conservative defaults for other projects; this evidence authorizes a planned explicit 100,000-TPM/12-RPM runtime profile after review. The first parent-owned Gemini CLI uses the original 8,000-TPM code, so a new browser flow must establish acceptance of the opt-in profile.
+
+- [x] Add failing injected-clock/fake-HTTP regressions for twelve requests without pacing, thirteenth-request pacing, retry/classifier attempts, preflight counting, unknown usage, configuration bounds, defaults/Groq isolation, total cap, cancellation and deadlines.
+- [x] Add server-only `GEMINI_AGENT_TPM`/`GEMINI_AGENT_RPM`: Gemini defaults 8000/5, positive integer bounds 250000/15, safe CONFIGURATION on invalid values, Groq unchanged. Derive runtime rates from validated selected settings, never client inputs/tools.
+- [x] Apply both rolling limits to actual shared HTTP entries, with no preflight double count and a direct wait to the earliest sufficient expiration. Preserve all run caps, terminal 429, strict schemas and approval boundaries.
+- [x] Complete serial tests, typecheck, zero-warning lint, diff check and atomic commit: 420 tests/32 files, typecheck, zero-warning lint and diff check pass. No build was run during this follow-up; parent coordinates the next production build after reviews/instruction follow-up.
+- [ ] Complete independent spec then quality review before parent edits ignored rate settings, builds production or claims live opt-in acceptance. Parent handles provider report/decision and actual dashboard flow.

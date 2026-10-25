@@ -1,6 +1,7 @@
 import "server-only";
 import { setTimeout as delay } from "node:timers/promises";
 import type { AgentEvent } from "./contracts";
+import type { ProviderName } from "@/signals/transport";
 
 export class RunLimitError extends Error {
   constructor(readonly code: "BUSY" | "CANCELLED" | "DEADLINE" | "TOKEN_LIMIT") { super(code); }
@@ -24,11 +25,28 @@ export const createTokenWindow = () => ({ entries: [] as { at: number; tokens: n
 export type TokenWindow = ReturnType<typeof createTokenWindow>;
 export interface RequestUsage { kind: "model" | "classification"; reservation: number; reportedTokens?: number; status?: number }
 const processWindow = createTokenWindow();
+export interface RateProfile { tokensPerMinute: number; requestsPerMinute?: number }
+/** Explicit Gemini opt-in is bounded by the reviewed configuration envelope, not an account-wide default. */
+export function selectedAgentRateProfile(provider: ProviderName, env: Record<string, string | undefined>): RateProfile {
+  if (provider !== "gemini") return { tokensPerMinute: 8000 };
+  function setting(name: string, fallback: number, maximum: number) {
+    const text = env[name]?.trim();
+    if (text === undefined) return fallback;
+    const value = /^\d+$/.test(text) ? Number(text) : NaN;
+    if (!Number.isInteger(value) || value < 1 || value > maximum) throw new Error("configuration");
+    return value;
+  }
+  return { tokensPerMinute: setting("GEMINI_AGENT_TPM", 8000, 250000), requestsPerMinute: setting("GEMINI_AGENT_RPM", 5, 15) };
+}
 export interface BudgetOptions {
   signal?: AbortSignal; now?: () => number; sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
   emit?: (event: AgentEvent) => void; window?: TokenWindow; maxTokens?: number; maxDurationMs?: number;
+  /** Internal pacing configuration. The runner derives its profile only from selected server settings. */
+  rateProfile?: RateProfile;
 }
 export function createRunBudget(options: BudgetOptions = {}) {
+  const { tokensPerMinute, requestsPerMinute } = options.rateProfile ?? { tokensPerMinute: 8000 };
+  if (!Number.isInteger(tokensPerMinute) || tokensPerMinute < 1 || tokensPerMinute > 250000 || (requestsPerMinute !== undefined && (!Number.isInteger(requestsPerMinute) || requestsPerMinute < 1 || requestsPerMinute > 15))) throw new Error("configuration");
   const now = options.now ?? Date.now;
   const started = now();
   const duration = Math.max(1, Math.min(600000, options.maxDurationMs ?? 600000));
@@ -55,13 +73,22 @@ export function createRunBudget(options: BudgetOptions = {}) {
   async function pace(tokens: number) {
     check();
     tokens = Math.ceil(tokens);
-    if (!Number.isFinite(tokens) || tokens <= 0 || tokens > 8000 || accountedTokens + tokens > tokenLimit) { exhausted = true; throw new RunLimitError("TOKEN_LIMIT"); }
+    if (!Number.isFinite(tokens) || tokens <= 0 || tokens > tokensPerMinute || accountedTokens + tokens > tokenLimit) { exhausted = true; throw new RunLimitError("TOKEN_LIMIT"); }
     for (;;) {
       check();
       window.entries = window.entries.filter((entry) => now() - entry.at < 60000);
-      if (window.entries.reduce((sum, e) => sum + e.tokens, 0) + tokens <= 8000) break;
-      const durationMs = Math.max(1, 60000 - (now() - window.entries[0].at));
-      options.emit?.({ type: "wait", durationMs, message: "Pacing the conservative shared token budget." });
+      let rollingTokens = window.entries.reduce((sum, e) => sum + e.tokens, 0);
+      let rollingRequests = window.entries.length;
+      const fits = () => rollingTokens + tokens <= tokensPerMinute && (requestsPerMinute === undefined || rollingRequests < requestsPerMinute);
+      if (fits()) break;
+      let durationMs = 1;
+      // Wait directly for the earliest expiration that satisfies both constraints.
+      for (const entry of [...window.entries].sort((a, b) => a.at - b.at)) {
+        rollingTokens -= entry.tokens; rollingRequests--;
+        durationMs = Math.max(1, 60000 - (now() - entry.at));
+        if (fits()) break;
+      }
+      options.emit?.({ type: "wait", durationMs, message: "Pacing the shared provider token and request budget." });
       await sleep(durationMs);
     }
     check();

@@ -73,7 +73,8 @@ it("runs Gemini HTTP through fresh classification, cache, real tools, pacing and
   expect(result.requests.filter((request) => request.kind === "classification")).toHaveLength(10);
   expect(events).toContainEqual(expect.objectContaining({ type: "status", message: expect.stringContaining("gemini-3.5-flash-lite") }));
   expect(events.filter((event) => event.type === "classification").map((event) => event.summary)).toMatchObject([{ provider: "gemini", model: env.GEMINI_MODEL, accepted: 200, cacheHits: 0, eligiblePilotCount: 2 }]);
-  expect(sleeps.filter((ms) => ms === 30000)).toHaveLength(9);
+  expect(sleeps.filter((ms) => ms === 30000).length).toBeGreaterThanOrEqual(9);
+  expect(events.filter((event) => event.type === "status" && event.message === "Pacing fresh classification batches for 30 seconds.")).toHaveLength(9);
   const proposals = listProposals();
   expect(proposals).toHaveLength(1);
   expect(proposals[0]).toMatchObject({ id: result.proposalId, status: "proposed", approvedAt: null, approvedBy: null, action: { newPrice: "18.00", targets: ["I-GEMINIA", "I-GEMINIB"] } });
