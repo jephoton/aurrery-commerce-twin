@@ -82,6 +82,8 @@ The operator verified the selected key's project in AI Studio as free tier with 
 
 **Common random numbers.** Every random draw is keyed by month, event, segment, reason and discount state, so subscribers an intervention doesn't touch draw identical randomness under every strategy. Exact tests pin this.
 
+**Rare-event binomial draws.** `src/twin/rng.ts` uses an exact geometric-skip sampler for low-variance binomials. Its skip denominator is `Math.log1p(-p)`: computing `Math.log(1 - p)` rounds `1 - p` to 1 for tiny positive `p`, yielding zero and an endless loop. The `log1p` form keeps the representable rare-event tail without a probability floor or a change to the sampling regimes. A bounded unit regression covers `1e-20` and `Number.MIN_VALUE`; the three-segment annual 1,000-run stress regression covers the observed M4 path.
+
 ## Stress scenarios and inspection
 
 `src/twin/stress.ts` exports `stressParams`, `stressTest` and `StressResult`. The pure parameter transform is combined with provenance checks in `stressTest`: only assumptions shift, with exact parameter provenance taking precedence over group provenance. Observed/estimated evidence, including calibrated reason-specific discount effects, stays intact. Historical churn, transitions, acquisition estimates and reason shares remain unchanged.

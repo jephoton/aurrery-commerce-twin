@@ -25,6 +25,12 @@ _Last material update: 2026-10-26. **M0–M3 are complete and reviewed. M4 is ac
 
 M2 checkpoint verification: all 184 tests across 13 files, typecheck, lint and production build passed. Merged-main tests also passed. Scans of all 88 then-tracked files found no configured credential values or personal home-directory paths. Current M3 verification and remaining acceptance are recorded below.
 
+## M4 numerical blocker follow-up (2026-10-26)
+
+The parent-owned M4 browser check reached a real Gemini HTTP 200 response, then the server stopped responding during the three-segment annual comparison/stress path. A bounded child-process reproduction of `Rng.binomial(120, 1e-20)` timed out. The root cause was the geometric-skip denominator `Math.log(1 - p)`: floating-point subtraction rounded `1 - p` to 1, so division by the resulting zero never advanced the loop. Before the fix, bounded unit tests for `1e-20` and `Number.MIN_VALUE` failed with a guarded third draw, and the real three-segment annual stress test (1,000 runs, 12 months, seed `20261113`) exceeded a five-second child-process limit. The single production change is `Math.log1p(-p)`; no priors, candidates, fixtures or provider behavior changed.
+
+After the change, the focused RNG/stress tests (16), both genuine offline provider replays (2), full serial suite (452 tests/37 files), typecheck and zero-warning lint pass. `npm run twin:inspect` reproduces the documented M1 starter-scenario intervals and stressed medians. This isolates and removes the numerical hang in offline tests. Parent rebuild, real Gemini browser retry, independent reviews and M4 publication remain pending.
+
 ## M3 final acceptance and M4 handoff
 
 The actual production browser flow at `31186fb` showed advancing activity and completed seven tools/eight model calls with 200 cache hits, eight HTTP 200 responses, no observed retry/429 and 28,634 reported tokens. The HTTP sequence spanned about 30.1 seconds; completion was observed within 38 seconds. Warm-cache results are not a guarantee for fresh classification or other quota conditions. Comparison/stress/draft refreshed; the exact A/B-only $24 → $18 action retained its correct payload hash, unchecked confirmation and disabled execution control. The ledger has three proposed rows, zero approval audit events and zero executions. Fresh PayPal GETs confirmed all four pilots ACTIVE at $24. Nothing was approved, executed or sent.

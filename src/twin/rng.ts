@@ -94,7 +94,7 @@ export class Rng {
       const draw = Math.round(this.normal(n * p, Math.sqrt(variance)));
       return Math.min(n, Math.max(0, draw));
     }
-    const logQ = Math.log(1 - p);
+    const logQ = Math.log1p(-p);
     let successes = 0;
     let position = 0;
     for (;;) {

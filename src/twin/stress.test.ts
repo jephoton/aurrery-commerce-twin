@@ -84,6 +84,23 @@ describe("stress parameters", () => {
 });
 
 describe("stress comparison", () => {
+  it("completes the three-segment annual stress at the production seed and run count", () => {
+    const strategy: Strategy = {
+      id: "annual-all",
+      name: "Annual plan 15% off for eligible segments",
+      intervention: { kind: "annual_plan", discountPct: 15, segments: ["core", "price_sensitive", "at_risk"] },
+    };
+    const result = stressTest(twin, strategy, { runs: 1000, horizonMonths: 12, seed: 20261113 });
+    const allNumbersFinite = (value: unknown): boolean => {
+      if (typeof value === "number") return Number.isFinite(value);
+      if (value !== null && typeof value === "object") return Object.values(value).every(allNumbersFinite);
+      return true;
+    };
+
+    expect(result.shifted).toHaveLength(SEGMENTS.length);
+    expect(allNumbersFinite(result)).toBe(true);
+  }, 30_000);
+
   it("compares base and stressed parameters with the supplied options and seed", () => {
     const result = stressTest(twin, precision, options);
     expect(result.base).toEqual(compareStrategies(twin, [precision], options).strategies[1]);

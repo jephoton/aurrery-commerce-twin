@@ -47,6 +47,8 @@ Files: `src/components/ScenarioGrid.tsx`, new focused grid/interval helpers/test
 
 ## Task 4: Parent acceptance, publication and handoff
 
+- [x] Resolve the numerical annual-stress blocker found during the parent browser check: bounded tiny-positive binomial RED tests and a bounded three-segment/1,000-run annual RED reproduction preceded the `log1p(-p)` fix. Focused tests, both genuine provider replays, full serial suite, typecheck, zero-warning lint and canonical starter values pass; see `docs/current-state.md`. No simulation assumptions or recordings changed.
+- [ ] Parent independently review the numerical fix, rebuild the owned server and repeat the real Gemini annual comparison/stress/proposal browser flow before M4 acceptance.
 - [ ] Run full serial tests, typecheck, zero-warning lint and production build with the owned server stopped. Scan tracked files for configured secrets/personal paths. Request final integrated review.
 - [ ] Rebuild/restart owned server on 3001 and verify in CUA browser: initial state, manual comparison, family filters, pinned baseline, keyboard selection, responsive layout, typed mean/median and separate feedback/population counts, review navigation and no approval. Check real agent progress/comparison/stress/proposal, Stop/error behavior, exact A/B-only $18 payload with unchecked confirmation and disabled execution. Never approve/reject/execute/send during QA.
 - [ ] Save useful ignored screenshots for desktop and narrow layouts, check console/runtime errors and fresh read-only PayPal status/ledger counts. Record failures honestly and fix/re-review any actionable issues.
