@@ -22,7 +22,7 @@ Files: new `src/ledger/connection.ts` and tests; export reusable schema from `sr
 
 Execute the following three slices sequentially, each with a fresh implementer and independent spec then quality review. They form one migration; intermediate commits are not hosted readiness or permission to switch the running app. Do not start the next slice with unresolved review findings.
 
-### B1: proposal and execution authority
+### B1: proposal and execution authority — reviewed at 0e4270c
 
 Scope: async settings/audit helpers, proposals/registered pilots/state transitions, execution recording, PayPal setup/sync/status and core CLI callers, proposal routes and agent registry/proposal awaits, plus affected tests. Keep synchronous injected test dependencies usable through awaited adapters. Group state/audit writes and verify FK enforcement in the actual write transaction. Cover conditional claim races and storage failure before/after external effects with fake PayPal calls. Leave hosting/signals/import to later slices; their raw local SQLite access remains a documented intermediate risk, so do not build/deploy/switch a mixed backend.
 
