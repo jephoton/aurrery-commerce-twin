@@ -8,7 +8,7 @@ const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.round(Math.abs(n)).to
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 export function AgentActivity({ event }: { event: AgentEvent }) {
   switch (event.type) {
-    case "status": case "summary": return <p className="whitespace-pre-wrap">{event.message}</p>;
+    case "status": case "summary": return <p className="whitespace-pre-wrap text-muted">{event.message}</p>;
     case "wait": return <p>{event.message} Waiting about {Math.ceil(event.durationMs / 1000)} seconds; Stop remains available.</p>;
     case "tool_started": return <p className="text-muted">Running {event.name.replaceAll("_", " ")}…</p>;
     case "tool_result": return <p className={event.result.ok ? "text-muted" : "text-negative"}>{event.name.replaceAll("_", " ")}: {event.result.ok ? "finished" : `${event.result.code} · ${event.result.message}`}</p>;
@@ -57,7 +57,7 @@ export function AgentActivity({ event }: { event: AgentEvent }) {
         <p>Review the exact action in Approval below. Merchant confirmation is required.</p>
       </div>
     );
-    case "error": return <p className="text-negative">{event.message} ({event.code})</p>;
+    case "error": return <p role="alert" className="text-negative">{event.message} ({event.code})</p>;
     // The status below changes only after the decoder verifies the full stream.
     case "done": return null;
   }
@@ -92,14 +92,15 @@ export function AgentPanel({ objective, disabled, onStart, onEvent, onFinish }: 
     setRunning(false); setStatus("Run cancelled. Any visible proposal still requires separate approval."); onFinish();
   };
   return (
-    <div className="mt-4 border-t border-border pt-4">
+    <div className="mt-5 border-t border-border pt-5" aria-label="Agent activity">
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={start} disabled={disabled || running || !objective.trim() || objective.trim().length > 2000} className="rounded-lg bg-brand-accent px-4 py-2 font-medium text-white hover:opacity-90 disabled:opacity-50">Run agent</button>
-        {running && <button type="button" onClick={stop} className="rounded-lg border border-border px-4 py-2 font-medium hover:bg-background">Stop agent</button>}
-        <p role="status" className="text-sm text-muted">{status}</p>
+        <button type="button" onClick={start} disabled={disabled || running || !objective.trim() || objective.trim().length > 2000} className="min-h-10 rounded-lg bg-brand px-5 py-2 font-semibold text-background hover:bg-brand-accent disabled:opacity-50">Run agent <span aria-hidden="true" className="ml-1">↗</span></button>
+        {running && <button type="button" onClick={stop} className="min-h-10 rounded-lg border border-border px-4 py-2 font-medium hover:bg-background">Stop agent</button>}
+        <p role="status" className="min-w-0 text-sm text-muted">{status}</p>
       </div>
       {!!events.length && (
-        <div role="log" aria-label="Agent public activity" aria-live="polite" aria-relevant="additions" className="mt-4 max-h-[32rem] overflow-y-auto rounded-lg border border-border bg-background p-4">
+        <div role="log" aria-label="Agent public activity" aria-live="polite" aria-relevant="additions" className="mt-5 max-h-[32rem] overflow-y-auto rounded-lg border border-border bg-background p-4 sm:p-5">
+          <p className="eyebrow mb-4">Live activity · public agent output</p>
           <ol className="space-y-3 text-sm">
             {events.map((event, i) => event.type !== "done" && (
               <li key={i} className="border-b border-border pb-3 last:border-0 last:pb-0"><AgentActivity event={event} /></li>

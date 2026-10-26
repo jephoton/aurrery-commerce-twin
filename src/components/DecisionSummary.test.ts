@@ -32,9 +32,16 @@ it("labels mean, median, interval, downside risk and cost from distinct typed fi
 
 it("starts without a recommendation or fabricated statistics", () => {
   const html = render({ ...baseProps, selected: null, source: null });
+  expect(html).toMatch(/<h1 id="decision-title"[^>]*>Simulate before you transact\.<\/h1>/);
   expect(html).toContain("Run the agent or simulate strategies");
   expect(html).not.toContain("Expected value");
   expect(html).not.toContain("Review exact action");
+});
+
+it("uses the selected strategy as the page heading after comparison", () => {
+  const html = render(baseProps);
+  expect(html).toContain(`<h1 id="decision-title"`);
+  expect(html).toContain(`${selected.strategy.name}</h1>`);
 });
 
 it("links only the currently selected proposed action to review without an approval control", () => {

@@ -11,15 +11,16 @@ export function EvidencePanel({ summary, evidence, source }: Props) {
   const classified = source === "agent" ? evidence : null;
   const provenance = classified?.provenance ?? summary.provenance;
   return (
-    <aside className="rounded-xl border border-border bg-surface p-5" aria-labelledby="evidence-title">
-      <h3 id="evidence-title" className="mb-3 font-semibold">What this rests on</h3>
-      <div className="grid gap-3 text-sm sm:grid-cols-2">
-        <div className="rounded-lg border border-border bg-background p-3">
+    <aside className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="evidence-title">
+      <p className="eyebrow">Evidence record</p>
+      <h3 id="evidence-title" className="mb-4 mt-2 text-lg font-semibold">What this rests on</h3>
+      <div className="grid min-w-0 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">
+        <div className="min-w-0 rounded-lg border border-border bg-background p-4">
           <h4 className="font-medium">Active subscriber population</h4>
           <p className="mt-1 text-muted">Synthetic demo history · {summary.asOfMonth}</p>
           <ul className="mt-2 space-y-1">{summary.segments.map(segment => <li key={segment.id}>{segment.label}: {segment.active.toLocaleString()} active · estimated {((segment.churn) * 100).toFixed(1)}% monthly churn</li>)}</ul>
         </div>
-        <div className="rounded-lg border border-border bg-background p-3">
+        <div className="min-w-0 rounded-lg border border-border bg-background p-4">
           <h4 className="font-medium">Classified feedback sample</h4>
           {classified ? <>
             <p className="mt-1 text-muted">{classified.summary.source} · {classified.summary.provider} / {classified.summary.model}</p>
@@ -33,9 +34,12 @@ export function EvidencePanel({ summary, evidence, source }: Props) {
         </div>
       </div>
       <p className="mt-3 text-sm text-muted">{source === "manual" ? "Canonical synthetic twin estimates and registered pilots." : classified ? "Classified synthetic feedback updates reason estimates; historical estimates and intervention assumptions remain distinct." : "Current synthetic history and model assumptions."}</p>
-      <ul className="mt-2 space-y-2 text-sm">{Object.entries(provenance).map(([key, item]) => (
-        <li key={key} className="flex gap-2"><span className="h-fit shrink-0 rounded bg-background px-1.5 text-xs font-medium text-brand-accent">{item.source}</span><span className="text-muted">{item.note}</span></li>
-      ))}</ul>
+      <details className="mt-4 border-t border-border pt-3 text-sm">
+        <summary className="min-h-10 cursor-pointer pt-2 font-medium text-brand-accent">Sources and assumptions</summary>
+        <ul className="mt-2 space-y-2">{Object.entries(provenance).map(([key, item]) => (
+          <li key={key} className="flex min-w-0 flex-wrap gap-2"><span className={`h-fit shrink-0 rounded border px-1.5 text-xs font-medium ${item.source === "observed" ? "border-observed/50 text-observed" : item.source === "assumption" ? "border-sim/50 text-sim" : "border-brand/50 text-brand"}`}>{item.source}</span><span className="min-w-0 text-muted">{item.note}</span></li>
+        ))}</ul>
+      </details>
     </aside>
   );
 }

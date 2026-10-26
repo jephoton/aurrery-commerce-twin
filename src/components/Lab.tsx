@@ -13,6 +13,7 @@ import { AgentPanel } from "./AgentPanel";
 import { dashboardReducer, emptyDashboard } from "./lab-state";
 import { DecisionSummary } from "./DecisionSummary";
 import { EvidencePanel } from "./EvidencePanel";
+import { MerchantOverview } from "./MerchantOverview";
 
 export interface MerchantSummary {
   name: string;
@@ -44,7 +45,6 @@ const DEFAULT_OBJECTIVE =
   "Churn among at-risk subscribers is eating our growth. Find the most valuable way to keep them without giving away margin we don't need to.";
 
 const money = (v: number) => `$${Math.round(v).toLocaleString()}`;
-const pct = (v: number, digits = 1) => `${(v * 100).toFixed(digits)}%`;
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json" } });
@@ -134,59 +134,35 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
     finally { setBusy(null); }
   };
 
-  const atRisk = summary.segments.find((s) => s.id === "at_risk")!;
   const executable = selected?.strategy.intervention.kind === "targeted_discount";
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-brand-accent">Aurrery</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Simulate before you transact.</h1>
-          <p className="mt-1 max-w-2xl text-muted">
-            A digital twin of your subscription business tests strategies under uncertainty. Only an approved action reaches PayPal.
-          </p>
+    <main className="mx-auto w-full min-w-0 max-w-[1440px] px-4 pb-12 pt-5 sm:px-7 lg:px-10">
+      <header className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
+        <div className="flex min-w-0 items-center gap-4">
+          <span className="brand-mark" aria-hidden="true"><span /></span>
+          <div className="min-w-0">
+            <p className="text-xl font-semibold tracking-tight text-foreground">Aurrery <span className="ml-2 align-middle text-[10px] font-medium uppercase tracking-[.2em] text-brand-accent">Decision lab</span></p>
+            <p className="text-sm text-muted">{summary.name} · {summary.planName} · synthetic demo</p>
+          </div>
         </div>
         <span
-          className={`rounded-full border px-3 py-1 text-sm ${paypal?.configured ? "border-positive/30 bg-positive/5 text-positive" : "border-border text-muted"}`}
+          className={`source-badge ${paypal?.configured ? "text-positive" : "text-muted"}`}
         >
           PayPal Sandbox: {paypal ? (paypal.configured ? "connected" : "not configured") : "checking…"}
         </span>
       </header>
 
-      {error && <div className="mb-4 rounded-lg border border-negative/30 bg-negative/5 px-4 py-3 text-sm text-negative">{error}</div>}
+      {error && <div role="alert" className="mb-4 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">{error}</div>}
 
       <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} />
 
-      <section className="mb-6 rounded-xl border border-border bg-surface p-5">
-        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">
-            {summary.name} <span className="font-normal text-muted">· {summary.planName} · as of {summary.asOfMonth}</span>
-          </h2>
-          <span className="rounded bg-sim/10 px-2 py-0.5 text-xs font-medium text-sim">Synthetic demo history</span>
+      <section className="mb-6 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="objective-title">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="objective-title" className="text-lg font-semibold">Set the objective</h2>
+          <span className="text-xs text-muted">Agent investigation or manual comparison</span>
         </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Kpi label="Active subscribers" value={summary.active.toLocaleString()} />
-          <Kpi label="Monthly recurring revenue" value={money(summary.mrr)} />
-          <Kpi label="Churn last month" value={pct(summary.lastMonthChurnRate)} />
-          <Kpi label="At-risk subscribers" value={atRisk.active.toLocaleString()} hint={`${pct(atRisk.churn)} monthly churn`} />
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-          {summary.segments.map((s) => (
-            <div key={s.id} className="rounded-lg bg-background px-3 py-2">
-              <div className="text-muted">{s.label}</div>
-              <div>
-                {s.active.toLocaleString()} subs · {pct(s.churn)} churn/mo
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mb-6 rounded-xl border border-border bg-surface p-5">
-        <label htmlFor="objective" className="mb-2 block text-lg font-semibold">
-          Business objective
-        </label>
+        <label htmlFor="objective" className="sr-only">Business objective</label>
         <textarea
           id="objective"
           value={objective}
@@ -197,26 +173,28 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
             dispatch({ type: "objective-edited" });
           }}
           rows={2}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 outline-none focus:border-brand-accent"
+          className="w-full min-w-0 rounded-lg border border-border bg-background px-4 py-3 text-foreground outline-none placeholder:text-muted focus:border-brand-accent"
         />
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             onClick={simulate}
             disabled={busy !== null}
-            className="rounded-lg bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 disabled:opacity-50"
+            className="min-h-10 rounded-lg border border-border px-4 py-2 font-medium text-foreground hover:border-brand-accent disabled:opacity-50"
           >
             {busy === "simulate" ? "Simulating 1,000 futures…" : "Simulate strategies"}
           </button>
-          <span className="text-sm text-muted">Manual comparison: {starterStrategies.length} candidate strategies · 1,000 futures each · 12-month horizon</span>
+          <span className="text-sm text-muted">{starterStrategies.length} candidates · 1,000 futures each · 12-month horizon</span>
         </div>
         <AgentPanel objective={objective} disabled={busy !== null} onStart={startAgent} onEvent={agentEvent} onFinish={finishAgent} />
       </section>
 
+      <div className="mb-6"><MerchantOverview summary={summary} /></div>
+
       {comparison && (
-        <section className="mb-6 rounded-xl border border-border bg-surface p-5">
+        <section className="mb-6 min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold">Scenario comparison</h2>
-            <span className="rounded bg-sim/10 px-2 py-0.5 text-xs font-medium text-sim">Simulated, not observed</span>
+            <span className="source-badge">Simulated, not observed</span>
           </div>
           <ScenarioGrid rows={rows} selectedId={selectedId} disabled={busy !== null} horizonMonths={comparison.options.horizonMonths} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
           <p className="mt-2 text-xs text-muted">
@@ -227,8 +205,8 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
       )}
 
       {selected && baseline && (
-        <section className="mb-6 grid gap-6 lg:grid-cols-5">
-          <div className="rounded-xl border border-border bg-surface p-5 lg:col-span-3">
+        <section className="mb-6 grid min-w-0 gap-6 lg:grid-cols-5">
+          <div className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6 lg:col-span-3">
             <h2 className="mb-1 text-lg font-semibold">{selected.strategy.name}</h2>
             <p className="mb-4 text-muted">{selected.description}</p>
             <FanChart
@@ -240,13 +218,14 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
               ]}
             />
           </div>
-          <div className="lg:col-span-2"><EvidencePanel summary={summary} evidence={evidence} source={comparisonSource} /></div>
+          <div className="min-w-0 lg:col-span-2"><EvidencePanel summary={summary} evidence={evidence} source={comparisonSource} /></div>
         </section>
       )}
 
       {selected && selected.strategy.id !== comparison?.baselineId && (
-        <section id="approval" className="mb-6 rounded-xl border border-border bg-surface p-5">
-          <h2 className="mb-1 text-lg font-semibold">Approval</h2>
+        <section id="approval" aria-labelledby="approval-title" className="mb-6 min-w-0 scroll-mt-5 rounded-2xl border border-brand/50 bg-surface p-5 sm:p-6">
+          <p className="eyebrow mb-2">Merchant confirmation boundary</p>
+          <h2 id="approval-title" className="mb-1 text-xl font-semibold">Approval · review exact action</h2>
           {!executable ? (
             <p className="text-muted">
               This strategy is simulate-only in this build. PayPal route: <span className="font-mono text-sm">{selected.paypalAction}</span>
@@ -258,7 +237,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
               <button
                 onClick={propose}
                 disabled={busy !== null}
-                className="rounded-lg border border-brand px-4 py-2 font-medium text-brand hover:bg-brand/5 disabled:opacity-50"
+                className="min-h-10 rounded-lg border border-brand px-4 py-2 font-medium text-brand hover:bg-brand/10 disabled:opacity-50"
               >
                 {busy === "propose" ? "Preparing…" : "Prepare PayPal action"}
               </button>
@@ -278,12 +257,12 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
       )}
 
       {report && (
-        <section className="mb-6 rounded-xl border border-observed/30 bg-surface p-5">
+        <section className="mb-6 min-w-0 rounded-2xl border border-observed/40 bg-surface p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold">PayPal execution: {report.proposal.status.replace("_", " ")}</h2>
-            <span className="rounded bg-observed/10 px-2 py-0.5 text-xs font-medium text-observed">Observed from PayPal Sandbox</span>
+            <span className="source-badge text-observed">Observed from PayPal Sandbox read-back</span>
           </div>
-          <table className="w-full text-left text-sm">
+          <div className="max-w-full overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm">
             <thead className="text-muted">
               <tr>
                 <th className="py-1">Subscription</th>
@@ -297,23 +276,23 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
             <tbody>
               {report.outcomes.map((o) => (
                 <tr key={o.subscriptionId} className="border-t border-border">
-                  <td className="py-2 font-mono">{o.subscriptionId}</td>
+                  <td className="max-w-48 break-all py-2 font-mono">{o.subscriptionId}</td>
                   <td>{o.httpStatus ?? "—"}</td>
                   <td>{o.observed?.regularPrice ? `$${o.observed.regularPrice}` : "—"}</td>
                   <td>{o.observed?.status ?? o.error}</td>
                   <td className={o.verified ? "text-positive" : "text-negative"}>{o.verified ? "yes" : "no"}</td>
-                  <td className="font-mono text-xs">{o.debugId ?? "—"}</td>
+                  <td className="max-w-48 break-all font-mono text-xs">{o.debugId ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </section>
       )}
 
-      <section className="rounded-xl border border-border bg-surface p-5">
-        <div className="mb-3 flex items-baseline justify-between">
+      <section className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Pilot cohort in PayPal Sandbox</h2>
-          <button onClick={refreshPayPal} className="text-sm text-brand-accent hover:underline">
+          <button onClick={refreshPayPal} className="min-h-10 rounded-lg px-3 text-sm text-brand-accent hover:bg-background hover:underline">
             Refresh from PayPal
           </button>
         </div>
@@ -322,7 +301,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
             No sandbox subscriptions registered yet. Run <code className="font-mono">npm run paypal:setup</code> and approve the links as a sandbox buyer.
           </p>
         ) : (
-          <table className="w-full text-left text-sm">
+          <div className="max-w-full overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm">
             <thead className="text-muted">
               <tr>
                 <th className="py-1">Subscriber</th>
@@ -339,29 +318,19 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
                   <td className="py-2">{s.label}</td>
                   <td>
                     {s.segment.replaceAll("_", " ")}
-                    {s.reason === "price" && <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-800">price</span>}
+                    {s.reason === "price" && <span className="ml-1 rounded border border-brand/40 px-1 text-xs text-brand">price</span>}
                   </td>
-                  <td className="font-mono">{s.subscriptionId}</td>
+                  <td className="max-w-48 break-all font-mono">{s.subscriptionId}</td>
                   <td>{s.live?.status ?? s.error ?? "—"}</td>
                   <td>{s.live ? (s.live.regularPrice ? `$${s.live.regularPrice}${s.live.planOverridden ? " (override)" : ""}` : `$${summary.listPrice.toFixed(2)} (plan)`) : "—"}</td>
                   <td>{s.live?.nextBillingTime?.slice(0, 10) ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </section>
-    </div>
-  );
-}
-
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="rounded-lg border border-border px-4 py-3">
-      <div className="text-sm text-muted">{label}</div>
-      <div className="text-2xl font-semibold tracking-tight">{value}</div>
-      {hint && <div className="text-xs text-muted">{hint}</div>}
-    </div>
+    </main>
   );
 }
 
@@ -388,15 +357,15 @@ function ProposalCard({
   return (
     <div>
       <dl className="mb-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-        <Field label="PayPal operation" value="PATCH /v1/billing/subscriptions/{id} · regular-cycle fixed_price" mono />
         <Field label="Price change" value={`$${a.listPrice} → $${a.newPrice} (${a.discountPct}% off) for ${a.months} month(s)`} />
         <Field label="Targeting" value={`${a.segment.replaceAll("_", " ")} · ${a.reason === "any" ? "any reason" : "price reason"}`} />
         <Field label="Simulated campaign" value={a.campaignMonths === 0 ? "Today's cohort only (0-month campaign)" : `${a.campaignMonths}-month offer enrollment window; each offer lasts ${a.months} month(s)`} />
         <Field label="Targets" value={a.targets.map((t) => `${labels.get(t) ?? ""} ${t}`).join(", ")} />
         <Field label="Simulated Δ value (median, 80% interval)" value={`${money(d.p50)} (${money(d.p10)} … ${money(d.p90)})`} />
         <Field label="Status" value={proposal.status} />
-        <Field label="Payload hash" value={proposal.actionHash.slice(0, 16) + "…"} mono />
+        <Field label="Payload hash" value={proposal.actionHash} mono />
       </dl>
+      <details className="mb-4 rounded-lg border border-border bg-background px-4 py-3 text-sm"><summary className="font-medium text-brand-accent">PayPal operation details</summary><p className="mt-2 break-all font-mono text-xs">PATCH /v1/billing/subscriptions/&#123;id&#125; · regular-cycle fixed_price</p></details>
       <p className="mb-3 text-sm text-muted">
         Approval executes for today&apos;s matching pilots only. Later campaign entrants need their own proposals and approvals.
         Campaign duration describes the simulated policy; it does not schedule future PayPal actions.
@@ -407,19 +376,19 @@ function ProposalCard({
             Billing within 10 days of a PayPal price change is unaffected. The discount is recorded with a revert date; reverting is a separate approved
             action.
           </p>
-          <label className="mb-3 flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => setConfirmed(e.target.checked)} />
+          <label className="mb-3 flex min-h-10 items-center gap-3 text-sm">
+            <input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => setConfirmed(e.target.checked)} className="h-5 w-5 shrink-0 accent-brand" />
             I approve changing the price of these {a.targets.length} PayPal Sandbox subscription(s).
           </label>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={onApprove}
               disabled={!confirmed || busy || !paypal?.configured}
-              className="rounded-lg bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 disabled:opacity-50"
+              className="min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background hover:bg-brand-accent disabled:opacity-50"
             >
               {busy ? "Working…" : "Approve & execute"}
             </button>
-            <button onClick={onReject} disabled={busy} className="rounded-lg border border-border px-4 py-2 hover:bg-background">
+            <button onClick={onReject} disabled={busy} className="min-h-10 rounded-lg border border-border px-4 py-2 hover:bg-background">
               Reject
             </button>
           </div>
@@ -431,9 +400,9 @@ function ProposalCard({
 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-muted">{label}</dt>
-      <dd className={mono ? "font-mono text-xs" : ""}>{value}</dd>
+      <dd className={mono ? "break-all font-mono text-xs" : "break-words"}>{value}</dd>
     </div>
   );
 }

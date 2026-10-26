@@ -26,12 +26,12 @@ Files: `src/components/lab-state.ts`, `lab-state.test.ts`; new `DecisionSummary.
 
 Files: `src/app/globals.css`, `src/components/Lab.tsx`, `AgentPanel.tsx`, new `MerchantOverview.tsx` and optional small brand SVG; presentational components from Task 1. Read installed Next.js CSS/client guides first. Update architecture/current state.
 
-- [ ] Implement ink/navy/surface/off-white/muted/gold/green/coral tokens in the existing Tailwind theme. Set strong body contrast, visible focus, wrapping and reduced-motion rules. Keep existing fonts and avoid dependencies.
-- [ ] Compose header, merchant overview, prominent decision/objective area, activity, scenario/trajectory/evidence and approval in the design's order. Initial state has no invented recommendation. Keep manual simulation visible and busy/Stop semantics unchanged.
-- [ ] Build a restrained static orbit visual from summary counts plus an accessible segment list; orbital distances do not encode invented risk. Use clear synthetic-history/estimated-churn labels and responsive reflow.
-- [ ] Style the agent log as activity; keep genuine model commentary text escaped and secondary to typed evidence. Do not hide errors or claim model prose is verified. Ensure request/stop controls remain discoverable.
-- [ ] Add `id="approval"` to the existing exact-action region and visible heading context. Retain checkbox/disabled execution/status/targets/hash; make long IDs and PayPal/report tables responsive. Remove prominent raw operation jargon only by placing it in an accessible details block, preserving exact review information.
-- [ ] Check relevant existing rendering/session tests, add only tests for changed behavior/semantics. Run typecheck/lint, update handoff and commit. Independent spec then quality review before Task 3.
+- [x] Implement ink/navy/surface/off-white/muted/gold/green/coral tokens in the existing Tailwind theme. Set strong body contrast, visible focus, wrapping and reduced-motion rules. Keep existing fonts and avoid dependencies.
+- [x] Compose header, merchant overview, prominent decision/objective area, activity, scenario/trajectory/evidence and approval in the design's order. Initial state has no invented recommendation. Keep manual simulation visible and busy/Stop semantics unchanged.
+- [x] Build a restrained static orbit visual from summary counts plus an accessible segment list; orbital distances do not encode invented risk. Use clear synthetic-history/estimated-churn labels and responsive reflow.
+- [x] Style the agent log as activity; keep genuine model commentary text escaped and secondary to typed evidence. Do not hide errors or claim model prose is verified. Ensure request/stop controls remain discoverable.
+- [x] Add `id="approval"` to the existing exact-action region and visible heading context. Retain checkbox/disabled execution/status/targets/hash; make long IDs and PayPal/report tables responsive. Remove prominent raw operation jargon only by placing it in an accessible details block, preserving exact review information.
+- [x] Check relevant existing rendering/session tests, add only tests for changed behavior/semantics. Run typecheck/lint, update handoff and commit. Independent spec then quality review before Task 3.
 
 ## Task 3: Comparison, interval and trajectory polish
 

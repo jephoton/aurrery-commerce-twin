@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f9;
-  --surface: #ffffff;
-  --foreground: #10162f;
-  --muted: #5b6478;
-  --border: #e3e6ec;
-  --brand: #003087;
-  --brand-accent: #0070e0;
-  --positive: #0b7a4b;
-  --negative: #b42318;
-  --sim: #6941c6;
-  --observed: #0b7a4b;
+  --background: #090f1b;
+  --surface: #101a2b;
+  --raised: #142135;
+  --foreground: #f4f0e7;
+  --muted: #abb8cb;
+  --border: #2b3c52;
+  --brand: #e6bd69;
+  --brand-accent: #f0ce88;
+  --positive: #7dd3a8;
+  --negative: #ff9b8e;
+  --sim: #d0b9f5;
+  --observed: #7dd3a8;
 }
 
 @theme inline {
@@ -31,7 +32,35 @@
 }
 
 body {
-  background: var(--background);
+  background: radial-gradient(ellipse 70% 26rem at 80% -8rem, #172b42 0, transparent 78%), var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 3px; }
+button:not(:disabled), a, input[type="checkbox"] { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+textarea { resize: vertical; }
+th, td { vertical-align: top; }
+th { font-weight: 500; }
+
+.eyebrow { color: var(--brand-accent); font-size: .7rem; font-weight: 650; letter-spacing: .17em; text-transform: uppercase; }
+.source-badge { display: inline-flex; align-items: center; min-height: 2rem; border: 1px solid var(--border); border-radius: 999px; padding: .35rem .7rem; background: var(--raised); color: var(--muted); font-size: .72rem; font-weight: 550; line-height: 1.3; }
+.brand-mark { position: relative; display: grid; width: 2.65rem; height: 2.65rem; flex: none; place-items: center; border: 1px solid var(--brand); border-radius: 50%; }
+.brand-mark::before { content: ""; position: absolute; inset: .34rem; border: 1px solid #997e4b; border-radius: 50%; transform: rotate(-26deg) scaleX(1.3); }
+.brand-mark span { width: .42rem; height: .42rem; border-radius: 50%; background: var(--brand); box-shadow: 0 0 12px #e6bd6960; }
+.decision-panel { position: relative; overflow: hidden; background: radial-gradient(circle at 90% 6%, #1d3146 0, transparent 35%), var(--surface); }
+.decision-panel::after { content: ""; position: absolute; width: 16rem; height: 16rem; top: -10rem; right: -6rem; border: 1px solid #e6bd6929; border-radius: 50%; pointer-events: none; }
+.orbit-map { position: relative; min-width: 0; }
+.orbit-ring { position: absolute; aspect-ratio: 1; border: 1px solid #e6bd6933; border-radius: 50%; }
+.orbit-ring-outer { width: 12.4rem; }
+.orbit-ring-middle { width: 9rem; border-color: #aab9cb35; }
+.orbit-ring-inner { width: 5.7rem; border-color: #e6bd6950; }
+.orbit-core { display: grid; width: 4.5rem; height: 4.5rem; align-content: center; border-radius: 50%; background: var(--raised); text-align: center; color: var(--brand-accent); font-size: 1.25rem; font-weight: 650; }
+.orbit-core small { color: var(--muted); font-size: .58rem; font-weight: 400; }
+.orbit-point { position: absolute; width: .48rem; height: .48rem; border: 1px solid var(--background); border-radius: 50%; background: var(--brand); }
+.orbit-point-0 { transform: translate(5.8rem,-2.5rem); }.orbit-point-1 { transform: translate(-4.4rem,-4.8rem); }.orbit-point-2 { transform: translate(3rem,4.8rem); }.orbit-point-3 { transform: translate(-3.5rem,2.8rem); }.orbit-point-4 { transform: translate(.5rem,-6rem); }
+@media (max-width: 640px) { .orbit-map { display: none; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
