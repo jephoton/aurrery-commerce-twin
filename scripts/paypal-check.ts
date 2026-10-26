@@ -13,7 +13,7 @@ import { getSubscription, overrideSubscriptionPrice, type PatchOperation } from 
 const TEST_PRICE = "23.45";
 
 async function main() {
-  const id = process.argv[2] ?? listSandboxSubscribers().find((s) => s.segment === "core")?.subscriptionId;
+  const id = process.argv[2] ?? (await listSandboxSubscribers()).find((s) => s.segment === "core")?.subscriptionId;
   if (!id) throw new Error("No subscription given and no core pilot registered. Pass an explicit subscription id.");
 
   const before = await getSubscription(id);

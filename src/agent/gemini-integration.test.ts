@@ -49,7 +49,7 @@ it("runs Gemini HTTP through fresh classification, cache, real tools, pacing and
   const db = ledger();
   createPredictionCache();
   db.exec("DELETE FROM feedback_prediction_cache; DELETE FROM executions; DELETE FROM proposals; DELETE FROM sandbox_subscribers; DELETE FROM audit_events;");
-  PILOT_COHORT.forEach((pilot, index) => registerSandboxSubscriber({ ...pilot, subscriptionId: `I-GEMINI${"ABCD"[index]}` }));
+  for (const [index, pilot] of PILOT_COHORT.entries()) await registerSandboxSubscriber({ ...pilot, subscriptionId: `I-GEMINI${"ABCD"[index]}` });
   const original = structuredClone(currentMerchant().twin);
   const candidate = STARTER_STRATEGIES[1];
   const steps: [string, unknown][] = [["get_merchant_state", {}], ["classify_feedback", {}], ["set_decision_rules", { discountBudget: 1000, maxProbWorse: .5, horizonMonths: 12 }], ["simulate_strategies", { strategies: STARTER_STRATEGIES.slice(0, 3) }], ["stress_test", { strategyId: candidate.id }], ["draft_customer_message", { strategyId: candidate.id, message: "A temporary offer for your review" }], ["recommend", { strategyId: candidate.id, rationale: "Supported by computed evidence", tradeoffs: "Costs and uncertainty remain" }]];
@@ -75,7 +75,7 @@ it("runs Gemini HTTP through fresh classification, cache, real tools, pacing and
   expect(events.filter((event) => event.type === "classification").map((event) => event.summary)).toMatchObject([{ provider: "gemini", model: env.GEMINI_MODEL, accepted: 200, cacheHits: 0, eligiblePilotCount: 2 }]);
   expect(sleeps.filter((ms) => ms === 30000).length).toBeGreaterThanOrEqual(9);
   expect(events.filter((event) => event.type === "status" && event.message === "Pacing fresh classification batches for 30 seconds.")).toHaveLength(9);
-  const proposals = listProposals();
+  const proposals = await listProposals();
   expect(proposals).toHaveLength(1);
   expect(proposals[0]).toMatchObject({ id: result.proposalId, status: "proposed", approvedAt: null, approvedBy: null, action: { newPrice: "18.00", targets: ["I-GEMINIA", "I-GEMINIB"] } });
   expect(db.prepare("SELECT COUNT(*) AS n FROM executions").get()?.n).toBe(0);

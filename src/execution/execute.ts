@@ -1,11 +1,12 @@
 import "server-only";
-import { audit, ledger, now } from "@/ledger/db";
-import { claimForExecution, finishExecution, getProposal, type Proposal } from "@/ledger/proposals";
+import { now } from "@/ledger/db";
+import { runtimeLedgerConnection, type LedgerConnection } from "@/ledger/connection";
+import { auditOn, authoritativeWrite } from "@/ledger/operations";
+import { claimForExecution, finishExecution, getProposal, ProposalError, type Proposal } from "@/ledger/proposals";
 import { getSubscription, overrideSubscriptionPrice, type SubscriptionSnapshot } from "@/paypal/subscriptions";
 
-// Executes an approved proposal against PayPal Sandbox, then reads each subscription back so the
-// recorded outcome is what PayPal reports, not what we asked for.
-
+// PayPal calls run outside a transaction. Storage acknowledgement failure leaves the claim
+// unresolved; an operator must reconcile PayPal before any further mutation.
 export interface TargetOutcome {
   subscriptionId: string;
   ok: boolean;
@@ -15,39 +16,51 @@ export interface TargetOutcome {
   observed: Pick<SubscriptionSnapshot, "status" | "regularPrice" | "planOverridden" | "nextBillingTime"> | null;
   error: string | null;
 }
-
-export interface ExecutionReport {
-  proposal: Proposal;
-  outcomes: TargetOutcome[];
-}
-
+export interface ExecutionReport { proposal: Proposal; outcomes: TargetOutcome[] }
 const OPERATION = "PATCH subscription fixed_price";
 
-export async function executeProposal(id: string): Promise<ExecutionReport> {
-  const proposal = claimForExecution(id);
-  const action = proposal.action;
-  const outcomes: TargetOutcome[] = [];
-
-  try {
-    await executeTargets(id, proposal, outcomes);
-  } catch (e) {
-    // Never leave a proposal stuck in "executing": record what completed and fail the rest.
-    audit("execution.crashed", id, { message: e instanceof Error ? e.message : String(e), completed: outcomes.length });
-  }
-
-  const succeeded = outcomes.filter((o) => o.ok).length;
-  const status = succeeded === action.targets.length ? "succeeded" : succeeded === 0 ? "failed" : "partially_failed";
-  const revertAfter = succeeded > 0 ? new Date(Date.now() + action.months * 30 * 86_400_000).toISOString() : null;
-  finishExecution(id, status, revertAfter);
-  audit("execution.report", id, { succeeded, total: action.targets.length });
-  return { proposal: getProposal(id), outcomes };
+export class ExecutionReconciliationRequired extends Error {
+  constructor(readonly proposalId: string) { super("Approval or execution outcome is unconfirmed; reconcile the ledger and PayPal before any further action."); this.name = "ExecutionReconciliationRequired"; }
 }
 
-async function executeTargets(id: string, proposal: Proposal, outcomes: TargetOutcome[]) {
+type Dependencies = {
+  claim: typeof claimForExecution;
+  get: typeof getProposal;
+  finish: typeof finishExecution;
+  patch: typeof overrideSubscriptionPrice;
+  read: typeof getSubscription;
+  record: (id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null) => Promise<void>;
+};
+
+async function recordTarget(id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null): Promise<void> {
+  const connection = await runtimeLedgerConnection();
+  await authoritativeWrite(connection, async (tx) => {
+    if (snapshot) await tx.execute(
+      `INSERT INTO observations (subscription_id, observed_at, status, regular_price, plan_overridden, last_payment_json, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [snapshot.id, now(), snapshot.status, snapshot.regularPrice, snapshot.planOverridden ? 1 : 0, JSON.stringify(snapshot.lastPayment), "paypal.get_subscription"],
+    );
+    await tx.execute(
+      `INSERT INTO executions (proposal_id, target_id, operation, request_json, ok, http_status, debug_id, response_json, verified, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, outcome.subscriptionId, OPERATION, JSON.stringify(request), outcome.ok ? 1 : 0, outcome.httpStatus, outcome.debugId, JSON.stringify(outcome), outcome.verified ? 1 : 0, now()],
+    );
+    await auditOn(tx, "execution.target_recorded", id, { targetId: outcome.subscriptionId, ok: outcome.ok, verified: outcome.verified });
+  });
+}
+
+/** Exported for offline failure-path tests. Never retry PayPal after an ambiguous result. */
+export async function executeProposalWith(id: string, deps: Dependencies): Promise<ExecutionReport> {
+  let proposal: Proposal;
+  try { proposal = await deps.claim(id); }
+  catch (error) { if (error instanceof ProposalError) throw error; throw new ExecutionReconciliationRequired(id); }
   const action = proposal.action;
+  const outcomes: TargetOutcome[] = [];
   for (const subscriptionId of action.targets) {
     const request = { subscriptionId, path: "/plan/billing_cycles/@sequence==1/pricing_scheme/fixed_price", value: { currency_code: "USD", value: action.newPrice } };
-    const patched = await overrideSubscriptionPrice(subscriptionId, action.newPrice);
+    let patched: Awaited<ReturnType<typeof overrideSubscriptionPrice>>;
+    try { patched = await deps.patch(subscriptionId, action.newPrice); }
+    catch { throw new ExecutionReconciliationRequired(id); }
     const outcome: TargetOutcome = {
       subscriptionId,
       ok: patched.ok,
@@ -57,41 +70,51 @@ async function executeTargets(id: string, proposal: Proposal, outcomes: TargetOu
       observed: null,
       error: patched.ok ? null : `${patched.error.name}: ${patched.error.message}`,
     };
-
+    let snapshot: SubscriptionSnapshot | null = null;
     if (patched.ok) {
-      const read = await getSubscription(subscriptionId);
+      let read: Awaited<ReturnType<typeof getSubscription>>;
+      try { read = await deps.read(subscriptionId); }
+      catch { throw new ExecutionReconciliationRequired(id); }
       if (read.ok) {
-        const v = read.value;
-        outcome.observed = { status: v.status, regularPrice: v.regularPrice, planOverridden: v.planOverridden, nextBillingTime: v.nextBillingTime };
-        outcome.verified = v.regularPrice !== null && Number(v.regularPrice) === Number(action.newPrice);
-        recordObservation(v, "paypal.get_subscription");
-      } else {
-        outcome.error = `Applied, but read-back failed: ${read.error.name}: ${read.error.message}`;
-      }
+        snapshot = read.value;
+        outcome.observed = { status: snapshot.status, regularPrice: snapshot.regularPrice, planOverridden: snapshot.planOverridden, nextBillingTime: snapshot.nextBillingTime };
+        outcome.verified = snapshot.regularPrice !== null && Number(snapshot.regularPrice) === Number(action.newPrice);
+      } else outcome.error = `Applied, but read-back failed: ${read.error.name}: ${read.error.message}`;
     }
-
-    ledger()
-      .prepare(
-        `INSERT INTO executions (proposal_id, target_id, operation, request_json, ok, http_status, debug_id, response_json, verified, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(id, subscriptionId, OPERATION, JSON.stringify(request), outcome.ok ? 1 : 0, outcome.httpStatus, outcome.debugId, JSON.stringify(outcome), outcome.verified ? 1 : 0, now());
+    try { await deps.record(id, request, outcome, snapshot); }
+    catch { throw new ExecutionReconciliationRequired(id); }
     outcomes.push(outcome);
+    // Known client errors failed before mutation; uncertain failures and unverified successes stop.
+    const knownFailure = !outcome.ok && [400, 401, 403, 404, 422].includes(outcome.httpStatus ?? 0);
+    if (!knownFailure && (!outcome.ok || !outcome.verified)) throw new ExecutionReconciliationRequired(id);
   }
+  const succeeded = outcomes.filter((outcome) => outcome.ok).length;
+  const status = succeeded === action.targets.length ? "succeeded" : succeeded === 0 ? "failed" : "partially_failed";
+  const revertAfter = succeeded ? new Date(Date.now() + action.months * 30 * 86_400_000).toISOString() : null;
+  try { await deps.finish(id, status, revertAfter, { succeeded, total: action.targets.length }); }
+  catch { throw new ExecutionReconciliationRequired(id); }
+  try { return { proposal: await deps.get(id), outcomes }; }
+  catch { throw new ExecutionReconciliationRequired(id); }
 }
 
-export function recordObservation(s: SubscriptionSnapshot, source: string) {
-  ledger()
-    .prepare(
+export const executeProposal = (id: string): Promise<ExecutionReport> => executeProposalWith(id, {
+  claim: claimForExecution, get: getProposal, finish: finishExecution,
+  patch: overrideSubscriptionPrice, read: getSubscription, record: recordTarget,
+});
+
+export async function recordObservation(s: SubscriptionSnapshot, source: string, connection?: LedgerConnection): Promise<void> {
+  await authoritativeWrite(connection ?? await runtimeLedgerConnection(), async (tx) => {
+    await tx.execute(
       `INSERT INTO observations (subscription_id, observed_at, status, regular_price, plan_overridden, last_payment_json, source)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(s.id, now(), s.status, s.regularPrice, s.planOverridden ? 1 : 0, JSON.stringify(s.lastPayment), source);
+      [s.id, now(), s.status, s.regularPrice, s.planOverridden ? 1 : 0, JSON.stringify(s.lastPayment), source],
+    );
+  });
 }
 
-export function listExecutions(proposalId: string): TargetOutcome[] {
-  return ledger()
-    .prepare("SELECT response_json FROM executions WHERE proposal_id = ? ORDER BY id")
-    .all(proposalId)
-    .map((r) => JSON.parse(String(r.response_json)));
+export async function listExecutions(proposalId: string, connection?: LedgerConnection): Promise<TargetOutcome[]> {
+  return authoritativeWrite(connection ?? await runtimeLedgerConnection(), async (tx) => {
+    const rows = await tx.query("SELECT response_json FROM executions WHERE proposal_id = ? ORDER BY id", [proposalId]);
+    return rows.map((r) => JSON.parse(String(r.response_json)) as TargetOutcome);
+  });
 }

@@ -82,18 +82,3 @@ export function ledger(): DatabaseSync {
 }
 
 export const now = () => new Date().toISOString();
-
-export function getSetting(key: string): string | null {
-  const r = ledger().prepare("SELECT value FROM kv WHERE key = ?").get(key);
-  return r ? String(r.value) : null;
-}
-
-export function setSetting(key: string, value: string) {
-  ledger().prepare("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)").run(key, value);
-}
-
-export function audit(kind: string, proposalId: string | null, detail: unknown) {
-  ledger()
-    .prepare("INSERT INTO audit_events (at, kind, proposal_id, detail_json) VALUES (?, ?, ?, ?)")
-    .run(now(), kind, proposalId, JSON.stringify(detail ?? null));
-}

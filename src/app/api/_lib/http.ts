@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
 import { ProposalError } from "@/ledger/proposals";
+import { ExecutionReconciliationRequired } from "@/execution/execute";
 import { WorkerTaskError } from "@/twin/worker-client";
 
 const MAX_JSON_BYTES = 64 * 1024;
@@ -45,6 +46,9 @@ const STATUS_BY_CODE: Record<ProposalError["code"], number> = {
 };
 
 export function errorResponse(error: unknown): Response {
+  if (error instanceof ExecutionReconciliationRequired) {
+    return Response.json({ error: "RECONCILIATION_REQUIRED", proposalId: error.proposalId, message: "Approval or execution outcome is unconfirmed. Check the ledger and PayPal before any further action." }, { status: 409 });
+  }
   if (error instanceof RequestBodyError) {
     return Response.json({ error: error.code }, { status: error.code === "BODY_TOO_LARGE" ? 413 : 400 });
   }

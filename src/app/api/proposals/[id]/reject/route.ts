@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const { id } = await params;
     const body = BodySchema.parse(request.body ? await readBoundedJson(request) : {});
-    return Response.json({ proposal: rejectProposal(id, body.reason) });
+    return Response.json({ proposal: await rejectProposal(id, body.reason) });
   } catch (e) {
     return errorResponse(e);
   }

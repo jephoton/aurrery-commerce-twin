@@ -12,11 +12,12 @@ const BodySchema = z.object({
   strategy: StrategySchema,
 });
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
   const admission = admitHostedRequest(request);
   if (admission) return admission;
   try {
-    return Response.json({ proposals: listProposals().map((p) => ({ ...p, executions: listExecutions(p.id) })) });
+    const proposals = await listProposals();
+    return Response.json({ proposals: await Promise.all(proposals.map(async (p) => ({ ...p, executions: await listExecutions(p.id) }))) });
   } catch (e) {
     return errorResponse(e);
   }
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     const comparison = await runComparison(twin, [body.strategy], {}, { signal: request.signal });
     if (request.signal.aborted) throw new WorkerTaskError("ABORTED");
     const result = comparison.strategies.find((s) => s.strategy.id === body.strategy.id)!;
-    const proposal = createProposal({ objective: body.objective, strategy: body.strategy, result, listPrice: twin.params.listPrice });
+    const proposal = await createProposal({ objective: body.objective, strategy: body.strategy, result, listPrice: twin.params.listPrice });
     return Response.json({ proposal }, { status: 201 });
   } catch (e) {
     return errorResponse(e);

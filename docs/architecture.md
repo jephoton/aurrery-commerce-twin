@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | Twin | `src/twin/` | Pure model: types, seeded RNG, interventions + guardrails (Zod), Monte Carlo simulation, Bayesian calibration and assumptions-only stress testing. `worker-entry.ts` runs only this pure model; `worker-client.ts` is the server-side process boundary. | nothing for pure model; Node worker threads for client |
 | Merchant | `src/merchant/` | Builds the twin for the current merchant (today: synthetic Ridgeline Roasters history → estimated parameters + labelled priors). | twin |
-| Ledger | `src/ledger/` | Current SQLite consumers plus an async server-only connection boundary for Node SQLite and authoritative Turso libSQL: sandbox subscribers, proposals state machine, executions, observations, audit events, kv settings. Consumer migration is M5 Storage Task B. | twin types |
+| Ledger | `src/ledger/` | Async server-only connection boundary for Node SQLite and Turso libSQL. Proposal state, registry, settings, audit, executions and observations have migrated; hosted and signals consumers remain on raw SQLite until later M5 Storage Task B stages. | twin types |
 | Hosted access | `src/hosting/` | Runtime configuration, server-validated administrator sessions and atomic durable request admission in the ledger SQLite file. | ledger |
 | PayPal | `src/paypal/` | Sandbox-only SDK client, typed wrappers (`getSubscription`, `overrideSubscriptionPrice`), error normalisation. | SDK |
 | Execution | `src/execution/` | Runs an approved proposal: claim → PATCH each target → GET read-back → record → finish. | ledger, paypal |
@@ -37,6 +37,7 @@ Gemini `gemini-3.5-flash-lite` is selected for M3 after the user's conditional r
 - Explicit local classifier cache import validates the current provider/model and corpus/input/prompt/schema fingerprints and all 200 accepted predictions before an atomic transaction. Hidden evaluation labels never enter tools, imported cache identity, or provider inputs.
 - The PayPal client is hard-wired to `Environment.Sandbox`.
 - Execution records what PayPal reports on read-back (`verified` = read-back price equals the requested price), not what was requested.
+- Every migrated decision write checks foreign-key enforcement on its actual write-transaction handle. Conditional approval/claim and related audits commit atomically. Ambiguous PayPal or storage acknowledgement leaves the claim executing for manual reconciliation and returns a bounded error with the proposal ID; no further target is patched automatically.
 
 ## Agent run and timeline (M3)
 

@@ -7,7 +7,7 @@
 // A sandbox *personal* account must open each approval link once, so the subscription becomes ACTIVE.
 
 import { IntervalUnit, TenureType } from "@paypal/paypal-server-sdk";
-import { getSetting, setSetting } from "@/ledger/db";
+import { getSetting, setSetting } from "@/ledger/operations";
 import { setupPilots, syncPilots } from "@/paypal/setup";
 import { paypal, toFailure } from "@/paypal/client";
 
@@ -27,7 +27,7 @@ async function accessToken(): Promise<string> {
 
 /** Catalog Products is not in the server SDK, so this one call uses the documented REST endpoint. */
 async function ensureProduct(): Promise<string> {
-  const existing = getSetting("paypal.product_id");
+  const existing = await getSetting("paypal.product_id");
   if (existing) return existing;
   const res = await fetch(`${SANDBOX_API}/v1/catalogs/products`, {
     method: "POST",
@@ -45,13 +45,13 @@ async function ensureProduct(): Promise<string> {
   });
   if (!res.ok) throw new Error(`Create product failed: HTTP ${res.status}`);
   const id = ((await res.json()) as { id: string }).id;
-  setSetting("paypal.product_id", id);
+  await setSetting("paypal.product_id", id);
   console.log("Created product", id);
   return id;
 }
 
 async function ensurePlan(productId: string): Promise<string> {
-  const existing = getSetting("paypal.plan_id");
+  const existing = await getSetting("paypal.plan_id");
   if (existing) return existing;
   const res = await paypal().subscriptions.createBillingPlan({
     paypalRequestId: "aurrery-ridgeline-plan-v1",
@@ -73,7 +73,7 @@ async function ensurePlan(productId: string): Promise<string> {
     },
   });
   const id = res.result.id!;
-  setSetting("paypal.plan_id", id);
+  await setSetting("paypal.plan_id", id);
   console.log("Created plan", id, res.result.status);
   return id;
 }

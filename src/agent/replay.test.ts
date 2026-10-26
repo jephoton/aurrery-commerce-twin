@@ -29,7 +29,7 @@ it.each([recording, geminiRecording])("replays the genuine $provider run through
   vi.stubGlobal("fetch", network);
   const db = ledger();
   db.exec("DELETE FROM executions; DELETE FROM proposals; DELETE FROM sandbox_subscribers; DELETE FROM audit_events;");
-  PILOT_COHORT.forEach((pilot, index) => registerSandboxSubscriber({ ...pilot, subscriptionId: `I-REPLAY${"ABCD"[index]}` }));
+  for (const [index, pilot] of PILOT_COHORT.entries()) await registerSandboxSubscriber({ ...pilot, subscriptionId: `I-REPLAY${"ABCD"[index]}` });
   const cache = createPredictionCache();
   db.exec("DELETE FROM feedback_prediction_cache;");
   const predictions = recording.predictions.map((prediction) => PredictionSchema.parse(prediction));
@@ -77,7 +77,7 @@ it.each([recording, geminiRecording])("replays the genuine $provider run through
   expect(result.transcript.filter((message) => message.role === "user")).toHaveLength(1);
   expect(events.filter((event) => event.type === "classification").map((event) => event.summary)).toEqual([recording.expected.classification]);
   expect(events.filter((event) => event.type === "rules").map((event) => event.rules)).toEqual([recording.expected.rules]);
-  const eligibility = pilotEligibility(feedbackCorpus, predictions, listSandboxSubscribers(), PILOT_COHORT.map(({ label }) => label));
+  const eligibility = pilotEligibility(feedbackCorpus, predictions, await listSandboxSubscribers(), PILOT_COHORT.map(({ label }) => label));
   expect(eligibility.issues).toEqual([]);
   expect(eligibility.eligibleSubscriptionIds).toEqual(["I-REPLAYA", "I-REPLAYB"]);
   expect(eligibility.pilots.map(({ eligible }) => eligible)).toEqual([true, true, false, false]);
@@ -100,7 +100,7 @@ it.each([recording, geminiRecording])("replays the genuine $provider run through
   expect(stresses[0].stress.stressed.probValueBelowBaseline).toBeCloseTo(recording.expected.stress.stressedChanceWorse, 8);
   const draftCall = calls.find((call) => call.function.name === "draft_customer_message")!;
   expect(events.filter((event) => event.type === "draft")).toEqual([{ type: "draft", ...JSON.parse(draftCall.function.arguments), displayOnly: true }]);
-  const proposals = listProposals();
+  const proposals = await listProposals();
   expect(proposals).toHaveLength(1);
   expect(proposals[0]).toMatchObject({
     id: result.proposalId, objective: recording.objective, action: recording.expected.action,

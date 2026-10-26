@@ -3,7 +3,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { currentMerchant } from "@/merchant";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
-import { createProposal, listSandboxSubscribers, ProposalError, type Proposal, type SandboxSubscriber } from "@/ledger/proposals";
+import { createProposal, listSandboxSubscribers, ProposalError, type CreateProposalInput, type Proposal, type SandboxSubscriber } from "@/ledger/proposals";
 import { PILOT_COHORT } from "@/paypal/setup";
 import { feedbackCorpus, toModelInput } from "@/signals/corpus";
 import { classifyFeedback, type ClassificationResult } from "@/signals/classify";
@@ -59,12 +59,12 @@ export interface ToolContextOptions {
   twin?: MerchantTwin;
   signal?: AbortSignal;
   emit?: (event: AgentEvent) => void;
-  registry?: () => SandboxSubscriber[];
+  registry?: () => SandboxSubscriber[] | Promise<SandboxSubscriber[]>;
   provider?: ClassificationProvider;
   classify?: typeof classifyFeedback;
   simulate?: (...args: Parameters<typeof compareStrategies>) => ComparisonResult | Promise<ComparisonResult>;
   stress?: (...args: Parameters<typeof stressTest>) => StressResult | Promise<StressResult>;
-  propose?: typeof createProposal;
+  propose?: (input: CreateProposalInput) => Proposal | Promise<Proposal>;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 export interface ToolState {
@@ -152,7 +152,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
         });
         checkAbort();
         const evidence = summarizeEvidence(feedbackCorpus, result.accepted);
-        const eligibility = pilotEligibility(feedbackCorpus, evidence.accepted, registry(), labels);
+        const eligibility = pilotEligibility(feedbackCorpus, evidence.accepted, await registry(), labels);
         const updated = applyEvidence(original, feedbackCorpus, evidence.accepted);
         const error = result.batches.find((batch) => batch.error)?.error;
         const failed = result.stopped || !!error;
@@ -211,9 +211,9 @@ export function createToolContext(options: ToolContextOptions = {}) {
         if (!state.stresses[strategyId]) throw new ToolFailure("PREREQUISITE", "Stress test this strategy in the current context first.");
         if (result.strategy.intervention.kind !== "targeted_discount") throw new ToolFailure("NOT_EXECUTABLE", "Only subscription price overrides are executable in this build.");
         if (result.metrics.discountCost.mean > state.rules.discountBudget || result.probValueBelowBaseline > state.rules.maxProbWorse) throw new ToolFailure("RULE_VIOLATION", "The base simulation exceeds the decision rules.");
-        const eligibleTargetIds = pilotEligibility(feedbackCorpus, accepted, registry(), labels).eligibleSubscriptionIds;
+        const eligibleTargetIds = pilotEligibility(feedbackCorpus, accepted, await registry(), labels).eligibleSubscriptionIds;
         checkAbort();
-        const proposal = (options.propose ?? createProposal)({ objective, strategy: result.strategy, result, listPrice: state.twin.params.listPrice, eligibleTargetIds });
+        const proposal = await (options.propose ?? createProposal)({ objective, strategy: result.strategy, result, listPrice: state.twin.params.listPrice, eligibleTargetIds });
         state.proposal = proposal;
         emit({ type: "proposal", proposal, rationale, tradeoffs });
         return { id: proposal.id, status: proposal.status, targetCount: proposal.action.targets.length, rationale, tradeoffs };

@@ -14,7 +14,7 @@ describe("proposal worker boundary", () => {
     const request = new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ objective: "Save", strategy }), signal: controller.signal });
     const response = await POST(request);
     expect(response.status).toBe(408);
-    expect(listProposals()).toHaveLength(0);
+    expect(await listProposals()).toHaveLength(0);
   });
   it("does not persist when cancellation arrives during recomputation", async () => {
     ledger().exec("DELETE FROM proposals;");
@@ -25,7 +25,7 @@ describe("proposal worker boundary", () => {
     controller.abort();
     const response = await pending;
     expect(response.status).toBe(408);
-    expect(listProposals()).toHaveLength(0);
+    expect(await listProposals()).toHaveLength(0);
   });
   it("checks cancellation again after a worker result and before proposal persistence", async () => {
     ledger().exec("DELETE FROM proposals;");
@@ -38,7 +38,7 @@ describe("proposal worker boundary", () => {
     try {
       const request = new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ objective: "Save", strategy }), signal: controller.signal });
       expect((await POST(request)).status).toBe(408);
-      expect(listProposals()).toHaveLength(0);
+      expect(await listProposals()).toHaveLength(0);
     } finally { spy.mockRestore(); }
   });
   it("rejects an oversized body", async () => {

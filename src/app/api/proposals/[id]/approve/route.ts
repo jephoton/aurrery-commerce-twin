@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { executeProposal } from "@/execution/execute";
-import { approveProposal } from "@/ledger/proposals";
+import { executeProposal, ExecutionReconciliationRequired } from "@/execution/execute";
+import { approveProposal, ProposalError } from "@/ledger/proposals";
 import { paypalConfigured } from "@/paypal/client";
 import { errorResponse, readBoundedJson } from "../../../_lib/http";
 import { admitHostedRequest } from "@/hosting/guard";
@@ -20,7 +20,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!paypalConfigured()) {
       return Response.json({ error: "PAYPAL_NOT_CONFIGURED", message: "Set PayPal sandbox credentials before approving." }, { status: 503 });
     }
-    approveProposal(id, body.actionHash, body.approvedBy);
+    try { await approveProposal(id, body.actionHash, body.approvedBy); }
+    catch (error) { if (error instanceof ProposalError) throw error; throw new ExecutionReconciliationRequired(id); }
     return Response.json(await executeProposal(id));
   } catch (e) {
     return errorResponse(e);

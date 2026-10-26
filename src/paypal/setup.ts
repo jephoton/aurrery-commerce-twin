@@ -1,6 +1,6 @@
 import "server-only";
 import { listSandboxSubscribers, registerSandboxSubscriber, replaceSandboxSubscription } from "@/ledger/proposals";
-import { getSetting } from "@/ledger/db";
+import { getSetting } from "@/ledger/operations";
 import { recordObservation } from "@/execution/execute";
 import { paypal } from "./client";
 import { getSubscription, type SubscriptionSnapshot } from "./subscriptions";
@@ -45,7 +45,7 @@ export async function setupPilots(options: {
   recoverMissing?: boolean;
   onMessage?: (message: string) => void;
 }): Promise<string[]> {
-  const registered = listSandboxSubscribers();
+  const registered = await listSandboxSubscribers();
   for (const member of PILOT_COHORT) {
     if (registered.filter((row) => row.label === member.label).length > 1) {
       throw new Error(`Multiple registrations for ${member.label}; resolve duplicate labels before setup.`);
@@ -69,8 +69,8 @@ export async function setupPilots(options: {
     }
     let created: unknown;
     if (!snapshot) {
-      const requestId = getSetting(`paypal.pilot.${i}.request_id`) ?? `aurrery-ridgeline-sub-${i}-v1`;
-      const returnUrl = getSetting(`paypal.pilot.${i}.return_url`) ?? options.returnUrl;
+      const requestId = await getSetting(`paypal.pilot.${i}.request_id`) ?? `aurrery-ridgeline-sub-${i}-v1`;
+      const returnUrl = await getSetting(`paypal.pilot.${i}.return_url`) ?? options.returnUrl;
       const response = await paypal().subscriptions.createSubscription({
         paypalRequestId: requestId,
         prefer: "return=representation",
@@ -89,8 +89,8 @@ export async function setupPilots(options: {
       snapshot = read.value;
       // Validate pending approval instructions before making the new registration durable.
       describe(member.label, snapshot, created);
-      if (existing) replaceSandboxSubscription(existing.subscriptionId, existing.label, id);
-      else registerSandboxSubscriber({ ...member, subscriptionId: id });
+      if (existing) await replaceSandboxSubscription(existing.subscriptionId, existing.label, id);
+      else await registerSandboxSubscriber({ ...member, subscriptionId: id });
     }
     const message = describe(member.label, snapshot, created);
     messages.push(message);
@@ -101,14 +101,14 @@ export async function setupPilots(options: {
 
 export async function syncPilots(onMessage?: (message: string) => void): Promise<void> {
   let failed = 0;
-  for (const subscriber of listSandboxSubscribers()) {
+  for (const subscriber of await listSandboxSubscribers()) {
     const read = await getSubscription(subscriber.subscriptionId);
     if (!read.ok) {
       failed++;
       onMessage?.(readFailure(subscriber.subscriptionId, read.error));
       continue;
     }
-    recordObservation(read.value, "paypal.sync");
+    await recordObservation(read.value, "paypal.sync");
     onMessage?.(`${subscriber.subscriptionId} ${subscriber.segment}/${subscriber.reason} ${read.value.status} price ${read.value.regularPrice ?? "(plan default)"} overridden ${read.value.planOverridden} next ${read.value.nextBillingTime}`);
   }
   if (failed) throw new Error(`${failed} subscription read(s) failed during sync; resolve failures before executing changes.`);

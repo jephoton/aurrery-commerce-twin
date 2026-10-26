@@ -22,7 +22,7 @@ function printEvaluation(result: ProviderEvaluation): void {
 
 async function main(): Promise<void> {
   const options = parseEvaluationArgs(process.argv.slice(2));
-  const registryRows = listSandboxSubscribers();
+  const registryRows = await listSandboxSubscribers();
   const labels = PILOT_COHORT.map(({ label }) => label);
   console.log(`Signals ${options.providers.length === 1 ? "diagnostic" : "comparison"}: ${options.providers.join(" then ")}; ${options.useCache ? "cache reuse enabled" : "fresh calls"}; batch pacing ${options.batchDelayMs}ms.`);
   const comparison = await evaluateComparison(options, async (provider, evaluationOptions) => {
