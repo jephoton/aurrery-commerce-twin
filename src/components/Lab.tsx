@@ -213,8 +213,8 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
               title="Active subscribers"
               format={(v) => Math.round(v).toLocaleString()}
               series={[
-                { label: "Do nothing", band: baseline.activeBand, color: "#5b6478" },
-                { label: selected.strategy.name, band: selected.activeBand, color: "#6941c6" },
+                { label: "Do nothing", band: baseline.activeBand, color: "#abb8cb", baseline: true },
+                { label: selected.strategy.name, band: selected.activeBand, color: "#e6bd69" },
               ]}
             />
           </div>

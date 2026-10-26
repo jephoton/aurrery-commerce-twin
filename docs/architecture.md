@@ -121,3 +121,9 @@ One exclusively created, timestamped UUID JSON artifact per attempted provider g
 ## Commands
 
 See `README.md` (`npm run dev | test | typecheck | lint | build | twin:inspect | signals:evaluate | paypal:setup | paypal:sync | paypal:check`).
+
+### Comparison presentation boundary
+
+<!-- Generated handoff: M4 Task 3. -->
+
+`src/components/comparison-model.ts` maps intervention kinds and computes baseline/candidate rows and a shared zero-inclusive interval domain. `ScenarioGrid.tsx` presents those rows with Community AG Grid: candidate filtering stays in the component, while the baseline is passed as one provided pinned bottom row. The parent reducer remains the source of selected ID and proposal state; filtering does not dispatch a selection. `IntervalCell.tsx` renders the shared-scale interval. `FanChart.tsx` renders the actual active-subscriber bands and exposes numeric start/end summaries through the SVG accessible name. No simulation estimates are altered by these components.

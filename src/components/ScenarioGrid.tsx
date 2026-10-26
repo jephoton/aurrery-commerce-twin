@@ -1,57 +1,38 @@
 "use client";
 
-import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type GridApi, type ValueFormatterParams } from "ag-grid-community";
+import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type GridApi, type RowSelectedEvent, type ValueFormatterParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { StrategyResult } from "@/twin/simulate";
+import { comparisonRows, intervalDomain, shouldSelectRow, type Family, type ScenarioRow } from "./comparison-model";
+import { IntervalCell, signedUsd } from "./IntervalCell";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const theme = themeQuartz.withParams({
-  accentColor: "#0070e0",
-  headerBackgroundColor: "#f6f7f9",
+  accentColor: "#e6bd69",
+  backgroundColor: "#101a2b",
+  foregroundColor: "#f4f0e7",
+  headerBackgroundColor: "#142135",
+  headerTextColor: "#abb8cb",
+  borderColor: "#34445b",
+  rowHoverColor: "#1b2b42",
+  selectedRowBackgroundColor: "#25324a",
   fontSize: 13,
-  rowHeight: 44,
+  rowHeight: 58,
   wrapperBorderRadius: 10,
 });
 
-export interface ScenarioRow {
-  id: string;
-  name: string;
-  isBaseline: boolean;
-  deltaValueP10: number;
-  deltaValueP50: number;
-  deltaValueP90: number;
-  probWorse: number;
-  deltaProfitP50: number;
-  endingActiveP50: number;
-  deltaEndingActive: number;
-  discountCost: number;
-  executable: boolean;
-  paypalAction: string | null;
-}
+export type { ScenarioRow } from "./comparison-model";
 
 export function toRows(results: StrategyResult[], baselineId: string): ScenarioRow[] {
-  return results.map((r) => ({
-    id: r.strategy.id,
-    name: r.strategy.name,
-    isBaseline: r.strategy.id === baselineId,
-    deltaValueP10: r.vsBaseline.totalValue.p10,
-    deltaValueP50: r.vsBaseline.totalValue.p50,
-    deltaValueP90: r.vsBaseline.totalValue.p90,
-    probWorse: r.probValueBelowBaseline,
-    deltaProfitP50: r.vsBaseline.grossProfit.p50,
-    endingActiveP50: r.metrics.endingActive.p50,
-    deltaEndingActive: r.vsBaseline.endingActive.mean,
-    discountCost: r.metrics.discountCost.mean,
-    executable: r.strategy.intervention.kind === "targeted_discount",
-    paypalAction: r.paypalAction,
-  }));
+  const { candidates, baseline } = comparisonRows(results, baselineId);
+  return baseline ? [...candidates, baseline] : candidates;
 }
 
-const usd = (v: number) => `${v < 0 ? "−" : v > 0 ? "+" : ""}$${Math.abs(Math.round(v)).toLocaleString()}`;
-const signed = (p: ValueFormatterParams<ScenarioRow, number>) => (p.data?.isBaseline ? "—" : usd(p.value ?? 0));
+const signed = (p: ValueFormatterParams<ScenarioRow, number>) => (p.data?.isBaseline ? "—" : signedUsd(p.value ?? 0));
 const tone = (v: number | null | undefined) => (v == null || v === 0 ? "" : v > 0 ? "text-positive" : "text-negative");
+const families: Family[] = ["Retention", "Annual", "Pricing"];
 
 export function ScenarioGrid({
   rows,
@@ -67,14 +48,29 @@ export function ScenarioGrid({
   horizonMonths?: number;
 }) {
   const api = useRef<GridApi<ScenarioRow> | null>(null);
+  const [family, setFamily] = useState<Family | "All">("All");
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const update = () => setNarrow(window.innerWidth < 640);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const candidates = useMemo(() => rows.filter((row) => !row.isBaseline), [rows]);
+  const baseline = rows.find((row) => row.isBaseline);
+  const displayed = useMemo(() => family === "All" ? candidates : candidates.filter((row) => row.family === family), [candidates, family]);
+  const domain = useMemo(() => intervalDomain(candidates), [candidates]);
+  const selectedOffFilter = selectedId != null && candidates.some((row) => row.id === selectedId) && !displayed.some((row) => row.id === selectedId);
   useEffect(() => {
     if (!api.current || api.current.isDestroyed()) return;
+    const selected = api.current.getSelectedRows()[0]?.id;
+    if (selected === selectedId) return;
     api.current.deselectAll();
-    if (selectedId) api.current.getRowNode(selectedId)?.setSelected(true);
-  }, [selectedId, rows]);
+    if (selectedId && displayed.some((row) => row.id === selectedId)) api.current.getRowNode(selectedId)?.setSelected(true);
+  }, [selectedId, displayed]);
   const columns = useMemo<ColDef<ScenarioRow>[]>(
     () => [
-      { field: "name", headerName: "Strategy", flex: 2, minWidth: 220, pinned: "left" },
+      { field: "name", headerName: "Strategy", minWidth: 220, pinned: narrow ? null : "left", cellRenderer: (p: { data?: ScenarioRow }) => p.data ? <span className="flex h-full min-w-0 flex-col justify-center whitespace-normal leading-tight"><span className="line-clamp-2 break-words font-medium" title={p.data.name}>{p.data.name}</span><span className="text-xs text-muted">{p.data.family}{p.data.isBaseline ? " · context only" : ""}</span></span> : null },
       {
         field: "deltaValueP50",
         headerName: "Δ Value (median)",
@@ -88,8 +84,8 @@ export function ScenarioGrid({
         colId: "range",
         headerName: "80% interval",
         headerTooltip: "10th to 90th percentile across Monte Carlo runs",
-        valueGetter: (p) => (p.data?.isBaseline ? "—" : `${usd(p.data!.deltaValueP10)} … ${usd(p.data!.deltaValueP90)}`),
-        minWidth: 190,
+        cellRenderer: (p: { data?: ScenarioRow }) => p.data?.isBaseline ? "—" : p.data ? <IntervalCell p10={p.data.deltaValueP10} p50={p.data.deltaValueP50} p90={p.data.deltaValueP90} domain={domain} /> : null,
+        minWidth: 240,
         sortable: false,
       },
       {
@@ -123,22 +119,35 @@ export function ScenarioGrid({
         minWidth: 120,
       },
     ],
-    [horizonMonths],
+    [horizonMonths, domain, narrow],
   );
 
+  const onRowSelected = (event: RowSelectedEvent<ScenarioRow>) => {
+    if (shouldSelectRow(event.data, Boolean(event.node.isSelected()), Boolean(event.node.rowPinned), selectedId, disabled)) onSelect(event.data!.id);
+  };
+
   return (
-    <div aria-disabled={disabled} inert={disabled} style={{ height: 52 + rows.length * 44 + 4 }}>
+    <div>
+      <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Filter scenario families">
+        {(["All", ...families] as const).map((value) => <button key={value} type="button" disabled={disabled} aria-pressed={family === value} onClick={() => setFamily(value)} className={`min-h-10 rounded-lg border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${family === value ? "border-brand-accent bg-brand/15 text-brand-accent" : "border-border text-muted hover:text-foreground"}`}>{value}</button>)}
+      </div>
+      {selectedOffFilter && <p className="mb-2 text-sm text-muted" role="status">Selected scenario is outside this family filter. Its details and proposal remain selected.</p>}
+      <div aria-disabled={disabled} inert={disabled} className="max-w-full overflow-x-auto rounded-lg" aria-label="Scenario comparison table">
+      <div className="min-w-[1040px]" style={{ height: 52 + Math.max(1, displayed.length) * 58 + (baseline ? 58 : 0) + 4 }}>
       <AgGridReact<ScenarioRow>
         theme={theme}
-        rowData={rows}
+        rowData={displayed}
+        pinnedBottomRowData={baseline ? [baseline] : []}
         columnDefs={columns}
-        defaultColDef={{ sortable: true, resizable: true, flex: 1 }}
+        defaultColDef={{ sortable: true, resizable: true }}
         getRowId={(p) => p.data.id}
         rowSelection={{ mode: "singleRow", checkboxes: false, enableClickSelection: !disabled }}
         onGridReady={(e) => { api.current = e.api; }}
-        onRowClicked={(e) => !disabled && e.data && onSelect(e.data.id)}
-        onFirstDataRendered={(e) => selectedId && e.api.getRowNode(selectedId)?.setSelected(true)}
+        onRowSelected={onRowSelected}
+        onFirstDataRendered={(e) => selectedId && displayed.some((row) => row.id === selectedId) && e.api.getRowNode(selectedId)?.setSelected(true)}
       />
+      </div>
+      </div>
     </div>
   );
 }

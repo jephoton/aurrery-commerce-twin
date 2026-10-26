@@ -37,12 +37,12 @@ Files: `src/app/globals.css`, `src/components/Lab.tsx`, `AgentPanel.tsx`, new `M
 
 Files: `src/components/ScenarioGrid.tsx`, new focused grid/interval helpers/tests if needed, `FanChart.tsx`/tests; Lab integration if required. Use documented installed/community APIs.
 
-- [ ] Add RED meaningful tests for family mapping, baseline uniqueness, shared interval domain, zero-crossing/all-negative/degenerate finite geometry and numeric accessible labels. Map intervention kinds to Retention / Annual / Pricing / Baseline; no ID-name heuristics.
-- [ ] Add family filter buttons/labels using Community-compatible filtering and one `pinnedBottomRowData` baseline excluded from ordinary rows. Baseline is comparison context, not an executable recommendation; retain clear baseline access. Filters never silently change selected scenario/proposal. Do not enable enterprise modules or install a license.
-- [ ] Render intervals on a common zero-inclusive domain with median point, zero marker and numeric p10/p90 text/label; retain sorting on numeric median and full risk/cost/capability columns. All numbers stay computed.
-- [ ] Wire documented keyboard selection through selection events with a guard against redundant parent updates. Programmatic reselection must not erase a valid proposal; pinned baseline must not pretend to be a candidate. Preserve disabled/inert behavior.
-- [ ] Keep desktop first-column usefulness without trapping narrow/mobile viewports; grid scroll stays local and selected scenario details remain readable outside it.
-- [ ] Restyle fan chart to match the workspace: gold candidate, dashed baseline, legible axes/legend, honest band, numeric accessible description and valid empty/one-point handling. No fabricated trajectory or quantile changes.
+- [x] Add RED meaningful tests for family mapping, baseline uniqueness, shared interval domain, zero-crossing/all-negative/degenerate finite geometry and numeric accessible labels. Map intervention kinds to Retention / Annual / Pricing / Baseline; no ID-name heuristics.
+- [x] Add family filter buttons/labels using Community-compatible filtering and one `pinnedBottomRowData` baseline excluded from ordinary rows. Baseline is comparison context, not an executable recommendation; retain clear baseline access. Filters never silently change selected scenario/proposal. Do not enable enterprise modules or install a license.
+- [x] Render intervals on a common zero-inclusive domain with median point, zero marker and numeric p10/p90 text/label; retain sorting on numeric median and full risk/cost/capability columns. All numbers stay computed.
+- [x] Wire documented keyboard selection through selection events with a guard against redundant parent updates. Programmatic reselection must not erase a valid proposal; pinned baseline must not pretend to be a candidate. Preserve disabled/inert behavior.
+- [x] Keep desktop first-column usefulness without trapping narrow/mobile viewports; grid scroll stays local and selected scenario details remain readable outside it.
+- [x] Restyle fan chart to match the workspace: gold candidate, dashed baseline, legible axes/legend, honest band, numeric accessible description and valid empty/one-point handling. No fabricated trajectory or quantile changes.
 - [ ] Run focused tests/typecheck/lint, handoff update and atomic commit. Independent spec then quality review.
 
 ## Task 4: Parent acceptance, publication and handoff
