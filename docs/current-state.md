@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-26. **M0–M3 are complete and reviewed. M4 is active on `feat/m4-product-ui`; Task 1 passed independent spec and quality reviews, and Task 2 implements the navy/gold workspace pending those reviews and parent browser acceptance. Gemini 3.5 Flash-Lite is primary; Groq remains explicitly selectable, with no automatic fallback. M3's real dashboard flow produced the A/B-only $18 proposal with confirmation unchecked and execution disabled. No approval or execution occurred.**_
+_Last material update: 2026-10-26. **M0–M3 are complete. M4 implementation and follow-up fixes passed independent spec and quality reviews. The real Gemini dashboard run completed at `ef01288` with an A/B-only $18 proposal, distinct typed mean/median, visible adverse stress and unchecked confirmation. All 452 tests then passed. A live annual-stress stall exposed a numerical sampler bug; the reviewed `log1p(-p)` fix preserves canonical results and both genuine replays. Final chart-label/mobile-column presentation changes at `e194c25` are reviewed; their rebuilt browser retest and M4 publication remain pending. Gemini is primary, with no automatic fallback. No approval or execution occurred.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -15,7 +15,7 @@ _Last material update: 2026-10-26. **M0–M3 are complete and reviewed. M4 is ac
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `feat/m4-product-ui` | Active M4 implementation; Task 1 independently reviewed, Task 2 workspace implementation pending review | local |
+| `feat/m4-product-ui` | Reviewed M4 implementation and fixes; final rebuilt browser retest/publication pending | reviewed checkpoint pushed through `ef01288`; later presentation fixes local |
 | `main` | M0–M3, selected Gemini provider, measured validation and both genuine replays | yes; M3 fast-forwarded and origin verified at `5e2bb55` before this publication-note update |
 | `feat/m3-agent-loop` | Reviewed M3, Gemini adapter/pacing, genuine Groq/Gemini replays and accepted functional dashboard flow | yes; merged into main; preserved milestone ref |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
