@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { StrategyResult } from "@/twin/simulate";
-import { comparisonRows, intervalDomain, intervalGeometry, shouldSelectRow } from "./comparison-model";
+import { comparisonRows, formatRisk, intervalDomain, intervalGeometry, shouldSelectRow } from "./comparison-model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { IntervalCell } from "./IntervalCell";
@@ -45,4 +45,8 @@ it("exposes numeric p10, median and p90 values with the shared interval graphic"
   expect(accessibleElement).toContain('role="img"');
   expect(accessibleElement).toContain('aria-label="80% interval: p10 −$5, median +$2, p90 +$10"');
   expect(html).toContain("<svg");
+});
+
+it("shows the actual chance worse to the same precision as the decision headline", () => {
+  expect([0.001, 0.407, 0, 1].map(formatRisk)).toEqual(["0.1%", "40.7%", "0.0%", "100.0%"]);
 });

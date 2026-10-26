@@ -62,6 +62,8 @@ export function intervalGeometry(p10: number, p50: number, p90: number, domain: 
   return { start: position(p10), median: position(p50), end: position(p90), zero: position(0) };
 }
 
+export const formatRisk = (probability: number) => `${(probability * 100).toFixed(1)}%`;
+
 export function shouldSelectRow(row: ScenarioRow | undefined, selected: boolean, pinned: boolean, selectedId: string | null, disabled: boolean): boolean {
   return Boolean(row && selected && !pinned && !row.isBaseline && row.id !== selectedId && !disabled);
 }

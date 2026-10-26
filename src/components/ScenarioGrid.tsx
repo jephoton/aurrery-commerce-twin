@@ -4,7 +4,7 @@ import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type Grid
 import { AgGridReact } from "ag-grid-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StrategyResult } from "@/twin/simulate";
-import { comparisonRows, intervalDomain, shouldSelectRow, type Family, type ScenarioRow } from "./comparison-model";
+import { comparisonRows, formatRisk, intervalDomain, shouldSelectRow, type Family, type ScenarioRow } from "./comparison-model";
 import { IntervalCell, signedUsd } from "./IntervalCell";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -91,7 +91,7 @@ export function ScenarioGrid({
       {
         field: "probWorse",
         headerName: "P(worse than baseline)",
-        valueFormatter: (p) => (p.data?.isBaseline ? "—" : `${Math.round((p.value ?? 0) * 100)}%`),
+        valueFormatter: (p) => (p.data?.isBaseline ? "—" : formatRisk(p.value ?? 0)),
         cellClass: (p) => (p.data?.isBaseline ? "" : (p.value ?? 0) > 0.35 ? "text-negative" : (p.value ?? 0) < 0.1 ? "text-positive" : ""),
         minWidth: 120,
       },
