@@ -30,7 +30,7 @@ The installed SDK exposes Sandbox subscription calls and an OAuth controller, bu
 
 | Check | State |
 | --- | --- |
-| Pure worker, hard timeout, cancellation and capacity | implementation in progress |
+| Pure worker, hard timeout, cancellation and capacity | reviewed at `35da88f`; full 474 tests/41 files pass; production build/browser integration pending |
 | Hosted access, durable request limits and secret configuration | pending |
 | Signature verification and transactional event deduplication | pending |
 | Measured exposure and repeatable posterior derivation | pending |
