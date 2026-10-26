@@ -59,7 +59,7 @@ export function FanChart({ series, title, format }: { series: Series[]; title: s
           </g>
         ))}
         {[...new Set(months > 0 ? [0, Math.floor((months - 1) / 2), months - 1] : [])].map((i) => (
-          <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="var(--muted)">
+          <text key={i} x={x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === months - 1 ? "end" : "middle"} fontSize="11" fill="var(--muted)">
             Month {i + 1}
           </text>
         ))}

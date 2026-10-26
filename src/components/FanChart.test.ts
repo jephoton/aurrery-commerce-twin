@@ -35,3 +35,12 @@ it("renders one centered axis tick for a constant one-point band", () => {
   expect(html.match(/>5<\/text>/g)).toHaveLength(1);
   expect(html).not.toMatch(/NaN|Infinity/);
 });
+
+it("anchors endpoint month labels inside the chart without moving their data positions", () => {
+  const values = Array.from({ length: 12 }, (_, i) => i + 1);
+  const html = renderToStaticMarkup(createElement(FanChart, { title: "Active", format: String, series: [
+    { label: "Offer", color: "#e6bd69", band: { p10: values, p50: values, p90: values } },
+  ] }));
+  expect(html).toMatch(/<text x="64" y="212" text-anchor="start"[^>]*>Month 1<\/text>/);
+  expect(html).toMatch(/<text x="544" y="212" text-anchor="end"[^>]*>Month 12<\/text>/);
+});
