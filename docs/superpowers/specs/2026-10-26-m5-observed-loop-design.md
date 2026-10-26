@@ -6,7 +6,7 @@ The user authorized M5 after accepting M0–M4 and deferred further visual itera
 
 ## Boundaries and order
 
-Use one Node 24 Render web-service instance with a persistent SQLite disk. Keep the current database and sandbox-only PayPal boundary. First isolate simulations from the request process, then add hosted access/resource controls, webhook ingestion, measured evidence, recovery actions and deployment acceptance. A free service without durable storage does not satisfy the approved SQLite architecture; deployment budget is being clarified before provisioning.
+Use one Node 24 **Render Free** web-service instance and an authoritative **Turso libSQL** database. The user selected this free deployment on 2026-10-27; [decision 0006](../../decisions/0006-free-render-and-turso.md) and the [storage adaptation plan](../plans/2026-10-27-m5-free-storage.md) supersede the original paid-disk assumption. Preserve local SQLite and the sandbox-only PayPal boundary. After computation isolation and access controls, implement the async storage boundary and migrate durable consumers, then resume webhook ingestion, measured evidence, recovery actions and deployment acceptance. Render's ephemeral disk is never the hosted source of truth.
 
 The agent keeps its seven existing tools and cannot approve, execute, reset or change deployment configuration. Annual execution stays in M7. UI changes here are limited to observed evidence, recovery review and admin access controls.
 
@@ -40,9 +40,9 @@ Admin demo reset is an explicit preview/confirmation flow restricted to currentl
 
 ## Deployment and acceptance
 
-Prepare a Render blueprint, portable setup/recovery instructions, dynamic `PORT` binding, health endpoint, Node version and a bounded build. Disk location is `/var/data`; ledger and classifier cache are placed there. Runtime secrets are entered privately, never committed or pasted into chat. Seed/register existing healthy pilots through an explicit safe import, not provisioning replacements. Provide a safe cache import path without exposing corpus labels to providers.
+Prepare a Render Free blueprint, portable setup/recovery instructions, dynamic `PORT` binding, health endpoint, Node version and a bounded build. The hosted ledger and classifier cache live in Turso; no Render disk is provisioned. Runtime secrets are entered privately, never committed or pasted into chat. Seed/register existing healthy pilots through an explicit safe import, not provisioning replacements. Provide a safe cache import path without exposing corpus labels to providers. Merely entering Turso credentials does not switch the local backend before the explicit import and selection.
 
-After budget/account access are settled, deploy and verify health, persistence across restart, resource admission, real agent proposal and untouched confirmation controls. Configure the app's sandbox webhook and receive/resend one genuine app event; verify exactly one safe observation and unchanged posterior when no qualifying outcome exists. Approval/execution acceptance remains separate until explicitly authorized. Record actual results and remaining gaps; never mark M5 complete on local tests alone.
+After account access is configured privately, deploy on the selected free plans and verify health, persistence across restart/sleep, resource admission, real agent proposal and untouched confirmation controls. Disclose and measure Render Free wake-up behavior. Configure the app's sandbox webhook and receive/resend one genuine app event; verify exactly one safe observation and unchanged posterior when no qualifying outcome exists. Approval/execution acceptance remains separate until explicitly authorized. Record actual results and remaining gaps; never mark M5 complete on local tests alone. The user requested all unblocked work before account setup; do not stop offline implementation for missing deployment credentials.
 
 ## Verification
 

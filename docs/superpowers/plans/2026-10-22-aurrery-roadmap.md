@@ -69,8 +69,9 @@ Each milestone ends with working, tested software, committed on its own branch a
 **Done when:** a browser walkthrough of the whole flow looks demo-ready. Checked with the `run` skill or a screenshot on the hosted build.
 
 ## M5: Hosting and observed loop
+**Status:** in progress. Bounded computation and local access/admission are independently reviewed. The user selected **Render Free + Turso** on 2026-10-27, replacing the paid persistent-disk design; async storage adaptation precedes webhooks/recovery. Complete unblocked implementation before requesting account setup again. Further UI iteration is deferred to M8.
 **Goal:** judges can use it live, and observed outcomes feed back into the twin.
-- Render web service with a persistent disk for SQLite; environment configuration; rate limits and a token cap per run.
+- Render Free web service with an authoritative Turso libSQL ledger and local SQLite compatibility; environment configuration; durable rate limits and a token cap per run. Free-service cold starts are an accepted deployment trade-off.
 - Webhook endpoint with PayPal signature verification and event deduplication; observations update the discount-effect posterior.
 - Revert proposal; demo-reset admin action.
 

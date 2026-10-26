@@ -4,7 +4,7 @@
 
 **Goal:** Host the existing app safely and make verified PayPal outcomes visible and usable as measured evidence, with separately approved recovery actions.
 
-**Architecture:** One Node 24 service and persistent SQLite ledger; isolated pure computation worker; hosted request admission; signature-verified, idempotent event ingestion; derived posterior and explicit recovery proposals. Follow the detailed M5 design, existing overall spec and exact-payload approval invariants.
+**Architecture:** One Render Free Node 24 service and authoritative Turso libSQL ledger, with local SQLite compatibility; isolated pure computation worker; hosted request admission; signature-verified, idempotent event ingestion; derived posterior and explicit recovery proposals. The user selected free hosting on 2026-10-27: complete the separate free-storage adaptation plan after Task 2, before Task 3. Follow the detailed M5 design, existing overall spec and exact-payload approval invariants.
 
 **Tech stack:** Next 16.4.2, TypeScript, Node worker_threads/SQLite, esbuild for the independent worker bundle, existing PayPal Sandbox SDK, Render.
 
@@ -23,11 +23,11 @@ Files: create `src/twin/worker-entry.ts`, `src/twin/worker-client.ts`, `src/twin
 
 Files: new `src/hosting/` configuration, session and durable-limit modules with tests; admin session route/component; wrap agent/manual/proposal/PayPal polling routes; `.env.example`.
 
-- [ ] Test hosted fail-closed configuration, wrong/missing/expired/tampered cookies, same-origin and CSRF checks, bounded login/body handling and public/private route separation before implementation.
-- [ ] Implement explicit hosted mode (mandatory on Render), a strong secret, hashed constant-time password checks, authenticated expiring cookies, login/logout, and a small accessible admin control. Preserve local development behavior. No admin credential in client props/logs.
-- [ ] Add SQLite-backed hashed-client and global quotas, atomic admission and expiry cleanup. Initial fixed-window agent admission: three/client/hour, six/global/hour and twenty/global/day; simulation/proposal preparation: thirty/client/hour and sixty/global/hour; live polling: thirty/client/hour and sixty/global/hour; login: five/client/15 minutes and thirty/global/15 minutes. Invalid login attempts count. Test header spoofing cannot bypass the global cap, parallel admission, restart behavior and safe Retry-After. Preserve existing run/provider limits. Prefer opaque random administrator sessions stored only as token hashes with two-hour expiry and server-side logout revocation; password rotation must invalidate old sessions. No browser storage for credentials.
-- [ ] Protect approval/rejection/reset endpoints, require same-origin for public mutations, expose safe hosted capability state. Test API paths directly rather than only hidden buttons.
-- [ ] Run focused integration/security tests, typecheck/lint; update handoff; atomic commits and spec/quality reviews.
+- [x] Test hosted fail-closed configuration, wrong/missing/expired/tampered cookies, same-origin and CSRF checks, bounded login/body handling and public/private route separation before implementation.
+- [x] Implement explicit hosted mode (mandatory on Render), a strong secret, hashed constant-time password checks, authenticated expiring cookies, login/logout, and a small accessible admin control. Preserve local development behavior. No admin credential in client props/logs.
+- [x] Add SQLite-backed hashed-client and global quotas, atomic admission and expiry cleanup. Initial fixed-window agent admission: three/client/hour, six/global/hour and twenty/global/day; simulation/proposal preparation: thirty/client/hour and sixty/global/hour; live polling: thirty/client/hour and sixty/global/hour; login: five/client/15 minutes and thirty/global/15 minutes. Invalid login attempts count. Test header spoofing cannot bypass the global cap, parallel admission, restart behavior and safe Retry-After. Preserve existing run/provider limits. Prefer opaque random administrator sessions stored only as token hashes with two-hour expiry and server-side logout revocation; password rotation must invalidate old sessions. No browser storage for credentials.
+- [x] Protect existing approval/rejection endpoints and provide the reusable boundary for Task 5 reset, require same-origin for public mutations, expose safe hosted capability state. Test API paths directly rather than only hidden buttons.
+- [x] Run focused integration/security tests, typecheck/lint; update handoff; atomic commits and spec/quality reviews.
 
 ## Task 3: Verified, deduplicated sandbox webhook observations
 
@@ -60,8 +60,8 @@ Files: extend `src/ledger/proposals.ts`, execution layer, proposal API/review UI
 
 Files: `render.yaml`, Node/start/build configuration, health route, deployment/import helpers and `docs/research/m5-hosting-validation.md`; update README, architecture/current-state and roadmap status.
 
-- [ ] Prepare one-instance persistent-disk blueprint, PORT-aware start, runtime configuration validation and no build-time secrets. Document private environment setup, safe existing-pilot import, cache placement/import, consistent SQLite backup/recovery and disk restart limitations. Never copy an open SQLite file without its WAL; use a supported consistent backup.
+- [ ] Prepare a one-instance **Render Free + Turso** blueprint, PORT-aware start, runtime configuration validation and no build-time secrets. Document private environment setup, safe existing-pilot import, remote cache/import, consistent SQLite source backup and remote recovery, plus free-service wake-up limitations. Never copy an open SQLite file without its WAL; use a supported consistent backup. No paid disk or billing upgrade.
 - [ ] Run full tests/typecheck/lint/build, hygiene scan and local production browser acceptance, including real worker integration and protected admin paths. Record exact results before provisioning.
-- [ ] Resolve hosting budget/account access and show final paid configuration before purchase. Configure secrets privately, deploy authorized service, prove persistent state across restart and public resource/auth boundaries.
+- [ ] Resolve account access for the selected free services after unblocked work; configure secrets privately, deploy the authorized free service/database, and prove persistent state across restart/sleep and public resource/auth boundaries. Do not repeat setup requests while independent work remains.
 - [ ] Register the sandbox webhook and receive/resend a genuine event. Verify one observation after duplicate delivery; no exposure means no posterior change. Run the hosted Gemini proposal flow without approving. Record any unmet acceptance honestly.
 - [ ] Final independent review, full relevant verification, handoff and publication. M5 is complete only when hosted flow and verified genuine webhook acceptance pass. Defer visual iteration to M8; do not start M6/M7 automatically.
