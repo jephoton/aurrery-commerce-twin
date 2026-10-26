@@ -59,6 +59,7 @@ Each milestone ends with working, tested software, committed on its own branch a
 **Done when:** from the objective text, the agent classifies, tries the broad discount, refines to the precision discount, stress-tests it, and creates a proposal the merchant can approve.
 
 ## M4: Product UI
+**Status:** implementation and local production walkthrough complete; 454 tests, independent reviews and live Gemini proposal checks pass. Final milestone merge/push is in progress. Hosted walkthrough remains M5/M8, after hosting exists. See [measured validation](../../research/m4-product-validation.md).
 **Goal:** the first 30 seconds of the demo sell it.
 - Headline recommendation card (expected value, chance of doing worse, Approve).
 - Orbit and trajectory visual language for the fan charts and segments.

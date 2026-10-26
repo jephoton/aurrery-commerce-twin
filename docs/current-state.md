@@ -1,13 +1,13 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-26. **M0–M3 are complete. M4 implementation and follow-up fixes passed independent spec and quality reviews. The real Gemini dashboard run completed at `ef01288` with an A/B-only $18 proposal, distinct typed mean/median, visible adverse stress and unchecked confirmation. All 452 tests then passed. A live annual-stress stall exposed a numerical sampler bug; the reviewed `log1p(-p)` fix preserves canonical results and both genuine replays. Final chart-label/mobile-column presentation changes at `e194c25` are reviewed; their rebuilt browser retest and M4 publication remain pending. Gemini is primary, with no automatic fallback. No approval or execution occurred.**_
+_Last material update: 2026-10-26. **M0–M3 are published on main. M4 implementation and local production acceptance are complete: navy/gold UI, typed statistics/evidence, comparison/trajectory polish and preserved exact-action approval. Independent reviews, 454 tests/38 files, typecheck, zero-warning lint, production build and a 143-file hygiene scan pass. The final real Gemini run produced an A/B-only $18 proposal with confirmation unchecked and execution disabled. No approval or execution occurred; all four pilots remain ACTIVE at $24. Final M4 merge/push is in progress. M5 hosting and the observed loop are next.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
 **Read in this order:**
 1. `docs/superpowers/specs/2026-10-22-aurrery-design.md`: the design, including §3a, the story revision.
 2. `docs/superpowers/plans/2026-10-22-aurrery-roadmap.md`: milestones in order.
-3. `docs/superpowers/specs/2026-10-25-m4-product-ui-design.md` and `docs/superpowers/plans/2026-10-25-m4-product-ui.md`: approved M4 design and active implementation plan.
+3. `docs/superpowers/specs/2026-10-25-m4-product-ui-design.md` and `docs/superpowers/plans/2026-10-25-m4-product-ui.md`: approved M4 design and completed implementation plan.
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
@@ -15,7 +15,7 @@ _Last material update: 2026-10-26. **M0–M3 are complete. M4 implementation and
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `feat/m4-product-ui` | Reviewed M4 implementation and fixes; final rebuilt browser retest/publication pending | reviewed checkpoint pushed through `ef01288`; later presentation fixes local |
+| `feat/m4-product-ui` | Reviewed and locally accepted M4 UI, responsive fixes and numerical sampler correction | checkpoint pushed; final acceptance publication in progress |
 | `main` | M0–M3, selected Gemini provider, measured validation and both genuine replays | yes; M3 fast-forwarded and origin verified at `5e2bb55` before this publication-note update |
 | `feat/m3-agent-loop` | Reviewed M3, Gemini adapter/pacing, genuine Groq/Gemini replays and accepted functional dashboard flow | yes; merged into main; preserved milestone ref |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
@@ -30,6 +30,20 @@ M2 checkpoint verification: all 184 tests across 13 files, typecheck, lint and p
 The parent-owned M4 browser check reached a real Gemini HTTP 200 response, then the server stopped responding during the three-segment annual comparison/stress path. A bounded child-process reproduction of `Rng.binomial(120, 1e-20)` timed out. The root cause was the geometric-skip denominator `Math.log(1 - p)`: floating-point subtraction rounded `1 - p` to 1, so division by the resulting zero never advanced the loop. Before the fix, bounded unit tests for `1e-20` and `Number.MIN_VALUE` failed with a guarded third draw, and the real three-segment annual stress test (1,000 runs, 12 months, seed `20261113`) exceeded a five-second child-process limit. The single production change is `Math.log1p(-p)`; no priors, candidates, fixtures or provider behavior changed.
 
 After the change, the focused RNG/stress tests (16), both genuine offline provider replays (2), full serial suite (452 tests/37 files), typecheck and zero-warning lint pass. `npm run twin:inspect` reproduces the documented M1 starter-scenario intervals and stressed medians. This isolates and removes the numerical hang in offline tests. Parent rebuild, real Gemini browser retry, independent reviews and M4 publication remain pending.
+
+## M4 final acceptance and M5 handoff
+
+The final application code at `e194c25` passed all implementation/delta spec then quality reviews and integrated reviews. Parent verification: **454 tests across 38 files**, typecheck, zero-warning lint, production build, diff check and all **143 tracked files** scanned for configured secrets/personal paths. Desktop and 360px production-browser checks covered initial/manual/live-agent states, keyboard Space selection, family filters, one pinned baseline, accessible numeric intervals, source disclosure, review navigation, Stop and visible error recovery. No page-wide horizontal overflow was observed; the grid scrolls locally.
+
+The final real default-objective Gemini run completed seven tools with 200 accepted cache hits and six recorded HTTP 200 responses: 21,767 reported tokens and about 17.80 seconds from first request start to last response. It proposed only A/B at $18 instead of $24, for three months with six-month simulated campaign metadata. Mean value delta +$105, median +$89, interval -$442 to +$656, chance worse 40.7%, mean discount cost $476; adverse stress remains median -$68 and 57.1% chance worse. The latest agent selected visible $20,000 / 50% / 12-month rules; earlier successful runs used different permitted rules. M4 did not change that policy, and default rules are not immutable spending caps. Review actual rules and the exact payload.
+
+The ledger has five proposed rows, zero approval audit events and zero executions. The latest action's hash recomputed correctly as `4153b4bb6c7cba3d5d69f0d7c6424ff958c8b876256c3fed36ad8e486fb34293`; approval/completion are null. Fresh PayPal GETs confirmed all four pilots ACTIVE at $24, with D's old override flag unchanged. Nothing was approved, rejected, executed or sent. The local production app remains on port 3001.
+
+Live QA found a rare binomial hang during an annual stress candidate including at-risk subscribers. `ef01288` uses `Math.log1p(-p)` instead of the rounded-to-zero `Math.log(1-p)`. Bounded reproductions failed before the change and pass afterward; the real 1,000-run annual stress, both genuine provider replays and canonical M1 values pass unchanged. No priors, labels, predictions, fixtures or winners were tuned. A stale local Turbopack build cache also required moving only generated `.next/cache/turbopack` aside and rebuilding; the [M4 report](research/m4-product-validation.md) records portable recovery and all retained failures/evidence.
+
+**M5 is next:** hosting/persistent storage, webhooks, observations, revert and reset. Hosted walkthrough is deferred to M5/M8; no deployment is claimed. Carry forward that timers cannot preempt synchronous CPU work; the reproducible numerical hang is fixed, while worker/process isolation remains future hosting work. Typed labels now separate mean/median and active population/feedback sample; model prose remains interpretive. Keep annual execution in M7 and CSV as the only cut candidate.
+
+Historical checkpoint notes below retain their then-pending statuses; this final acceptance supersedes them.
 
 ## M3 final acceptance and M4 handoff
 
@@ -169,8 +183,8 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
    - The original cohort's earlier 404s remain unexplained. No expiration duration or TTL has been established.
 3. **Integration complete.** Main fast-forwarded to the tested M0/M1 tree; all 75 tests passed again on main. Main and both working branch refs were pushed and verified on origin. LICENSE is now on main. The user subsequently resumed M2 after adding provider keys.
 4. **M2 complete.** The fresh Gemini-then-Groq run completed: Gemini returned HTTP 503 twice; Groq passed all thresholds with 93.5% joint agreement, all four pilots correct and a successful tool round trip. The classify → evidence → simulate path worked. `AI_PROVIDER=groq` and `GROQ_MODEL=openai/gpt-oss-120b` record the default. See the [measured report](research/m2-provider-evaluation.md) and [decision 0003](decisions/0003-ai-provider-evaluation.md).
-5. **M3 complete; start M4 next.** Functional dashboard acceptance, both genuine replays, independent reviews and final checks passed. Preserve separate approval and the documented narrative limitations; add explicit typed sample/population and median/mean labels during M4. See the final acceptance at the top and measured M3 report.
-6. **M4: Product UI: headline card, orbit language, polish, after M3 acceptance.**
+5. **M3 complete and published.** Both genuine provider replays, classified targeting and separate approval remain preserved. M4 now supplies typed mean/median and population/sample labels; model prose remains interpretive.
+6. **M4 complete locally; final publication in progress.** Read the current acceptance above and measured M4 report.
 7. **M5: Hosting and observed loop: Render, webhooks, revert, reset.** Then the roadmap's cut checkpoint.
 8. **M7: Annual-plan execution** (required hero path; may precede M6).
 9. **M6: CSV import** (optional; only cut candidate).

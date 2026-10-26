@@ -43,13 +43,20 @@ Files: `src/components/ScenarioGrid.tsx`, new focused grid/interval helpers/test
 - [x] Wire documented keyboard selection through selection events with a guard against redundant parent updates. Programmatic reselection must not erase a valid proposal; pinned baseline must not pretend to be a candidate. Preserve disabled/inert behavior.
 - [x] Keep desktop first-column usefulness without trapping narrow/mobile viewports; grid scroll stays local and selected scenario details remain readable outside it.
 - [x] Restyle fan chart to match the workspace: gold candidate, dashed baseline, legible axes/legend, honest band, numeric accessible description and valid empty/one-point handling. No fabricated trajectory or quantile changes.
-- [ ] Run focused tests/typecheck/lint, handoff update and atomic commit. Independent spec then quality review.
+- [x] Run focused tests/typecheck/lint, handoff update and atomic commit. Independent spec then quality review.
 
 ## Task 4: Parent acceptance, publication and handoff
 
 - [x] Resolve the numerical annual-stress blocker found during the parent browser check: bounded tiny-positive binomial RED tests and a bounded three-segment/1,000-run annual RED reproduction preceded the `log1p(-p)` fix. Focused tests, both genuine provider replays, full serial suite, typecheck, zero-warning lint and canonical starter values pass; see `docs/current-state.md`. No simulation assumptions or recordings changed.
-- [ ] Parent independently review the numerical fix, rebuild the owned server and repeat the real Gemini annual comparison/stress/proposal browser flow before M4 acceptance.
-- [ ] Run full serial tests, typecheck, zero-warning lint and production build with the owned server stopped. Scan tracked files for configured secrets/personal paths. Request final integrated review.
-- [ ] Rebuild/restart owned server on 3001 and verify in CUA browser: initial state, manual comparison, family filters, pinned baseline, keyboard selection, responsive layout, typed mean/median and separate feedback/population counts, review navigation and no approval. Check real agent progress/comparison/stress/proposal, Stop/error behavior, exact A/B-only $18 payload with unchecked confirmation and disabled execution. Never approve/reject/execute/send during QA.
-- [ ] Save useful ignored screenshots for desktop and narrow layouts, check console/runtime errors and fresh read-only PayPal status/ledger counts. Record failures honestly and fix/re-review any actionable issues.
+- [x] Parent independently review the numerical fix, rebuild the owned server and repeat the real Gemini annual comparison/stress/proposal browser flow before M4 acceptance.
+- [x] Run full serial tests, typecheck, zero-warning lint and production build with the owned server stopped. Scan tracked files for configured secrets/personal paths. Request final integrated review.
+- [x] Rebuild/restart owned server on 3001 and verify in CUA browser: initial state, manual comparison, family filters, pinned baseline, keyboard selection, responsive layout, typed mean/median and separate feedback/population counts, review navigation and no approval. Check real agent progress/comparison/stress/proposal, Stop/error behavior, exact A/B-only $18 payload with unchecked confirmation and disabled execution. Never approve/reject/execute/send during QA.
+- [x] Save useful ignored screenshots for desktop and narrow layouts, check console/runtime errors and fresh read-only PayPal status/ledger counts. Record failures honestly and fix/re-review any actionable issues.
 - [ ] Update measured M4 report, architecture/current state/roadmap; mark M4 done only when browser and review checks pass. Merge fast-forward, perform required merged-main check, push and verify refs. M5 follows; hosting is not M4.
+
+
+<!-- Generated local acceptance, 2026-10-26. -->
+
+All source tasks, review corrections and local production-browser acceptance passed at the `e194c25` application checkpoint: 454 tests/38 files, typecheck, zero-warning lint, production build and 143-file hygiene scan. Final live default-objective Gemini flow completed with typed comparison/stress and A/B-only $18 proposal, confirmation unchecked and execution disabled. Numerical `log1p`, interval-role, risk-precision, chart-label and responsive-order fixes each passed independent review. Historical recordings/priors remain unchanged. M5 hosting is next; see the measured report for observed limitations. Publication is still in progress, so the final publication checkbox below remains open until remote verification.
+
+- [ ] Verify M4 main/branch remote refs and record publication.
