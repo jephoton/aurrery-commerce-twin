@@ -41,9 +41,8 @@ it("only forwards a newly selected, eligible candidate row", () => {
 
 it("exposes numeric p10, median and p90 values with the shared interval graphic", () => {
   const html = renderToStaticMarkup(createElement(IntervalCell, { p10: -5, p50: 2, p90: 10, domain: [-20, 40] }));
-  expect(html).toContain("p10 −$5");
-  expect(html).toContain("median +$2");
-  expect(html).toContain("p90 +$10");
-  expect(html).toContain("80% interval");
+  const accessibleElement = html.match(/^<span([^>]*)>/)?.[1];
+  expect(accessibleElement).toContain('role="img"');
+  expect(accessibleElement).toContain('aria-label="80% interval: p10 −$5, median +$2, p90 +$10"');
   expect(html).toContain("<svg");
 });
