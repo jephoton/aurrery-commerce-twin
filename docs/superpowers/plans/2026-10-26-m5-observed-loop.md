@@ -53,7 +53,7 @@ Files: extend `src/ledger/proposals.ts`, execution layer, proposal API/review UI
 
 - [ ] Test fresh approval/hash requirement, source verified targets only, list-price immutability, no arbitrary source/revert-of-revert, registration and current-price races, duplicate claim, partial execution and no revertAfter on a revert.
 - [ ] Add a discriminated revert action with source reference and exact per-target expected/current-to-list prices. Never reuse the original benefit prediction as a revert forecast. Preview it, then use the existing explicit approval and atomic execution flow with precondition GETs and read-back.
-- [ ] Add admin reset preview/hash/explicit confirmation restricted to the registered cohort and canonical list price, with bounded targets and logged outcomes. Preserve all historical rows and never auto-run. Test unauthorized API access, preview tampering, registration changes and partial failures.
+- [ ] Add admin reset preview/hash/explicit confirmation restricted to the registered cohort and canonical list price, with bounded targets and logged outcomes. Persist preview as a proposed recovery action; administrator confirmation must supply a fresh exact-hash approval and pass the same atomic execution claim. Preserve all historical rows and never auto-run. Test unauthorized API access, preview tampering, registration changes and partial failures.
 - [ ] Minimal accessible UI controls only; preserve unchecked confirmation and no agent recovery tools. Offline checks, handoff, atomic commits, spec then quality reviews. No live subscription writes during implementation.
 
 ## Task 6: Prepare and validate deployment
