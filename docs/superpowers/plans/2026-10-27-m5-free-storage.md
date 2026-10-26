@@ -20,6 +20,22 @@ Files: new `src/ledger/connection.ts` and tests; export reusable schema from `sr
 
 ## Storage Task B: migrate durable workflows and prepare safe import
 
+Execute the following three slices sequentially, each with a fresh implementer and independent spec then quality review. They form one migration; intermediate commits are not hosted readiness or permission to switch the running app. Do not start the next slice with unresolved review findings.
+
+### B1: proposal and execution authority
+
+Scope: async settings/audit helpers, proposals/registered pilots/state transitions, execution recording, PayPal setup/sync/status and core CLI callers, proposal routes and agent registry/proposal awaits, plus affected tests. Keep synchronous injected test dependencies usable through awaited adapters. Group state/audit writes and verify FK enforcement in the actual write transaction. Cover conditional claim races and storage failure before/after external effects with fake PayPal calls. Leave hosting/signals/import to later slices; their raw local SQLite access remains a documented intermediate risk, so do not build/deploy/switch a mixed backend.
+
+### B2: session and quota authority
+
+Scope: async hosting store/guard/session API and every guarded route caller, hosted configuration, access-related tests. Move sessions, revocation and admission to authoritative transactions with verified constraints, preserve existing security behavior, and add two-connection concurrency/restart tests. Replace Render's obsolete disk requirement with the selected remote backend requirements. Signals/raw import remain pending B3; do not claim full migration yet.
+
+### B3: classifier cache, explicit import and integrated migration acceptance
+
+Scope: bulk async classifier cache/import/classification and their test/CLI callers; safe local-to-empty-remote import; production raw-query audit and final integration. Preserve sync test cache injection through an awaited interface when practical. Remove every remaining production raw-ledger bypass, guard accidental hosted local access, test bulk round-trip bounds and genuine provider replays, and complete the dry-run/import validation. Only after B3 reviews/full verification may the app be built for remote-hosted acceptance.
+
+### Cross-slice acceptance checklist
+
 Files: ledger/proposals/db helpers, execution, hosting store/guard/session, PayPal setup/status, signals cache/import/classifier, agent tools/run dependencies, route handlers, CLI helpers and affected tests; add safe import/check tooling and portable instructions.
 
 - [ ] Convert all production durable operations to the async adapter. Conditional approve/claim and deduplication must remain server-atomic; group related ledger/audit writes transactionally through explicit handles. Verify `PRAGMA foreign_keys` on the actual authoritative write-transaction handle and fail closed if enforcement is absent; the HTTP client's initialization call uses another logical connection. Use authoritative write transactions for session validation/revocation and decision authority, not stale replica reads. Never hold transactions over PayPal/model calls. Treat ambiguous claims/storage acknowledgements as requiring reconciliation, never as permission to repeat an external write. A failed ledger acknowledgement after a PayPal call must not turn into an automatic retry; document unresolved execution states honestly.
