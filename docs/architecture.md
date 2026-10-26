@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | Twin | `src/twin/` | Pure model: types, seeded RNG, interventions + guardrails (Zod), Monte Carlo simulation, Bayesian calibration and assumptions-only stress testing. `worker-entry.ts` runs only this pure model; `worker-client.ts` is the server-side process boundary. | nothing for pure model; Node worker threads for client |
 | Merchant | `src/merchant/` | Builds the twin for the current merchant (today: synthetic Ridgeline Roasters history → estimated parameters + labelled priors). | twin |
-| Ledger | `src/ledger/` | SQLite (`node:sqlite`): sandbox subscribers, proposals state machine, executions, observations, audit events, kv settings. | twin types |
+| Ledger | `src/ledger/` | Current SQLite consumers plus an async server-only connection boundary for Node SQLite and authoritative Turso libSQL: sandbox subscribers, proposals state machine, executions, observations, audit events, kv settings. Consumer migration is M5 Storage Task B. | twin types |
 | Hosted access | `src/hosting/` | Runtime configuration, server-validated administrator sessions and atomic durable request admission in the ledger SQLite file. | ledger |
 | PayPal | `src/paypal/` | Sandbox-only SDK client, typed wrappers (`getSubscription`, `overrideSubscriptionPrice`), error normalisation. | SDK |
 | Execution | `src/execution/` | Runs an approved proposal: claim → PATCH each target → GET read-back → record → finish. | ledger, paypal |

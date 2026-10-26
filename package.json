@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.137.0",
+    "@libsql/client": "^0.18.0",
     "@paypal/paypal-server-sdk": "^2.5.0",
     "ag-grid-community": "^36.2.0",
     "ag-grid-react": "^36.2.0",

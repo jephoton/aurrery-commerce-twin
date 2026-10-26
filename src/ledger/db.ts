@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 
 // Durable record of decisions, approvals, PayPal executions, and observed outcomes.
 
-const SCHEMA = `
+export const LEDGER_SCHEMA = `
 CREATE TABLE IF NOT EXISTS sandbox_subscribers (
   subscription_id TEXT PRIMARY KEY,
   label TEXT NOT NULL,
@@ -73,7 +73,7 @@ export function ledger(): DatabaseSync {
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
     db = new DatabaseSync(path);
     db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
-    db.exec(SCHEMA);
+    db.exec(LEDGER_SCHEMA);
     // Ledgers created before pilot reasons existed.
     const columns = db.prepare("PRAGMA table_info(sandbox_subscribers)").all().map((c) => String(c.name));
     if (!columns.includes("reason")) db.exec("ALTER TABLE sandbox_subscribers ADD COLUMN reason TEXT NOT NULL DEFAULT 'other'");
