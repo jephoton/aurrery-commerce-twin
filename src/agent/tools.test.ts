@@ -7,6 +7,7 @@ import type { ClassificationResult } from "@/signals/classify";
 import type { Prediction } from "@/signals/contracts";
 import { BASELINE, type Strategy } from "@/twin/interventions";
 import { compareStrategies } from "@/twin/simulate";
+import { runComparison } from "@/twin/worker-client";
 import { ledger } from "@/ledger/db";
 import { listProposals, listSandboxSubscribers, registerSandboxSubscriber, replaceSandboxSubscription } from "@/ledger/proposals";
 import { PILOT_COHORT } from "@/paypal/setup";
@@ -28,6 +29,23 @@ async function ready(ctx: ReturnType<typeof setup>, candidate = strategy) {
 const recommend = (ctx: ReturnType<typeof setup>, id = "save") => ctx.dispatch("recommend", { strategyId: id, rationale: "A bounded offer", tradeoffs: "Discount costs and expiry risk" });
 
 describe("agent tool boundary", () => {
+  it("uses the shared worker admission limit by default without committing failed comparison state", async () => {
+    const controller = new AbortController();
+    const pending = runComparison(currentMerchant().twin, [strategy], { runs: 5000, horizonMonths: 36, seed: 1 }, { signal: controller.signal });
+    try {
+      const ctx = setup();
+      expect(await ctx.dispatch("simulate_strategies", { strategies: [strategy] })).toMatchObject({ ok: false, code: "BUSY" });
+      expect(ctx.state.comparison).toBeUndefined();
+    } finally {
+      controller.abort();
+      await expect(pending).rejects.toMatchObject({ code: "ABORTED" });
+    }
+  });
+  it("awaits an injected asynchronous comparison while preserving the synchronous fake adapter", async () => {
+    const ctx = setup({ simulate: async (twin, candidates, options) => compareStrategies(twin, candidates, { ...options, runs: 10 }) });
+    expect(await ctx.dispatch("simulate_strategies", { strategies: [strategy] })).toMatchObject({ ok: true });
+    expect(ctx.state.comparison?.strategies.map((item) => item.strategy.id)).toEqual(["baseline", "save"]);
+  });
   it("exposes the canonical automatic baseline and compares candidate-only or explicit-baseline inputs identically", async () => {
     const ctx = setup({ simulate: (twin, candidates, options) => compareStrategies(twin, candidates, { ...options, runs: 10 }) });
     const merchant = await ctx.dispatch("get_merchant_state", {});

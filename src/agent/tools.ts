@@ -10,8 +10,9 @@ import { classifyFeedback, type ClassificationResult } from "@/signals/classify"
 import { applyEvidence, pilotEligibility, summarizeEvidence } from "@/signals/evidence";
 import { createProvider, type ClassificationProvider } from "@/signals/providers";
 import { StrategySchema, BASELINE, type Strategy } from "@/twin/interventions";
-import { compareStrategies, type ComparisonResult, type StrategyResult } from "@/twin/simulate";
-import { stressTest, type StressResult } from "@/twin/stress";
+import type { compareStrategies, ComparisonResult, StrategyResult } from "@/twin/simulate";
+import type { stressTest, StressResult } from "@/twin/stress";
+import { runComparison, runStress, WorkerTaskError } from "@/twin/worker-client";
 import { SEGMENTS, type MerchantTwin } from "@/twin/types";
 import { DEFAULT_DECISION_RULES, DecisionRulesSchema, type AgentEvent, type ClassificationFailure, type ClassificationSummary, type DecisionRules, type ToolResult } from "./contracts";
 import { selectedProvider } from "./model";
@@ -61,8 +62,8 @@ export interface ToolContextOptions {
   registry?: () => SandboxSubscriber[];
   provider?: ClassificationProvider;
   classify?: typeof classifyFeedback;
-  simulate?: typeof compareStrategies;
-  stress?: typeof stressTest;
+  simulate?: (...args: Parameters<typeof compareStrategies>) => ComparisonResult | Promise<ComparisonResult>;
+  stress?: (...args: Parameters<typeof stressTest>) => StressResult | Promise<StressResult>;
   propose?: typeof createProposal;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
@@ -180,7 +181,9 @@ export function createToolContext(options: ToolContextOptions = {}) {
           if (existing && JSON.stringify(existing) !== JSON.stringify(candidate)) throw new ToolFailure("STRATEGY_CONFLICT", "Strategy IDs must retain the same definition in a run.");
           next.set(candidate.id, candidate);
         }
-        const comparison = (options.simulate ?? compareStrategies)(state.twin, [...next.values()], simulationOptions());
+        const comparison = await (options.simulate
+          ? options.simulate(state.twin, [...next.values()], simulationOptions())
+          : runComparison(state.twin, [...next.values()], simulationOptions(), { signal: options.signal }));
         checkAbort(); strategies = next; state.comparison = comparison;
         for (const [id, strategy] of next) strategyDefinitions.set(id, strategy);
         emit({ type: "comparison", comparison });
@@ -189,7 +192,9 @@ export function createToolContext(options: ToolContextOptions = {}) {
       case "stress_test": {
         const { strategyId } = schemas.stress_test.parse(args);
         const result = currentResult(strategyId);
-        const stress = (options.stress ?? stressTest)(state.twin, result.strategy, simulationOptions());
+        const stress = await (options.stress
+          ? options.stress(state.twin, result.strategy, simulationOptions())
+          : runStress(state.twin, result.strategy, simulationOptions(), { signal: options.signal }));
         checkAbort(); state.stresses[strategyId] = stress;
         emit({ type: "stress", strategyId, stress });
         return { strategyId, shifted: stress.shifted, base: compactResult(stress.base), stressed: compactResult(stress.stressed), comparisonBasis: "Each paired total-value delta is relative to its own do-nothing baseline with the same simulation options." };
@@ -230,6 +235,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
       result = options.signal?.aborted ? { ok: false, code: "ABORTED", message: "Run cancelled." }
         : error instanceof ToolFailure ? { ok: false, code: error.code, message: error.message, ...(error.terminal ? { terminal: true as const } : {}), ...(error.failure ? { failure: error.failure } : {}) }
         : error instanceof ProposalError ? { ok: false, code: error.code, message: "A proposed action could not be created for the current eligible cohort." }
+        : error instanceof WorkerTaskError ? { ok: false, code: error.code, message: error.message }
         : { ok: false, code: "TOOL_FAILED", message: "Tool could not complete. Details suppressed." };
     }
     emit({ type: "tool_result", name: Object.hasOwn(schemas, name) ? name : "unknown", result });

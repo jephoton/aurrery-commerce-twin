@@ -6,7 +6,7 @@
 
 | Module | Path | Responsibility | Depends on |
 | --- | --- | --- | --- |
-| Twin | `src/twin/` | Pure model: types, seeded RNG, interventions + guardrails (Zod), Monte Carlo simulation, Bayesian calibration and assumptions-only stress testing. No I/O. | nothing |
+| Twin | `src/twin/` | Pure model: types, seeded RNG, interventions + guardrails (Zod), Monte Carlo simulation, Bayesian calibration and assumptions-only stress testing. `worker-entry.ts` runs only this pure model; `worker-client.ts` is the server-side process boundary. | nothing for pure model; Node worker threads for client |
 | Merchant | `src/merchant/` | Builds the twin for the current merchant (today: synthetic Ridgeline Roasters history → estimated parameters + labelled priors). | twin |
 | Ledger | `src/ledger/` | SQLite (`node:sqlite`): sandbox subscribers, proposals state machine, executions, observations, audit events, kv settings. | twin types |
 | PayPal | `src/paypal/` | Sandbox-only SDK client, typed wrappers (`getSubscription`, `overrideSubscriptionPrice`), error normalisation. | SDK |

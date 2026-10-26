@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-26. **M0–M3 are published on main. M4 implementation and local production acceptance are complete: navy/gold UI, typed statistics/evidence, comparison/trajectory polish and preserved exact-action approval. Independent reviews, 454 tests/38 files, typecheck, zero-warning lint, production build and a 143-file hygiene scan pass. The final real Gemini run produced an A/B-only $18 proposal with confirmation unchecked and execution disabled. No approval or execution occurred; all four pilots remain ACTIVE at $24. M4 is merged and published on main. M5 hosting and the observed loop are next.**_
+_Last material update: 2026-10-26. **M0–M4 are published on main. M5 Task 1 adds a local bounded CPU worker for simulations; later M5 hosting, access, webhook, posterior and recovery tasks remain open. No approval, execution or PayPal mutation occurred in this task.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -10,6 +10,12 @@ _Last material update: 2026-10-26. **M0–M3 are published on main. M4 implement
 3. `docs/superpowers/specs/2026-10-25-m4-product-ui-design.md` and `docs/superpowers/plans/2026-10-25-m4-product-ui.md`: approved M4 design and completed implementation plan.
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
+
+## M5 Task 1: bounded twin computation
+
+The manual comparison route, manual proposal recomputation and agent simulation/stress now await a separate bundled Node worker. `scripts/build-workers.mjs` bundles only the pure twin entry to ignored `build/twin-worker.cjs` through the explicit esbuild dev dependency. `npm run dev`, `npm test` and `npm run build` build that worker first. The normal worker is given an empty environment, no inherited `execArgv`, a 128 MiB old-generation heap limit and a 30-second parent deadline. A process-wide single slot rejects overlapping comparisons/stress; it is released after worker termination on success, cancellation, timeout and failure. A missing bundle fails safely; there is no synchronous production fallback. Existing injected synchronous tool fakes remain supported by awaited adapters. The twin maths, priors and fixtures are unchanged.
+
+Both manual POST bodies are capped at 64 KiB even without a `Content-Length` header, and body/worker failures return bounded safe statuses. Request abort cancels body reads and worker computation. Proposal creation checks cancellation once more immediately before persistence. Local tests cover exact seeded comparison and stress parity, a marked real CPU-loop deadline, abort before/during work and stalled body reads, abnormal exits, missing bundle, one-slot sharing across module copies and route/tool behavior. Focused twin/tool/HTTP/replay tests passed **109/109 across eight files**; typecheck and zero-warning lint passed. No Next production build, server restart, browser action or live provider/PayPal call was performed during this implementation; the existing production server on port 3001 was left running. M5 Task 1 still needs independent spec and quality review before the parent accepts it.
 
 ## Branches
 

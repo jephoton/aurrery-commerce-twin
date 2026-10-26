@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { currentMerchant } from "@/merchant";
 import { StrategySchema } from "@/twin/interventions";
-import { compareStrategies } from "@/twin/simulate";
-import { errorResponse } from "../_lib/http";
+import { runComparison } from "@/twin/worker-client";
+import { errorResponse, readBoundedJson } from "../_lib/http";
 
 const BodySchema = z.object({
   strategies: z.array(StrategySchema).min(1).max(8),
@@ -17,8 +17,8 @@ const BodySchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const body = BodySchema.parse(await request.json());
-    return Response.json(compareStrategies(currentMerchant().twin, body.strategies, body.options));
+    const body = BodySchema.parse(await readBoundedJson(request));
+    return Response.json(await runComparison(currentMerchant().twin, body.strategies, body.options, { signal: request.signal }));
   } catch (e) {
     return errorResponse(e);
   }
