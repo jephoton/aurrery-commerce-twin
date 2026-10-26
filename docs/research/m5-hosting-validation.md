@@ -41,12 +41,12 @@ Sources checked: [Render Free](https://render.com/docs/free), [Turso pricing](ht
 | Check | State |
 | --- | --- |
 | Pure worker, hard timeout, cancellation and capacity | reviewed at `35da88f`; full 474 tests/41 files pass; production build/browser integration pending |
-| Hosted access, durable request limits and secret configuration | implemented locally at `38e0a2a`; independent reviews pending; free-host persistence adaptation remains open |
+| Hosted access, durable request limits and secret configuration | implemented locally at `38e0a2a`; spec and quality reviews passed; free-host persistence adaptation remains open |
 | Signature verification and transactional event deduplication | pending |
 | Measured exposure and repeatable posterior derivation | pending |
 | Separate approved revert and restricted reset | pending |
 | Local production/browser validation | pending |
-| Hosting budget/account and final configuration | free hosting required; Render Free + Turso recommended; platform preference pending; no purchase |
+| Hosting budget/account and final configuration | user selected Render Free + Turso; async durable storage adaptation in progress; private settings requested; no purchase |
 | Deployed URL and persistent state across restart | pending |
 | Genuine verified sandbox webhook observation | pending |
 | Hosted Gemini proposal, confirmation unchecked | pending |

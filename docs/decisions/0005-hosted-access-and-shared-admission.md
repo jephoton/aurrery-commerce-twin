@@ -1,6 +1,6 @@
 # 0005: Hosted access and shared client admission
 
-**Status:** proposed in M5 Task 2; local implementation pending independent review and hosted acceptance.
+**Status:** accepted local M5 Task 2 checkpoint at `38e0a2a`, independently reviewed. Local-disk deployment assumption superseded by decision 0006; hosted acceptance pending.
 
 ## Context
 
