@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-26. **M0–M3 are published on main. M4 implementation and local production acceptance are complete: navy/gold UI, typed statistics/evidence, comparison/trajectory polish and preserved exact-action approval. Independent reviews, 454 tests/38 files, typecheck, zero-warning lint, production build and a 143-file hygiene scan pass. The final real Gemini run produced an A/B-only $18 proposal with confirmation unchecked and execution disabled. No approval or execution occurred; all four pilots remain ACTIVE at $24. Final M4 merge/push is in progress. M5 hosting and the observed loop are next.**_
+_Last material update: 2026-10-26. **M0–M3 are published on main. M4 implementation and local production acceptance are complete: navy/gold UI, typed statistics/evidence, comparison/trajectory polish and preserved exact-action approval. Independent reviews, 454 tests/38 files, typecheck, zero-warning lint, production build and a 143-file hygiene scan pass. The final real Gemini run produced an A/B-only $18 proposal with confirmation unchecked and execution disabled. No approval or execution occurred; all four pilots remain ACTIVE at $24. M4 is merged and published on main. M5 hosting and the observed loop are next.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -15,8 +15,8 @@ _Last material update: 2026-10-26. **M0–M3 are published on main. M4 implement
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `feat/m4-product-ui` | Reviewed and locally accepted M4 UI, responsive fixes and numerical sampler correction | checkpoint pushed; final acceptance publication in progress |
-| `main` | M0–M3, selected Gemini provider, measured validation and both genuine replays | yes; M3 fast-forwarded and origin verified at `5e2bb55` before this publication-note update |
+| `feat/m4-product-ui` | Complete, reviewed M4 product UI and numerical correction | yes; merged into main; preserved milestone ref |
+| `main` | M0–M4, selected Gemini provider, tested agent and polished product UI | yes; M4 remote refs verified at `7178738` before this publication-note update |
 | `feat/m3-agent-loop` | Reviewed M3, Gemini adapter/pacing, genuine Groq/Gemini replays and accepted functional dashboard flow | yes; merged into main; preserved milestone ref |
 | `feat/m2-feedback-signals` | M2 implementation, live evaluation and selected Groq provider | yes at `726e5f9`; merged into main |
 | `feat/digital-twin-foundation` | foundation, spec, roadmap, plans | yes |
@@ -32,6 +32,8 @@ The parent-owned M4 browser check reached a real Gemini HTTP 200 response, then 
 After the change, the focused RNG/stress tests (16), both genuine offline provider replays (2), full serial suite (452 tests/37 files), typecheck and zero-warning lint pass. `npm run twin:inspect` reproduces the documented M1 starter-scenario intervals and stressed medians. This isolates and removes the numerical hang in offline tests. Parent rebuild, real Gemini browser retry, independent reviews and M4 publication remain pending.
 
 ## M4 final acceptance and M5 handoff
+
+Publication: main fast-forwarded to `7178738`, all 454 tests passed again on merged main, and main plus the M4 branch were pushed with matching remote refs. This following documentation-only commit records that verified publication; application code is unchanged.
 
 The final application code at `e194c25` passed all implementation/delta spec then quality reviews and integrated reviews. Parent verification: **454 tests across 38 files**, typecheck, zero-warning lint, production build, diff check and all **143 tracked files** scanned for configured secrets/personal paths. Desktop and 360px production-browser checks covered initial/manual/live-agent states, keyboard Space selection, family filters, one pinned baseline, accessible numeric intervals, source disclosure, review navigation, Stop and visible error recovery. No page-wide horizontal overflow was observed; the grid scrolls locally.
 
@@ -184,7 +186,7 @@ Story decision (Jethro): a **two-part payoff**. The save offer is the tactical m
 3. **Integration complete.** Main fast-forwarded to the tested M0/M1 tree; all 75 tests passed again on main. Main and both working branch refs were pushed and verified on origin. LICENSE is now on main. The user subsequently resumed M2 after adding provider keys.
 4. **M2 complete.** The fresh Gemini-then-Groq run completed: Gemini returned HTTP 503 twice; Groq passed all thresholds with 93.5% joint agreement, all four pilots correct and a successful tool round trip. The classify → evidence → simulate path worked. `AI_PROVIDER=groq` and `GROQ_MODEL=openai/gpt-oss-120b` record the default. See the [measured report](research/m2-provider-evaluation.md) and [decision 0003](decisions/0003-ai-provider-evaluation.md).
 5. **M3 complete and published.** Both genuine provider replays, classified targeting and separate approval remain preserved. M4 now supplies typed mean/median and population/sample labels; model prose remains interpretive.
-6. **M4 complete locally; final publication in progress.** Read the current acceptance above and measured M4 report.
+6. **M4 complete and published.** Read the current acceptance above and measured M4 report.
 7. **M5: Hosting and observed loop: Render, webhooks, revert, reset.** Then the roadmap's cut checkpoint.
 8. **M7: Annual-plan execution** (required hero path; may precede M6).
 9. **M6: CSV import** (optional; only cut candidate).
