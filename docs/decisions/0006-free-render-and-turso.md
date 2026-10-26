@@ -1,0 +1,15 @@
+# 0006: Render Free with an authoritative Turso libSQL ledger
+
+**Status:** accepted platform choice by the user on 2026-10-27; implementation and deployment acceptance pending.
+
+The user requires free hosting and selected Render Free plus Turso after reviewing Vercel/serverless and Oracle VM alternatives. This supersedes M5's paid Render persistent-disk assumption. Further visual iteration stays in M8.
+
+Use one Render Free Node service, preserving the current long-running streamed agent. Use a free Turso **libSQL** database through the supported `@libsql/client` remote API, deliberately avoiding beta-engine or offline-sync assumptions. Local development may keep the existing Node SQLite file. The remote database is authoritative for every durable record: proposals, approvals/claims, execution results, observations/deduplication, classifier cache, sessions and request quotas.
+
+Introduce an asynchronous storage boundary instead of pretending network calls are synchronous SQLite operations. Local transactions serialize connection use and give callbacks an explicit transaction handle; unrelated queries cannot accidentally join an in-flight transaction. Remote transactions use the SDK's write transaction handle. Never hold a database transaction open during a model request or PayPal call. Bound remote network requests, preserve atomic conditional claims, await commits before acknowledging success, and never automatically retry a PayPal mutation after an ambiguous storage failure.
+
+Keep the existing local ledger untouched while preparing a consistent, explicit import into an empty remote database. Test counts, hashes, constraints and claim/deduplication behavior before switching the hosted app. Missing or partial remote credentials in hosted mode must fail closed; no fallback to ephemeral SQLite. Private settings are `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`; they are not browser props, logs or committed data. Hosted access secrets remain separate. No paid plans or billing upgrades are authorized.
+
+Render Free sleeps after idle periods and has temporary local storage. Its wake-up delay is accepted by the platform selection, but must be disclosed in setup/demo guidance and measured during hosted acceptance. Remote persistence must survive service sleep/redeploy; local backups or best-effort sync do not satisfy that requirement. A single Render process still owns model pacing and the active-agent/worker leases; durable database quotas bound restarts. Revisit multi-instance coordination only if the deployment architecture changes.
+
+Sources: [Render Free](https://render.com/docs/free), [Turso pricing](https://turso.tech/pricing), [Turso clients](https://docs.turso.tech/sdk/ts/reference), [libSQL creation](https://github.com/tursodatabase/turso-docs/blob/main/quickstart.mdx). Actual service/account quotas and backend compatibility remain acceptance checks.
