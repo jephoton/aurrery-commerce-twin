@@ -14,6 +14,8 @@ import { dashboardReducer, emptyDashboard } from "./lab-state";
 import { DecisionSummary } from "./DecisionSummary";
 import { EvidencePanel } from "./EvidencePanel";
 import { MerchantOverview } from "./MerchantOverview";
+import { AdminAccess } from "./AdminAccess";
+import { canReviewAccess, type AccessState } from "./admin-access";
 
 export interface MerchantSummary {
   name: string;
@@ -57,6 +59,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
   const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
   const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
+  const [access, setAccess] = useState<AccessState | null>(null);
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const setConfirmed = (value: boolean) => dispatch({ type: "confirmed", value });
@@ -68,6 +71,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
     api<PayPalStatus>("/api/paypal/status").then(setPayPal).catch((e) => setError(e.message));
   }, []);
   useEffect(refreshPayPal, [refreshPayPal]);
+  useEffect(() => { api<AccessState>("/api/admin/session").then(setAccess).catch(() => setError("Administrator access unavailable.")); }, []);
 
   const simulate = async () => {
     if (busy) return;
@@ -107,7 +111,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
   };
 
   const approve = async () => {
-    if (!proposal || busy || !confirmed) return;
+    if (!proposal || busy || !confirmed || !canReviewAccess(access)) return;
     setBusy("execute");
     setError(null);
     try {
@@ -125,7 +129,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
   };
 
   const reject = async () => {
-    if (!proposal || busy) return;
+    if (!proposal || busy || !canReviewAccess(access)) return;
     setBusy("reject"); setError(null);
     try {
       const { proposal: p } = await api<{ proposal: Proposal }>(`/api/proposals/${proposal.id}/reject`, { method: "POST", body: "{}" });
@@ -154,6 +158,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
       </header>
 
       {error && <div role="alert" className="mb-4 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">{error}</div>}
+      <AdminAccess state={access} onChange={(value) => { setAccess(value); setConfirmed(false); }} />
 
       <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} />
 
@@ -249,6 +254,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
               confirmed={confirmed}
               setConfirmed={setConfirmed}
               busy={busy !== null}
+              canReview={canReviewAccess(access)}
               onApprove={approve}
               onReject={reject}
             />
@@ -340,6 +346,7 @@ function ProposalCard({
   confirmed,
   setConfirmed,
   busy,
+  canReview,
   onApprove,
   onReject,
 }: {
@@ -348,6 +355,7 @@ function ProposalCard({
   confirmed: boolean;
   setConfirmed: (v: boolean) => void;
   busy: boolean;
+  canReview: boolean;
   onApprove: () => void;
   onReject: () => void;
 }) {
@@ -377,18 +385,18 @@ function ProposalCard({
             action.
           </p>
           <label className="mb-3 flex min-h-10 items-center gap-3 text-sm">
-            <input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => setConfirmed(e.target.checked)} className="h-5 w-5 shrink-0 accent-brand" />
+            <input type="checkbox" checked={confirmed} disabled={busy || !canReview} onChange={(e) => setConfirmed(e.target.checked)} className="h-5 w-5 shrink-0 accent-brand" />
             I approve changing the price of these {a.targets.length} PayPal Sandbox subscription(s).
           </label>
           <div className="flex flex-wrap gap-3">
             <button
               onClick={onApprove}
-              disabled={!confirmed || busy || !paypal?.configured}
+              disabled={!confirmed || busy || !paypal?.configured || !canReview}
               className="min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background hover:bg-brand-accent disabled:opacity-50"
             >
               {busy ? "Working…" : "Approve & execute"}
             </button>
-            <button onClick={onReject} disabled={busy} className="min-h-10 rounded-lg border border-border px-4 py-2 hover:bg-background">
+            <button onClick={onReject} disabled={busy || !canReview} className="min-h-10 rounded-lg border border-border px-4 py-2 hover:bg-background disabled:opacity-50">
               Reject
             </button>
           </div>

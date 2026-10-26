@@ -5,9 +5,12 @@ import { listSandboxSubscribers } from "@/ledger/proposals";
 import { paypalConfigured } from "@/paypal/client";
 import { getSubscription } from "@/paypal/subscriptions";
 import { errorResponse } from "../../_lib/http";
+import { admitHostedRequest } from "@/hosting/guard";
 
 /** Live read of the registered sandbox subscriptions, straight from PayPal. */
-export async function GET() {
+export async function GET(request: Request) {
+  const admission = admitHostedRequest(request, { limit: "poll" });
+  if (admission) return admission;
   await connection();
   try {
     const configured = paypalConfigured();
@@ -19,7 +22,7 @@ export async function GET() {
             if (r.ok) recordObservation(r.value, "paypal.status");
             return r.ok
               ? { ...s, live: { status: r.value.status, regularPrice: r.value.regularPrice, planOverridden: r.value.planOverridden, nextBillingTime: r.value.nextBillingTime } }
-              : { ...s, error: `${r.error.name}: ${r.error.message}` };
+              : { ...s, error: "Live status unavailable." };
           }),
         )
       : registered;

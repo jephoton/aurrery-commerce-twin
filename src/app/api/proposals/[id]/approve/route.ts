@@ -2,7 +2,8 @@ import { z } from "zod";
 import { executeProposal } from "@/execution/execute";
 import { approveProposal } from "@/ledger/proposals";
 import { paypalConfigured } from "@/paypal/client";
-import { errorResponse } from "../../../_lib/http";
+import { errorResponse, readBoundedJson } from "../../../_lib/http";
+import { admitHostedRequest } from "@/hosting/guard";
 
 const BodySchema = z.object({
   actionHash: z.string().regex(/^[a-f0-9]{64}$/),
@@ -11,9 +12,11 @@ const BodySchema = z.object({
 
 /** Explicit merchant approval of an exact action payload, followed by a single PayPal execution. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const admission = admitHostedRequest(request, { admin: true });
+  if (admission) return admission;
   try {
     const { id } = await params;
-    const body = BodySchema.parse(await request.json());
+    const body = BodySchema.parse(await readBoundedJson(request));
     if (!paypalConfigured()) {
       return Response.json({ error: "PAYPAL_NOT_CONFIGURED", message: "Set PayPal sandbox credentials before approving." }, { status: 503 });
     }

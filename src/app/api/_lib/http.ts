@@ -58,6 +58,6 @@ export function errorResponse(error: unknown): Response {
   if (error instanceof ProposalError) {
     return Response.json({ error: error.code, message: error.message }, { status: STATUS_BY_CODE[error.code] });
   }
-  console.error(error);
-  return Response.json({ error: "INTERNAL", message: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  console.error("API request failed: INTERNAL");
+  return Response.json({ error: "INTERNAL", message: "Request unavailable." }, { status: 500 });
 }

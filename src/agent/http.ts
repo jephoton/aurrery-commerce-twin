@@ -5,6 +5,7 @@ import { acquireAgentLease, RunLimitError } from "./limits";
 import { runAgent } from "./run";
 import type { AgentEvent } from "./contracts";
 import { MAX_FRAME_BYTES, type AgentFrame } from "./stream";
+import { admitHostedRequest } from "@/hosting/guard";
 
 const bodySchema = z.strictObject({ objective: z.string().trim().min(1).max(2000) });
 const MAX_BODY_BYTES = 16384;
@@ -32,6 +33,8 @@ async function readBody(request: Request) {
 /** Injection belongs to server tests, never request JSON or client settings. */
 export function createAgentHandler(deps: { run?: typeof runAgent; acquire?: typeof acquireAgentLease } = {}) {
   return async function handle(request: Request): Promise<Response> {
+    const admission = admitHostedRequest(request, { limit: "agent" });
+    if (admission) return admission;
     let body: z.infer<typeof bodySchema>;
     try { body = await readBody(request); }
     catch (error) { return Response.json({ message: "Provide only an objective of 1–2000 characters." }, { status: request.signal.aborted ? 499 : error instanceof Error && error.message === "SIZE" ? 413 : 400 }); }
