@@ -26,17 +26,27 @@ No Render-specific connected tool or installed Render CLI was found in the initi
 
 The installed SDK exposes Sandbox subscription calls and an OAuth controller, but the initial source inventory found no webhook verification controller. If no supported helper is available, a small bounded Sandbox-only REST verification adapter is appropriate; it must never fetch the inbound certificate URL or persist bearer tokens/raw payer payloads.
 
+## Free hosting revision (2026-10-27)
+
+The user explicitly requested free hosting and a storage alternative. Paid Render/disk provisioning is excluded. The parent recommends **Render Free plus a Turso free remote SQLite-compatible database**, subject to the user's pending platform preference and a persistence/transaction spike. Render preserves the current long-running Node process; its free service sleeps after 15 idle minutes, may take about a minute to wake and loses local files on sleep/restart. Remote storage must be authoritative for proposals, approvals, execution claims, observations, classification cache, sessions and quotas. A periodically uploaded local SQLite backup is insufficient.
+
+Turso currently lists a no-card $0 plan with 5 GB storage. Its official SDK documentation distinguishes the new Turso engine from the SQLite-derived libSQL backend and their clients. Choose a supported backend deliberately, test transaction/claim semantics and bound network operations before adapting the application. Do not assume the current synchronous `node:sqlite` API is a drop-in remote client. Do not use offline/local-first writes for payment authority or acknowledge success before remote commit.
+
+Alternatives presented: Vercel Hobby plus Turso (five-minute free function maximum requires a shorter hosted agent deadline and distributed lease/budget coordination), or Oracle Always Free VM/block storage (retains local SQLite, but requires VM/TLS operations and available home-region capacity). No account, database or service has been created. Task 2's generic access implementation remains useful, but its local SQLite persistence is not deployment acceptance on a free stateless host.
+
+Sources checked: [Render Free](https://render.com/docs/free), [Turso pricing](https://turso.tech/pricing), [Turso TypeScript clients](https://docs.turso.tech/sdk/ts/reference), [Vercel limits](https://vercel.com/docs/functions/limitations), [Oracle Always Free](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm).
+
 ## Acceptance tracking
 
 | Check | State |
 | --- | --- |
 | Pure worker, hard timeout, cancellation and capacity | reviewed at `35da88f`; full 474 tests/41 files pass; production build/browser integration pending |
-| Hosted access, durable request limits and secret configuration | pending |
+| Hosted access, durable request limits and secret configuration | implemented locally at `38e0a2a`; independent reviews pending; free-host persistence adaptation remains open |
 | Signature verification and transactional event deduplication | pending |
 | Measured exposure and repeatable posterior derivation | pending |
 | Separate approved revert and restricted reset | pending |
 | Local production/browser validation | pending |
-| Hosting budget/account and final configuration | user preference requested; no purchase |
+| Hosting budget/account and final configuration | free hosting required; Render Free + Turso recommended; platform preference pending; no purchase |
 | Deployed URL and persistent state across restart | pending |
 | Genuine verified sandbox webhook observation | pending |
 | Hosted Gemini proposal, confirmation unchecked | pending |
