@@ -2,10 +2,11 @@
 
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type GridApi, type RowSelectedEvent, type ValueFormatterParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StrategyResult } from "@/twin/simulate";
 import { comparisonRows, formatRisk, intervalDomain, shouldSelectRow, type Family, type ScenarioRow } from "./comparison-model";
 import { IntervalCell, signedUsd } from "./IntervalCell";
+import { responsiveColumnState } from "./responsive-columns";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -49,13 +50,23 @@ export function ScenarioGrid({
 }) {
   const api = useRef<GridApi<ScenarioRow> | null>(null);
   const [family, setFamily] = useState<Family | "All">("All");
-  const [narrow, setNarrow] = useState(false);
+  const lastNarrow = useRef<boolean | null>(null);
+  const syncResponsiveColumns = useCallback((gridApi: GridApi<ScenarioRow>) => {
+    const narrow = window.innerWidth < 640;
+    if (lastNarrow.current === narrow) return;
+    const state = responsiveColumnState(gridApi.getColumnState(), narrow);
+    if (!state) return;
+    gridApi.applyColumnState(state);
+    lastNarrow.current = narrow;
+  }, []);
   useEffect(() => {
-    const update = () => setNarrow(window.innerWidth < 640);
+    const update = () => {
+      if (api.current && !api.current.isDestroyed()) syncResponsiveColumns(api.current);
+    };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, []);
+  }, [syncResponsiveColumns]);
   const candidates = useMemo(() => rows.filter((row) => !row.isBaseline), [rows]);
   const baseline = rows.find((row) => row.isBaseline);
   const displayed = useMemo(() => family === "All" ? candidates : candidates.filter((row) => row.family === family), [candidates, family]);
@@ -70,7 +81,7 @@ export function ScenarioGrid({
   }, [selectedId, displayed]);
   const columns = useMemo<ColDef<ScenarioRow>[]>(
     () => [
-      { field: "name", headerName: "Strategy", minWidth: 220, pinned: narrow ? null : "left", cellRenderer: (p: { data?: ScenarioRow }) => p.data ? <span className="flex h-full min-w-0 flex-col justify-center whitespace-normal leading-tight"><span className="line-clamp-2 break-words font-medium" title={p.data.name}>{p.data.name}</span><span className="text-xs text-muted">{p.data.family}{p.data.isBaseline ? " · context only" : ""}</span></span> : null },
+      { field: "name", headerName: "Strategy", minWidth: 220, initialPinned: "left", cellRenderer: (p: { data?: ScenarioRow }) => p.data ? <span className="flex h-full min-w-0 flex-col justify-center whitespace-normal leading-tight"><span className="line-clamp-2 break-words font-medium" title={p.data.name}>{p.data.name}</span><span className="text-xs text-muted">{p.data.family}{p.data.isBaseline ? " · context only" : ""}</span></span> : null },
       {
         field: "deltaValueP50",
         headerName: "Δ Value (median)",
@@ -119,7 +130,7 @@ export function ScenarioGrid({
         minWidth: 120,
       },
     ],
-    [horizonMonths, domain, narrow],
+    [horizonMonths, domain],
   );
 
   const onRowSelected = (event: RowSelectedEvent<ScenarioRow>) => {
@@ -142,7 +153,7 @@ export function ScenarioGrid({
         defaultColDef={{ sortable: true, resizable: true }}
         getRowId={(p) => p.data.id}
         rowSelection={{ mode: "singleRow", checkboxes: false, enableClickSelection: !disabled }}
-        onGridReady={(e) => { api.current = e.api; }}
+        onGridReady={(e) => { api.current = e.api; syncResponsiveColumns(e.api); }}
         onRowSelected={onRowSelected}
         onFirstDataRendered={(e) => selectedId && displayed.some((row) => row.id === selectedId) && e.api.getRowNode(selectedId)?.setSelected(true)}
       />
