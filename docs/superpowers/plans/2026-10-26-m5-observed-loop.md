@@ -10,12 +10,12 @@
 
 ## Task 1: Bound CPU work outside the web process
 
-Files: create `src/twin/worker-entry.ts`, `src/twin/worker-client.ts`, `src/twin/worker-client.test.ts`, `scripts/build-workers.mjs`; modify `package.json`, lockfile, `src/agent/tools.ts`, `src/app/api/simulate/route.ts`; add meaningful route/tool integration regressions.
+Files: create `src/twin/worker-entry.ts`, `src/twin/worker-client.ts`, `src/twin/worker-client.test.ts`, `scripts/build-workers.mjs`; modify `package.json`, lockfile, `src/agent/tools.ts`, `src/app/api/simulate/route.ts`, `src/app/api/proposals/route.ts`; add meaningful route/tool integration regressions.
 
 - [ ] Read installed Next route documentation and current simulation/stress signatures/tests. Write failing tests for seed/result parity, abort-before-start, abort while running, true hung worker timeout, abnormal exit, capacity rejection and capacity release after each terminal path. Use a test-only injected worker path/constructor for hung/crash fixtures; never expose this in request JSON.
 - [ ] Build a pure, independently bundled CommonJS worker with explicit esbuild dev dependency. Build it for dev/test/production through package scripts into ignored `build/`; it imports only twin math, receives structured jobs and emits results or sanitized errors. Pass an empty environment, a 128 MiB heap limit, and no ledger/provider code.
 - [ ] Add async compare/stress adapters with a 30-second hard parent timeout and one process-wide active worker. Abort must terminate the worker, listeners/timers must be cleaned, and capacity must stay owned until termination completes. No synchronous fallback. Tests may shorten timeouts through server-only injection.
-- [ ] Await adapters in agent tools and manual route, preserving synchronous injected test dependencies and current exact seed/options/results. Bound request bodies for the manual route, pass request abort and map resource/timeout failures safely.
+- [ ] Await adapters in agent tools, manual simulation and the proposal route's server-side recomputation, preserving synchronous injected test dependencies and current exact seed/options/results. Bound request bodies, pass request abort and map resource/timeout failures safely. A cancelled recomputation must not persist a new proposal.
 - [ ] Run focused new and existing twin/tool/HTTP/replay tests, typecheck and zero-warning lint. Update current-state with verified task status and limitations, then commit `feat(twin): isolate bounded simulation workers`.
 - [ ] Independent spec review, then quality review; fix and re-review findings before Task 2.
 
