@@ -247,6 +247,39 @@ it("keeps the remote deadline active through a stalled response body", async () 
   expect(transport).toHaveBeenCalledOnce();
 });
 
+it("aborts and cancels a declared oversized response body", async () => {
+  let cancelled = false;
+  let signal: AbortSignal | undefined;
+  const transport = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    expect(input).toBe("https://example.turso.io/v2/pipeline");
+    signal = init?.signal ?? undefined;
+    return new Response(new ReadableStream<Uint8Array>({
+      cancel() { cancelled = true; },
+    }), { headers: { "Content-Length": String(16 * 1024 * 1024 + 1) } });
+  });
+  const bounded = createTursoFetch("example.turso.io", transport, 1_000);
+  await expect(bounded("https://example.turso.io/v2/pipeline")).rejects.toThrow("Storage request failed");
+  expect(signal?.aborted).toBe(true);
+  expect(cancelled).toBe(true);
+});
+
+it("aborts and cancels a streamed response once it exceeds the size limit", async () => {
+  let cancelled = false;
+  let signal: AbortSignal | undefined;
+  const transport = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    expect(input).toBe("https://example.turso.io/v2/pipeline");
+    signal = init?.signal ?? undefined;
+    return new Response(new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new Uint8Array(16 * 1024 * 1024 + 1)); },
+      cancel() { cancelled = true; },
+    }));
+  });
+  const bounded = createTursoFetch("example.turso.io", transport, 1_000);
+  await expect(bounded("https://example.turso.io/v2/pipeline")).rejects.toThrow("Storage request failed");
+  expect(signal?.aborted).toBe(true);
+  expect(cancelled).toBe(true);
+});
+
 it("rejects an SDK fetch outside the selected Turso host and propagates caller abort", async () => {
   const transport = vi.fn(async () => new Promise<Response>(() => {}));
   const bounded = createTursoFetch("example.turso.io", transport, 1_000);

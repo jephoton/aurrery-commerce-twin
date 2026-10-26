@@ -191,31 +191,39 @@ export function createTursoFetch(hostname: string, transport: typeof globalThis.
       else controller.signal.addEventListener("abort", () => reject(new LedgerStorageError()), { once: true });
     });
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response: Response | undefined;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
-      const response = await Promise.race([transport(input, { ...init, signal: controller.signal, redirect: "error" }), aborted]);
+      response = await Promise.race([transport(input, { ...init, signal: controller.signal, redirect: "error" }), aborted]);
       const contentLength = Number(response.headers.get("content-length"));
       if (contentLength > MAX_REMOTE_RESPONSE_BYTES) throw new LedgerStorageError();
       if (!response.body) return response;
-      const reader = response.body.getReader();
+      reader = response.body.getReader();
       const chunks: Uint8Array[] = [];
       let bytes = 0;
-      try {
-        while (true) {
-          const part = await Promise.race([reader.read(), aborted]);
-          if (part.done) break;
-          bytes += part.value.byteLength;
-          if (bytes > MAX_REMOTE_RESPONSE_BYTES) throw new LedgerStorageError();
-          chunks.push(part.value);
-        }
-      } catch (error) {
-        void reader.cancel().catch(() => {});
-        throw error;
-      } finally { reader.releaseLock(); }
+      while (true) {
+        const part = await Promise.race([reader.read(), aborted]);
+        if (part.done) break;
+        bytes += part.value.byteLength;
+        if (bytes > MAX_REMOTE_RESPONSE_BYTES) throw new LedgerStorageError();
+        chunks.push(part.value);
+      }
+      reader.releaseLock();
+      reader = undefined;
       const body = new Uint8Array(bytes);
       let offset = 0;
       for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
       return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
-    } catch { throw new LedgerStorageError(); }
+    } catch {
+      controller.abort();
+      if (reader) {
+        try { void reader.cancel().catch(() => {}); } catch { /* Preserve the storage failure. */ }
+        try { reader.releaseLock(); } catch { /* A pending read may still own the lock. */ }
+      } else if (response?.body) {
+        try { void response.body.cancel().catch(() => {}); } catch { /* Preserve the storage failure. */ }
+      }
+      throw new LedgerStorageError();
+    }
     finally { clearTimeout(timer); callerSignal?.removeEventListener("abort", onCallerAbort); }
   };
 }
