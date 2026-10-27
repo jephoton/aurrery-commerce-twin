@@ -151,3 +151,23 @@ it("preserves pilot registration order when subscription IDs sort differently", 
   expect((await target.query("SELECT subscription_id FROM sandbox_subscribers ORDER BY rowid")).map((row) => row.subscription_id)).toEqual(["I-ZZZ", "I-AAA"]);
   client.close();
 });
+
+it.each([
+  ["missing execution foreign key", (schema: string) => schema.replace("proposal_id TEXT NOT NULL REFERENCES proposals(id)", "proposal_id TEXT NOT NULL")],
+  ["missing execution uniqueness", (schema: string) => schema.replace(",\n  UNIQUE (proposal_id, target_id, operation)", "")],
+  ["altered proposal status check", (schema: string) => schema.replace("'failed','rejected'", "'failed','rejected','paused'")],
+])("rejects an empty target with %s before inserting rows", async (name, weaken) => {
+  const slug = name.replaceAll(" ", "-");
+  const sourcePath = join(dir, `source-weak-${slug}.sqlite`);
+  const source = new DatabaseSync(sourcePath);
+  source.exec(LEDGER_SCHEMA);
+  source.prepare("INSERT INTO kv (key,value) VALUES (?,?)").run("fixture", "value");
+  source.close();
+  const client = createClient({ url: `file:${join(dir, `target-weak-${slug}.sqlite`)}` });
+  const target = createLibsqlConnection(client);
+  await target.executeMultiple(weaken(LEDGER_SCHEMA));
+  await initializeLedgerSchema(target); // CREATE IF NOT EXISTS cannot repair the existing table.
+  await expect(importLedger({ sourcePath, target })).rejects.toThrow(/schema/i);
+  expect(await target.query("SELECT COUNT(*) AS n FROM kv")).toEqual([{ n: 0 }]);
+  client.close();
+});

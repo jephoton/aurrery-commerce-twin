@@ -92,6 +92,39 @@ async function targetFingerprint(tx: LedgerExecutor, table: TableName, order: st
   }
   return { count: seen, sha256: digest.update("]").digest("hex") };
 }
+/** CREATE IF NOT EXISTS leaves weakened pre-existing tables intact; compare actual definitions on the write handle. */
+async function assertCanonicalTargetSchema(tx: LedgerExecutor): Promise<void> {
+  const template = new DatabaseSync(":memory:");
+  template.exec(LEDGER_SCHEMA);
+  const schemaSql = "SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name";
+  const fields = (rows: LedgerRow[], names: string[]) => rows.map((row) => names.map((name) => row[name]));
+  const localRows = (sql: string) => template.prepare(sql).all() as LedgerRow[];
+  try {
+    const checkMode = await tx.query("PRAGMA ignore_check_constraints");
+    if (checkMode.length !== 1 || Number(checkMode[0].ignore_check_constraints) !== 0) throw new Error("Target ledger schema is incompatible");
+    if (JSON.stringify(fields(await tx.query(schemaSql), ["type", "name", "tbl_name", "sql"])) !==
+      JSON.stringify(fields(localRows(schemaSql), ["type", "name", "tbl_name", "sql"]))) throw new Error("Target ledger schema is incompatible");
+    for (const [table] of TABLES) {
+      for (const [pragma, columns] of [
+        ["table_info", ["cid", "name", "type", "notnull", "dflt_value", "pk"]],
+        ["foreign_key_list", ["id", "seq", "table", "from", "to", "on_update", "on_delete", "match"]],
+        ["index_list", ["seq", "name", "unique", "origin", "partial"]],
+      ] as const) {
+        const sql = `PRAGMA ${pragma}(${table})`;
+        if (JSON.stringify(fields(await tx.query(sql), [...columns])) !== JSON.stringify(fields(localRows(sql), [...columns])))
+          throw new Error("Target ledger schema is incompatible");
+      }
+      for (const index of localRows(`PRAGMA index_list(${table})`)) {
+        const name = String(index.name);
+        if (!/^[A-Za-z0-9_]+$/.test(name)) throw new Error("Target ledger schema is incompatible");
+        const sql = `PRAGMA index_info(${name})`;
+        const columns = ["seqno", "cid", "name"];
+        if (JSON.stringify(fields(await tx.query(sql), columns)) !== JSON.stringify(fields(localRows(sql), columns)))
+          throw new Error("Target ledger schema is incompatible");
+      }
+    }
+  } finally { template.close(); }
+}
 async function assertEmpty(tx: LedgerExecutor): Promise<void> {
   const actual = (await tx.query("SELECT name FROM sqlite_master WHERE type='table' AND (name NOT LIKE 'sqlite_%' OR name='sqlite_sequence')")).map((row) => String(row.name));
   for (const name of actual) {
@@ -103,6 +136,7 @@ async function assertEmpty(tx: LedgerExecutor): Promise<void> {
 async function applySnapshot(target: LedgerConnection, tables: TableSnapshot[], beforeChunk?: (table: TableName, index: number) => void): Promise<void> {
   await authoritativeWrite(target, async (tx) => {
     await assertEmpty(tx);
+    await assertCanonicalTargetSchema(tx);
     for (const snapshot of tables) {
       const { table, columns, rows } = snapshot;
       if (table === "sqlite_sequence") await tx.execute("DELETE FROM sqlite_sequence");
