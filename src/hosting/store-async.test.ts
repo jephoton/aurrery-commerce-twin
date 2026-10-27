@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHmac } from "node:crypto";
 import { createClient } from "@libsql/client";
 import { createLibsqlConnection, createLocalConnection, initializeLedgerSchema } from "@/ledger/connection";
 import { createHostingStore } from "./store";
@@ -96,18 +97,23 @@ it.each(["sqlite", "libsql"])("admits only the allowed count across two %s conne
   } finally { reopened.close(); }
 });
 
-it("fails closed under simultaneous libSQL file-client contention without exceeding the quota", async () => {
+it.each(["sqlite", "libsql"])("fails closed under simultaneous %s file-client contention without exceeding the quota", async (backend) => {
   const file = path();
-  const clients = [createClient({ url: `file:${file}` }), createClient({ url: `file:${file}` })];
+  const clients = backend === "sqlite"
+    ? [new DatabaseSync(file), new DatabaseSync(file)]
+    : [createClient({ url: `file:${file}` }), createClient({ url: `file:${file}` })];
   let firstAdmitted = 0;
   try {
-    const connections = clients.map(createLibsqlConnection);
+    const connections = backend === "sqlite"
+      ? (clients as DatabaseSync[]).map(createLocalConnection)
+      : (clients as ReturnType<typeof createClient>[]).map(createLibsqlConnection);
     await initializeLedgerSchema(connections[0]);
     await initializeLedgerSchema(connections[1]);
     const stores = connections.map((connection) => createHostingStore(connection, secret));
     await stores[0].isSessionValid("A".repeat(43), password, 1_000);
     await stores[1].isSessionValid("A".repeat(43), password, 1_000);
     const outcomes = await Promise.allSettled(Array.from({ length: 8 }, (_, i) => stores[i % 2].admit("agent", `contender-${i}`, 1_000)));
+    if (backend === "sqlite") expect(outcomes.some((outcome) => outcome.status === "rejected")).toBe(true);
     firstAdmitted = outcomes.filter((outcome) => outcome.status === "fulfilled" && outcome.value.allowed).length;
     expect(firstAdmitted).toBeGreaterThan(0);
     expect(firstAdmitted).toBeLessThanOrEqual(6);
@@ -115,11 +121,18 @@ it("fails closed under simultaneous libSQL file-client contention without exceed
   const observer = new DatabaseSync(file);
   try {
     const store = createHostingStore(createLocalConnection(observer), secret);
-    const rows = observer.prepare("SELECT count FROM hosted_limits").all() as { count: number }[];
-    expect(rows.length).toBeGreaterThan(0);
-    expect(Math.max(...rows.map((row) => row.count))).toBe(firstAdmitted);
+    const key = (scope: string, windowMs: number, client = "all") => createHmac("sha256", secret)
+      .update(`agent:${scope}:${windowMs}:0:${client}`).digest("hex");
+    const count = (bucketKey: string) => Number(observer.prepare("SELECT count FROM hosted_limits WHERE bucket_key = ?").get(bucketKey)?.count ?? 0);
+    expect(count(key("global", 3_600_000))).toBe(firstAdmitted);
+    expect(count(key("global", 86_400_000))).toBe(firstAdmitted);
+    expect(Number(observer.prepare("SELECT count(*) AS n FROM hosted_limits").get()?.n)).toBe(firstAdmitted + 2);
+    expect(Array.from({ length: 8 }, (_, i) => count(key("client", 3_600_000, `contender-${i}`))).reduce((sum, value) => sum + value, 0)).toBe(firstAdmitted);
     let laterAdmitted = 0;
     for (let i = 0; i < 8; i++) if ((await store.admit("agent", `later-${i}`, 1_000)).allowed) laterAdmitted++;
     expect(firstAdmitted + laterAdmitted).toBe(6);
+    expect(count(key("global", 3_600_000))).toBe(6);
+    expect(count(key("global", 86_400_000))).toBe(6);
+    expect((await store.admit("agent", "one-more", 1_001)).allowed).toBe(false);
   } finally { observer.close(); }
 });
