@@ -7,6 +7,8 @@ import type { Proposal } from "@/ledger/proposals";
 import type { Strategy } from "@/twin/interventions";
 import type { ComparisonResult } from "@/twin/simulate";
 import type { Provenance, SegmentId } from "@/twin/types";
+import type { DiscountEvidence } from "@/ledger/discount-outcomes";
+import type { ParameterChange } from "@/twin/calibrate";
 import { FanChart } from "./FanChart";
 import { ScenarioGrid, toRows } from "./ScenarioGrid";
 import { AgentPanel } from "./AgentPanel";
@@ -28,6 +30,8 @@ export interface MerchantSummary {
   lastMonthChurnRate: number;
   segments: { id: SegmentId; label: string; active: number; churn: number }[];
   provenance: Record<string, Provenance>;
+  observedEvidence?: DiscountEvidence;
+  parameterChanges?: ParameterChange[];
 }
 
 interface PayPalStatus {

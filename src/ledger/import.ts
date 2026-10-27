@@ -13,12 +13,12 @@ import { hashAction, PriceOverrideActionSchema } from "./proposals";
 
 const TABLES = [
   ["sandbox_subscribers", "rowid"], ["proposals", "id"], ["executions", "id"],
-  ["observations", "id"], ["paypal_webhook_events", "event_id"], ["kv", "key"], ["audit_events", "id"],
+  ["observations", "id"], ["paypal_webhook_events", "event_id"], ["discount_episodes", "execution_id"], ["kv", "key"], ["audit_events", "id"],
   ["feedback_prediction_cache", "cache_key"], ["hosted_sessions", "token_hash"], ["hosted_limits", "bucket_key"],
   ["sqlite_sequence", "name"],
 ] as const;
 type TableName = typeof TABLES[number][0];
-const OPTIONAL = new Set<TableName>(["paypal_webhook_events", "feedback_prediction_cache", "hosted_sessions", "hosted_limits"]);
+const OPTIONAL = new Set<TableName>(["discount_episodes", "paypal_webhook_events", "feedback_prediction_cache", "hosted_sessions", "hosted_limits"]);
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 type TableSnapshot = { table: TableName; columns: string[]; rows: LedgerRow[]; count: number; sha256: string };
 export type ImportManifest = { schemaSha256: string; tables: { table: TableName; count: number; sha256: string }[]; totalRows: number };
@@ -77,6 +77,21 @@ function validateRecords(tables: TableSnapshot[]): void {
     } catch { throw new Error("Source proposal schema is invalid"); }
     if (!/^prop_[0-9a-f-]{36}$/.test(String(row.id)) || row.action_type !== "subscription_price_override" ||
       hash(String(row.action_json)) !== row.action_hash || hashAction(action as ReturnType<typeof PriceOverrideActionSchema.parse>) !== row.action_hash) throw new Error("Source proposal action hash is invalid");
+  }
+  for (const row of of("discount_episodes")) {
+    const execution = of("executions").find(e => e.id === row.execution_id);
+    const observation = of("observations").find(o => o.id === row.start_observation_id);
+    const proposal = execution && of("proposals").find(p => p.id === execution.proposal_id);
+    const action = proposal ? PriceOverrideActionSchema.parse(JSON.parse(String(proposal.action_json))) : null;
+    const start = Date.parse(String(row.started_at));
+    if (!execution || !observation || !action || Number(execution.ok) !== 1 || Number(execution.verified) !== 1 ||
+      row.segment !== action.segment || (action.reason !== "any" && row.reason !== action.reason) || execution.operation !== "PATCH subscription fixed_price" || observation.status !== "ACTIVE" ||
+      row.subscription_id !== execution.target_id || row.subscription_id !== observation.subscription_id || !action.targets.includes(String(row.subscription_id)) ||
+      !SEGMENTS.includes(String(row.segment) as typeof SEGMENTS[number]) || !REASONS.includes(String(row.reason) as typeof REASONS[number]) ||
+      !Number.isFinite(start) || row.started_at !== execution.created_at || row.started_at !== observation.observed_at ||
+      Date.parse(String(row.ends_at)) !== start + action.months * 30 * 86_400_000 || row.discounted_price !== action.newPrice ||
+      observation.regular_price === null || Number(observation.regular_price) !== Number(action.newPrice) || Number(action.newPrice) >= Number(action.listPrice) ||
+      observation.source !== "paypal.get_subscription") throw new Error("Source discount episode is invalid");
   }
 }
 async function targetFingerprint(tx: LedgerExecutor, table: TableName, order: string, columns: string[]): Promise<{ count: number; sha256: string }> {

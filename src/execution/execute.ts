@@ -4,6 +4,9 @@ import { runtimeLedgerConnection, type LedgerConnection } from "@/ledger/connect
 import { auditOn, authoritativeWrite } from "@/ledger/operations";
 import { claimForExecution, finishExecution, getProposal, ProposalError, type Proposal } from "@/ledger/proposals";
 import { getSubscription, overrideSubscriptionPrice, type SubscriptionSnapshot } from "@/paypal/subscriptions";
+import { PriceOverrideActionSchema } from "@/ledger/proposals";
+import { REASONS, SEGMENTS } from "@/twin/types";
+import { SUBSCRIBER_MONTH_MS } from "@/ledger/discount-outcomes";
 
 // PayPal calls run outside a transaction. Storage acknowledgement failure leaves the claim
 // unresolved; an operator must reconcile PayPal before any further mutation.
@@ -32,19 +35,30 @@ type Dependencies = {
   record: (id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null) => Promise<void>;
 };
 
-async function recordTarget(id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null): Promise<void> {
-  const connection = await runtimeLedgerConnection();
+export async function recordTarget(id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null, connection?: LedgerConnection, recordedAt = now()): Promise<void> {
+  connection ??= await runtimeLedgerConnection();
   await authoritativeWrite(connection, async (tx) => {
-    if (snapshot) await tx.execute(
+    const observation = snapshot ? await tx.execute(
       `INSERT INTO observations (subscription_id, observed_at, status, regular_price, plan_overridden, last_payment_json, source)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [snapshot.id, now(), snapshot.status, snapshot.regularPrice, snapshot.planOverridden ? 1 : 0, JSON.stringify(snapshot.lastPayment), "paypal.get_subscription"],
-    );
-    await tx.execute(
+      [snapshot.id, recordedAt, snapshot.status, snapshot.regularPrice, snapshot.planOverridden ? 1 : 0, JSON.stringify(snapshot.lastPayment), "paypal.get_subscription"],
+    ) : null;
+    const execution = await tx.execute(
       `INSERT INTO executions (proposal_id, target_id, operation, request_json, ok, http_status, debug_id, response_json, verified, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, outcome.subscriptionId, OPERATION, JSON.stringify(request), outcome.ok ? 1 : 0, outcome.httpStatus, outcome.debugId, JSON.stringify(outcome), outcome.verified ? 1 : 0, now()],
+      [id, outcome.subscriptionId, OPERATION, JSON.stringify(request), outcome.ok ? 1 : 0, outcome.httpStatus, outcome.debugId, JSON.stringify(outcome), outcome.verified ? 1 : 0, recordedAt],
     );
+    if (outcome.ok && outcome.verified && snapshot?.status === "ACTIVE" && snapshot.id === outcome.subscriptionId && observation) {
+      const stored = (await tx.query("SELECT action_json FROM proposals WHERE id=?", [id]))[0];
+      const action = PriceOverrideActionSchema.safeParse(JSON.parse(String(stored?.action_json ?? "null")));
+      const pilot = (await tx.query("SELECT segment,reason FROM sandbox_subscribers WHERE subscription_id=?", [outcome.subscriptionId]))[0];
+      if (action.success && pilot && SEGMENTS.includes(pilot.segment as typeof SEGMENTS[number]) && REASONS.includes(pilot.reason as typeof REASONS[number]) &&
+        pilot.segment === action.data.segment && (action.data.reason === "any" || pilot.reason === action.data.reason) &&
+        action.data.targets.includes(snapshot.id) && Number(snapshot.regularPrice) === Number(action.data.newPrice) && Number(action.data.newPrice) < Number(action.data.listPrice)) {
+        await tx.execute(`INSERT INTO discount_episodes (execution_id,start_observation_id,subscription_id,segment,reason,started_at,ends_at,discounted_price) VALUES (?,?,?,?,?,?,?,?)`,
+          [execution.lastInsertRowid!, observation.lastInsertRowid!, snapshot.id, String(pilot.segment), String(pilot.reason), recordedAt, new Date(Date.parse(recordedAt) + action.data.months * SUBSCRIBER_MONTH_MS).toISOString(), action.data.newPrice]);
+      }
+    }
     await auditOn(tx, "execution.target_recorded", id, { targetId: outcome.subscriptionId, ok: outcome.ok, verified: outcome.verified });
   });
 }

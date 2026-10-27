@@ -1,4 +1,6 @@
 import "server-only";
+import { observedMerchant } from "@/merchant/observed";
+import type { MerchantTwin } from "@/twin/types";
 import { createProvider } from "@/signals/providers";
 import type { SafeProviderError } from "@/signals/transport";
 import { CLASSIFICATION_INSTRUCTION, CLASSIFICATION_JSON_SCHEMA, modelInputJSON } from "@/signals/prompt";
@@ -21,6 +23,7 @@ export interface RunOptions extends Omit<BudgetOptions, "rateProfile"> {
   lease?: AgentLease;
   toolOptions?: Omit<ToolContextOptions, "objective" | "signal" | "emit" | "provider" | "sleep">;
   createTools?: (options: ToolContextOptions) => ToolBoundary;
+  readMerchant?: () => Promise<{ twin: MerchantTwin }>;
 }
 export type RunReason = "COMPLETE" | "NO_PROPOSAL" | "TOOL_LIMIT" | "TURN_LIMIT" | "PROTOCOL" | "QUOTA" | "PROVIDER_FAILED" | "CLASSIFICATION_FAILED" | "CONFIGURATION" | "INVALID_OBJECTIVE" | "FAILED" | "BUSY" | "CANCELLED" | "DEADLINE" | "TOKEN_LIMIT";
 export interface RunResult {
@@ -82,7 +85,7 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
       } : { messages: [{ role: "system", content: CLASSIFICATION_INSTRUCTION }, { role: "user", content: modelInputJSON(inputs) }], stream: false, max_completion_tokens: 4096, reasoning_effort: "low", response_format: { type: "json_schema", json_schema: { name: "feedback", strict: true, schema: CLASSIFICATION_JSON_SCHEMA } }, model: modelName });
       return classifier.classify(inputs);
     } };
-    tools = (options.createTools ?? createToolContext)({ ...options.toolOptions, objective, signal: budget.signal, emit, provider, sleep: budget.sleep, propose(input) {
+    tools = (options.createTools ?? createToolContext)({ ...options.toolOptions, twin: options.toolOptions?.twin ?? (await (options.readMerchant ?? observedMerchant)()).twin, objective, signal: budget.signal, emit, provider, sleep: budget.sleep, propose(input) {
       budget!.check();
       return (options.toolOptions?.propose ?? createProposal)(input);
     } });

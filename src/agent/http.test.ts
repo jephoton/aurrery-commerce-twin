@@ -86,7 +86,10 @@ it("returns busy before streaming and releases an explicitly reserved API lease"
 it("rejects reuse of a reserved lease while its first runner owns it", async () => {
   const lease = acquireAgentLease();
   let release!: () => void;
-  const first = runAgent({ ...base(), lease, model: { respond: async () => { await new Promise<void>((resolve) => { release = resolve; }); return { message: { role: "assistant", content: "No proposal" }, metrics: emptyMetrics() }; } } });
+  let started!: () => void;
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  const first = runAgent({ ...base(), lease, model: { respond: async () => { await new Promise<void>((resolve) => { release = resolve; started(); }); return { message: { role: "assistant", content: "No proposal" }, metrics: emptyMetrics() }; } } });
+  await ready;
   const second = await runAgent({ ...base(), lease, model: { respond: vi.fn() } });
   expect(second.reason).toBe("BUSY");
   expect(lease.active).toBe(true);

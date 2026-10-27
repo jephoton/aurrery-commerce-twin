@@ -33,7 +33,16 @@ export function EvidencePanel({ summary, evidence, source }: Props) {
           </> : <p className="mt-1 text-muted">{source === "manual" ? "Manual comparison: no AI classification applied." : "No feedback classified in this run."}</p>}
         </div>
       </div>
-      <p className="mt-3 text-sm text-muted">{source === "manual" ? "Canonical synthetic twin estimates and registered pilots." : classified ? "Classified synthetic feedback updates reason estimates; historical estimates and intervention assumptions remain distinct." : "Current synthetic history and model assumptions."}</p>
+      {summary.observedEvidence && <div className="mt-3 rounded-lg border border-border bg-background p-4 text-sm">
+        <h4 className="font-medium">Measured sandbox outcomes</h4>
+        <p className="mt-1 text-muted">Evidence snapshot at page load. Refresh to include newer observations.</p>
+        <p className="mt-1">{summary.observedEvidence.episodes} verified discount episodes · {summary.observedEvidence.subscriberMonths.toFixed(3)} observed discounted subscriber-months (30 days/month).</p>
+        <p className="mt-1">{summary.observedEvidence.cancellations} ambiguous cancellation facts · {summary.observedEvidence.censoredEpisodes} episodes excluded, including preceding survival.</p>
+        <p className="mt-1">Calibration: {summary.observedEvidence.posteriorSubscriberMonths.toFixed(3)} subscriber-months · {summary.observedEvidence.posteriorCancellations} qualified posterior cancellations.</p>
+        {summary.parameterChanges?.length ? <ul className="mt-2 space-y-1">{summary.parameterChanges.map(change => <li key={change.parameter}>{change.parameter}: mean {change.before.mean.toFixed(4)} → {change.after.mean.toFixed(4)} · {change.evidence}</li>)}</ul> : <p className="mt-1">No measured effect parameter changes. A price override alone is not retention evidence.</p>}
+        <p className="mt-2 text-muted">{summary.observedEvidence.limitation}</p>
+      </div>}
+      <p className="mt-3 text-sm text-muted">{source === "manual" ? "Canonical synthetic twin estimates with separately measured sandbox effects and registered pilots." : classified ? "Classified synthetic feedback updates reason estimates; measured effects, historical estimates and intervention assumptions remain distinct." : "Current synthetic history, measured sandbox effects and model assumptions."}</p>
       <details className="mt-4 border-t border-border pt-3 text-sm">
         <summary className="min-h-10 cursor-pointer pt-2 font-medium text-brand-accent">Sources and assumptions</summary>
         <ul className="mt-2 space-y-2">{Object.entries(provenance).map(([key, item]) => (

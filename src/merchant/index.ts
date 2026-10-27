@@ -7,5 +7,5 @@ let cached: { twin: MerchantTwin; history: DemoHistory } | null = null;
 
 export function currentMerchant() {
   cached ??= buildDemoTwin();
-  return cached;
+  return structuredClone(cached);
 }

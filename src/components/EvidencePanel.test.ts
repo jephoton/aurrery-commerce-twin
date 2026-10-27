@@ -35,3 +35,13 @@ it("uses canonical synthetic provenance for a manual comparison", () => {
   expect(html).not.toContain("42 feedback records");
   expect(html).toContain("Estimated from synthetic history.");
 });
+it("separates measured exposure, ambiguous cancellations, posterior exclusions and parameter changes", () => {
+  const html = renderToStaticMarkup(createElement(EvidencePanel, { summary: { ...summary, observedEvidence: { episodes: 2, cancellations: 1, censoredEpisodes: 1, subscriberMonths: .75, posteriorSubscriberMonths: .5, posteriorCancellations: 0, observations: [], limitation: "Observational only; no causal retention claim." }, parameterChanges: [{ parameter: "offerChurnRelativeRisk.price", before: { mean: .45, sd: .15 }, after: { mean: .44, sd: .14 }, evidence: "0 cancellation(s) in 0.5 months" }] }, evidence: null, source: "manual" }));
+  expect(html).toContain("Measured sandbox outcomes");
+  expect(html).toContain("0.750");
+  expect(html).toContain("0.500");
+  expect(html).toContain("1 ambiguous cancellation");
+  expect(html).toContain("0 qualified posterior cancellations");
+  expect(html).toContain("offerChurnRelativeRisk.price");
+  expect(html).toContain("no causal retention claim");
+});

@@ -77,6 +77,17 @@ CREATE TABLE IF NOT EXISTS paypal_webhook_events (
   CHECK ((disposition = 'observed' AND observation_id IS NOT NULL AND ignored_reason IS NULL) OR
          (disposition = 'ignored' AND observation_id IS NULL AND ignored_reason IS NOT NULL))
 );
+CREATE TABLE IF NOT EXISTS discount_episodes (
+  execution_id INTEGER PRIMARY KEY REFERENCES executions(id),
+  start_observation_id INTEGER NOT NULL UNIQUE REFERENCES observations(id),
+  subscription_id TEXT NOT NULL,
+  segment TEXT NOT NULL CHECK (segment IN ('new','core','price_sensitive','at_risk','cancel_intent')),
+  reason TEXT NOT NULL CHECK (reason IN ('price','other')),
+  started_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL,
+  discounted_price TEXT NOT NULL,
+  CHECK (ends_at > started_at)
+);
 CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

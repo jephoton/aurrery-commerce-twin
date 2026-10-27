@@ -2,7 +2,7 @@ import { z } from "zod";
 import { connection } from "next/server";
 import { listExecutions } from "@/execution/execute";
 import { createProposal, listProposals } from "@/ledger/proposals";
-import { currentMerchant } from "@/merchant";
+import { observedMerchant } from "@/merchant/observed";
 import { StrategySchema } from "@/twin/interventions";
 import { runComparison, WorkerTaskError } from "@/twin/worker-client";
 import { errorResponse, readBoundedJson } from "../_lib/http";
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   if (admission) return admission;
   try {
     const body = BodySchema.parse(await readBoundedJson(request));
-    const { twin } = currentMerchant();
+    const { twin } = await observedMerchant();
     const comparison = await runComparison(twin, [body.strategy], {}, { signal: request.signal });
     if (request.signal.aborted) throw new WorkerTaskError("ABORTED");
     const result = comparison.strategies.find((s) => s.strategy.id === body.strategy.id)!;

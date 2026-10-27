@@ -1,12 +1,18 @@
 import { expect, it, vi } from "vitest";
 import { readAgentStream, requestAgent, MAX_FRAME_BYTES } from "./stream";
 import type { AgentEvent } from "./contracts";
+import { SEGMENTS } from "@/twin/types";
 import { currentMerchant } from "@/merchant";
 import { compareStrategies } from "@/twin/simulate";
 import { stressTest } from "@/twin/stress";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 
 const frame = (seq: number, event: AgentEvent, runId = "run-1") => JSON.stringify({ runId, seq, event }) + "\n";
+const classifiedFrame = (exposure: number, accepted = 1): AgentEvent => ({ type: "classification", summary: { provider: "gemini", model: "fixture", stopped: false, total: 1, accepted, unclassified: 0, cacheHits: 0, segments: Object.fromEntries(SEGMENTS.map(s => [s, { price: 0, other: 0 }])) as Extract<AgentEvent, { type: "classification" }>["hitmap"], intents: { cancel: 1, considering_cancel: 0, stay: 0 }, eligiblePilotCount: 0, pilotCount: 0, mappingIssueCount: 0, source: "AI-classified synthetic feedback" }, hitmap: Object.fromEntries(SEGMENTS.map(s => [s, { price: 0, other: 0 }])) as Extract<AgentEvent, { type: "classification" }>["hitmap"], provenance: { rr: { source: "observed", note: "Measured subscriber-months", evidenceCount: exposure } } });
+it("accepts fractional exposure provenance while keeping feedback counters integral", async () => {
+  await expect(readAgentStream(response(frame(1, classifiedFrame(.5)) + frame(2, { type: "done", status: "incomplete" })), { onEvent() {} })).resolves.toMatchObject({ status: "incomplete" });
+  for (const event of [classifiedFrame(-.5), classifiedFrame(.5, .5)]) await expect(readAgentStream(response(frame(1, event) + frame(2, { type: "done", status: "incomplete" })), { onEvent() {} })).rejects.toThrow();
+});
 function response(text: string, split = 1) {
   const bytes = new TextEncoder().encode(text);
   return new Response(new ReadableStream({ start(c) { for (let i = 0; i < bytes.length; i += split) c.enqueue(bytes.slice(i, i + split)); c.close(); } }));

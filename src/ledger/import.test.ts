@@ -5,14 +5,72 @@ import { DatabaseSync } from "node:sqlite";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 import { afterAll, expect, it } from "vitest";
-import { createLibsqlConnection, initializeLedgerSchema } from "./connection";
+import { createLibsqlConnection, createLocalConnection, initializeLedgerSchema } from "./connection";
 import { LEDGER_SCHEMA } from "./db";
 import { hashAction, PriceOverrideActionSchema } from "./proposals";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { importLedger } from "./import";
+import { recordTarget } from "@/execution/execute";
+
+async function episodeSource(path: string) {
+  const source = new DatabaseSync(path);
+  const connection = createLocalConnection(source);
+  await initializeLedgerSchema(connection);
+  const at = "2026-01-01T00:00:00.000Z";
+  const action = PriceOverrideActionSchema.parse({ type: "subscription_price_override", segment: "core", reason: "price", listPrice: "24.00", newPrice: "18.00", discountPct: 25, months: 1, campaignMonths: 0, targets: ["I-FIXTURE"] });
+  const id = "prop_00000000-0000-4000-8000-000000000001";
+  await connection.execute("INSERT INTO sandbox_subscribers VALUES ('I-FIXTURE','Pilot','core','price',?)", [at]);
+  await connection.execute("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status) VALUES (?,?,?,'{}',?,?,?,'executing')", [id, at, JSON.stringify(STARTER_STRATEGIES[1]), action.type, JSON.stringify(action), hashAction(action)]);
+  const snapshot = { id: "I-FIXTURE", status: "ACTIVE", regularPrice: "18.00", planOverridden: true, nextBillingTime: null, lastPayment: null, planId: null, raw: null };
+  await recordTarget(id, {}, { subscriptionId: snapshot.id, ok: true, verified: true, httpStatus: 204, debugId: null, observed: snapshot, error: null }, snapshot, connection, at);
+  return source;
+}
 
 const dir = mkdtempSync(join(tmpdir(), "aurrery-import-"));
+it("accepts a legacy ledger without episode snapshots and never backfills historical reasons", async () => {
+  const path = join(dir, "legacy-episodes.sqlite");
+  const source = new DatabaseSync(path);
+  source.exec(LEDGER_SCHEMA);
+  source.exec("DROP TABLE discount_episodes");
+  source.close();
+  const manifest = await importLedger({ sourcePath: path, dryRun: true });
+  expect(manifest.tables.find(row => row.table === "discount_episodes")?.count).toBe(0);
+  const unchanged = new DatabaseSync(path, { readOnly: true });
+  expect(unchanged.prepare("SELECT name FROM sqlite_master WHERE name='discount_episodes'").all()).toEqual([]);
+  unchanged.close();
+});
 afterAll(() => { try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows native client lock. */ } });
+it("round trips linked episode snapshots through a checked libSQL target", async () => {
+  const path = join(dir, "episode-source.sqlite");
+  const source = await episodeSource(path);
+  const expected = source.prepare("SELECT * FROM discount_episodes").all();
+  source.close();
+  const client = createClient({ url: `file:${join(dir, "episode-target.sqlite")}` });
+  try {
+    const target = createLibsqlConnection(client);
+    await initializeLedgerSchema(target);
+    await importLedger({ sourcePath: path, target });
+    expect(await target.query("SELECT * FROM discount_episodes")).toEqual(expected);
+  } finally { client.close(); }
+});
+it.each([
+  ["unverified", "UPDATE executions SET verified=0"],
+  ["wrong pilot", "UPDATE discount_episodes SET subscription_id='I-OTHER'"],
+  ["wrong time", "UPDATE discount_episodes SET ends_at='2026-04-01T00:00:00.000Z'"],
+  ["wrong price", "UPDATE discount_episodes SET discounted_price='17.00'"],
+  ["wrong segment", "UPDATE discount_episodes SET segment='at_risk'"],
+  ["wrong reason", "UPDATE discount_episodes SET reason='other'"],
+  ["wrong operation", "UPDATE executions SET operation='fixture unrelated operation'"],
+  ["nonactive start", "UPDATE observations SET status='SUSPENDED'"],
+])("rejects %s source episode before target access", async (name, sql) => {
+  const path = join(dir, `episode-tamper-${name.replaceAll(" ", "-")}.sqlite`);
+  const source = await episodeSource(path);
+  source.exec(sql);
+  source.close();
+  let opened = false;
+  await expect(importLedger({ sourcePath: path, openTarget: async () => { opened = true; throw new Error("unreachable"); } })).rejects.toThrow(/episode/);
+  expect(opened).toBe(false);
+});
 
 it("dry runs from a consistent WAL snapshot without opening a remote target", async () => {
   const path = join(dir, "source.sqlite");
@@ -157,6 +215,9 @@ it.each([
   ["missing execution uniqueness", (schema: string) => schema.replace(",\n  UNIQUE (proposal_id, target_id, operation)", "")],
   ["altered proposal status check", (schema: string) => schema.replace("'failed','rejected'", "'failed','rejected','paused'")],
   ["missing webhook observation foreign key", (schema: string) => schema.replace("observation_id INTEGER UNIQUE REFERENCES observations(id)", "observation_id INTEGER UNIQUE")],
+  ["missing episode execution foreign key", (schema: string) => schema.replace("execution_id INTEGER PRIMARY KEY REFERENCES executions(id)", "execution_id INTEGER PRIMARY KEY")],
+  ["missing episode observation uniqueness", (schema: string) => schema.replace("start_observation_id INTEGER NOT NULL UNIQUE REFERENCES observations(id)", "start_observation_id INTEGER NOT NULL REFERENCES observations(id)")],
+  ["missing episode end check", (schema: string) => schema.replace(",\n  CHECK (ends_at > started_at)", "")],
 ])("rejects an empty target with %s before inserting rows", async (name, weaken) => {
   const slug = name.replaceAll(" ", "-");
   const sourcePath = join(dir, `source-weak-${slug}.sqlite`);
