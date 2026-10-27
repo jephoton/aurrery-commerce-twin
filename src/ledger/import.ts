@@ -51,7 +51,8 @@ function validateSource(db: DatabaseSync): TableSnapshot[] {
         .map((column) => [column.name, column.type, column.notnull, column.dflt_value, column.pk]);
       const expectedSignature = signature(template);
       const actualSignature = existing.has(table) ? signature(db) : expectedSignature;
-      if (JSON.stringify(actualSignature) !== JSON.stringify(expectedSignature)) throw new Error("Source ledger schema does not match the importer");
+      const byName = (columns: ReturnType<typeof signature>) => [...columns].sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+      if (JSON.stringify(byName(actualSignature)) !== JSON.stringify(byName(expectedSignature))) throw new Error("Source ledger schema does not match the importer");
       const columns = expectedSignature.map((column) => String(column[0]));
       const rows = existing.has(table) ? sourceRows(db, table, order) : [];
       snapshots.push({ table, columns, rows, count: rows.length, sha256: rowHash(rows, columns) });

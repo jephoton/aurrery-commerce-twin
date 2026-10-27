@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -170,4 +170,44 @@ it.each([
   await expect(importLedger({ sourcePath, target })).rejects.toThrow(/schema/i);
   expect(await target.query("SELECT COUNT(*) AS n FROM kv")).toEqual([{ n: 0 }]);
   client.close();
+});
+
+it("imports a pre-reason ledger upgraded by the supported ALTER without changing its source", async () => {
+  const sourcePath = join(dir, "source-upgraded-reason.sqlite");
+  const source = new DatabaseSync(sourcePath);
+  source.exec(LEDGER_SCHEMA.replace("  reason TEXT NOT NULL DEFAULT 'other',\n", ""));
+  for (const id of ["I-ZZZ", "I-AAA"]) source.prepare("INSERT INTO sandbox_subscribers (subscription_id,label,segment,created_at) VALUES (?,?,?,?)")
+    .run(id, id, "cancel_intent", "2026-01-01T00:00:00.000Z");
+  source.exec("ALTER TABLE sandbox_subscribers ADD COLUMN reason TEXT NOT NULL DEFAULT 'other'");
+  source.prepare("UPDATE sandbox_subscribers SET reason='price' WHERE subscription_id='I-ZZZ'").run();
+  expect(source.prepare("PRAGMA table_info(sandbox_subscribers)").all().map((row) => row.name)).toEqual(["subscription_id", "label", "segment", "created_at", "reason"]);
+  source.close();
+  const before = readFileSync(sourcePath);
+  const dryRun = await importLedger({ sourcePath, dryRun: true });
+  expect(dryRun.tables.find((entry) => entry.table === "sandbox_subscribers")?.count).toBe(2);
+  const client = createClient({ url: `file:${join(dir, "target-upgraded-reason.sqlite")}` });
+  const target = createLibsqlConnection(client);
+  await initializeLedgerSchema(target);
+  const applied = await importLedger({ sourcePath, target });
+  expect(applied.tables).toEqual(dryRun.tables);
+  expect(await target.query("SELECT subscription_id,reason FROM sandbox_subscribers ORDER BY rowid")).toEqual([
+    { subscription_id: "I-ZZZ", reason: "price" }, { subscription_id: "I-AAA", reason: "other" },
+  ]);
+  expect(readFileSync(sourcePath)).toEqual(before);
+  client.close();
+});
+
+it.each([
+  ["missing field", (schema: string) => schema.replace("  reason TEXT NOT NULL DEFAULT 'other',\n", "")],
+  ["extra field", (schema: string) => schema.replace("  created_at TEXT NOT NULL\n);", "  created_at TEXT NOT NULL,\n  extra TEXT\n);")],
+  ["changed type", (schema: string) => schema.replace("  segment TEXT NOT NULL,", "  segment INTEGER NOT NULL,")],
+  ["changed nullability", (schema: string) => schema.replace("  label TEXT NOT NULL,", "  label TEXT,")],
+  ["changed default", (schema: string) => schema.replace("reason TEXT NOT NULL DEFAULT 'other'", "reason TEXT NOT NULL DEFAULT 'price'")],
+  ["changed primary key", (schema: string) => schema.replace("subscription_id TEXT PRIMARY KEY", "subscription_id TEXT NOT NULL")],
+])("still rejects a source with %s", async (name, alter) => {
+  const path = join(dir, `source-invalid-${name.replaceAll(" ", "-")}.sqlite`);
+  const source = new DatabaseSync(path);
+  source.exec(alter(LEDGER_SCHEMA));
+  source.close();
+  await expect(importLedger({ sourcePath: path, dryRun: true })).rejects.toThrow(/schema/i);
 });
