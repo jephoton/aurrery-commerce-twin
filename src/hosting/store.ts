@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import type { DatabaseSync } from "node:sqlite";
+import type { LedgerConnection } from "@/ledger/connection";
+import { authoritativeWrite } from "@/ledger/operations";
 
 export type LimitKind = "agent" | "preparation" | "poll" | "login";
 type Limit = { scope: "client" | "global"; max: number; windowMs: number };
@@ -14,9 +15,22 @@ const LIMITS: Record<LimitKind, Limit[]> = {
 export const limitsFor = (kind: LimitKind): Limit[] => LIMITS[kind];
 
 const SESSION_MS = 2 * HOUR;
-export function createHostingStore(db: DatabaseSync, secret: string) {
-  db.exec(`CREATE TABLE IF NOT EXISTS hosted_sessions (token_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL, password_fingerprint TEXT NOT NULL);
+const hostedSchemaReady = new WeakMap<LedgerConnection, Promise<void>>();
+function ensureHostedSchema(db: LedgerConnection): Promise<void> {
+  const existing = hostedSchemaReady.get(db);
+  if (existing) return existing;
+  const pending = db.executeMultiple(`CREATE TABLE IF NOT EXISTS hosted_sessions (token_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL, password_fingerprint TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS hosted_limits (bucket_key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL);`);
+  const ready = pending.catch((error: unknown) => {
+    if (hostedSchemaReady.get(db) === ready) hostedSchemaReady.delete(db);
+    throw error;
+  });
+  hostedSchemaReady.set(db, ready);
+  return ready;
+}
+export function createHostingStore(db: LedgerConnection, secret: string) {
+  // DDL is idempotent and intentionally outside a write transaction. Every
+  // subsequent authority operation uses its own checked write handle.
   const hmac = (value: string) => createHmac("sha256", secret).update(value).digest("hex");
   const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
   const verifyPassword = (supplied: string, expected: string) => {
@@ -26,37 +40,50 @@ export function createHostingStore(db: DatabaseSync, secret: string) {
   };
   return {
     verifyPassword,
-    createSession(password: string, at = Date.now()): string {
+    async createSession(password: string, at = Date.now()): Promise<string> {
+      await ensureHostedSchema(db);
       const token = randomBytes(32).toString("base64url");
-      db.prepare("INSERT INTO hosted_sessions (token_hash, expires_at, password_fingerprint) VALUES (?, ?, ?)").run(tokenHash(token), at + SESSION_MS, hmac(password));
+      await authoritativeWrite(db, async (tx) => {
+        await tx.execute("INSERT INTO hosted_sessions (token_hash, expires_at, password_fingerprint) VALUES (?, ?, ?)", [tokenHash(token), at + SESSION_MS, hmac(password)]);
+      });
       return token;
     },
-    isSessionValid(token: string | null, password: string, at = Date.now()): boolean {
+    async isSessionValid(token: string | null, password: string, at = Date.now()): Promise<boolean> {
       if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return false;
-      const row = db.prepare("SELECT expires_at, password_fingerprint FROM hosted_sessions WHERE token_hash = ?").get(tokenHash(token));
-      if (!row || Number(row.expires_at) <= at) return false;
-      const actual = Buffer.from(String(row.password_fingerprint), "hex");
-      const expected = Buffer.from(hmac(password), "hex");
-      return actual.length === expected.length && timingSafeEqual(actual, expected);
+      await ensureHostedSchema(db);
+      return authoritativeWrite(db, async (tx) => {
+        const rows = await tx.query("SELECT expires_at, password_fingerprint FROM hosted_sessions WHERE token_hash = ?", [tokenHash(token)]);
+        const row = rows[0];
+        if (!row || Number(row.expires_at) <= at) return false;
+        const actual = Buffer.from(String(row.password_fingerprint), "hex");
+        const expected = Buffer.from(hmac(password), "hex");
+        return actual.length === expected.length && timingSafeEqual(actual, expected);
+      });
     },
-    revokeSession(token: string | null) { if (token) db.prepare("DELETE FROM hosted_sessions WHERE token_hash = ?").run(tokenHash(token)); },
-    admit(kind: LimitKind, client: string, at = Date.now()): { allowed: boolean; retryAfter?: number } {
-      db.exec("BEGIN IMMEDIATE");
-      try {
-        db.prepare("DELETE FROM hosted_limits WHERE expires_at <= ?").run(at);
-        db.prepare("DELETE FROM hosted_sessions WHERE expires_at <= ?").run(at);
-        const buckets = LIMITS[kind].map(({ scope, max, windowMs }) => {
+    async revokeSession(token: string | null): Promise<void> {
+      if (!token) return;
+      await ensureHostedSchema(db);
+      await authoritativeWrite(db, async (tx) => {
+        await tx.execute("DELETE FROM hosted_sessions WHERE token_hash = ?", [tokenHash(token)]);
+      });
+    },
+    async admit(kind: LimitKind, client: string, at = Date.now()): Promise<{ allowed: boolean; retryAfter?: number }> {
+      await ensureHostedSchema(db);
+      return authoritativeWrite(db, async (tx) => {
+        await tx.execute("DELETE FROM hosted_limits WHERE expires_at <= ?", [at]);
+        await tx.execute("DELETE FROM hosted_sessions WHERE expires_at <= ?", [at]);
+        const buckets: { key: string; count: number; max: number; end: number }[] = [];
+        for (const { scope, max, windowMs } of LIMITS[kind]) {
           const start = Math.floor(at / windowMs) * windowMs;
           const key = hmac(`${kind}:${scope}:${windowMs}:${start}:${scope === "client" ? client : "all"}`);
-          const existing = db.prepare("SELECT count FROM hosted_limits WHERE bucket_key = ?").get(key);
-          return { key, count: Number(existing?.count ?? 0), max, end: start + windowMs };
-        });
+          const existing = await tx.query("SELECT count FROM hosted_limits WHERE bucket_key = ?", [key]);
+          buckets.push({ key, count: Number(existing[0]?.count ?? 0), max, end: start + windowMs });
+        }
         const blocked = buckets.filter((b) => b.count >= b.max);
-        if (blocked.length) { db.exec("COMMIT"); return { allowed: false, retryAfter: Math.max(1, Math.ceil(Math.max(...blocked.map((b) => b.end - at)) / 1000)) }; }
-        const upsert = db.prepare("INSERT INTO hosted_limits (bucket_key, count, expires_at) VALUES (?, 1, ?) ON CONFLICT(bucket_key) DO UPDATE SET count = count + 1");
-        for (const b of buckets) upsert.run(b.key, b.end);
-        db.exec("COMMIT"); return { allowed: true };
-      } catch (error) { db.exec("ROLLBACK"); throw error; }
+        if (blocked.length) return { allowed: false, retryAfter: Math.max(1, Math.ceil(Math.max(...blocked.map((b) => b.end - at)) / 1000)) };
+        for (const b of buckets) await tx.execute("INSERT INTO hosted_limits (bucket_key, count, expires_at) VALUES (?, 1, ?) ON CONFLICT(bucket_key) DO UPDATE SET count = count + 1", [b.key, b.end]);
+        return { allowed: true };
+      });
     },
   };
 }

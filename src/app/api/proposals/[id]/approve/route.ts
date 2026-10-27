@@ -12,7 +12,7 @@ const BodySchema = z.object({
 
 /** Explicit merchant approval of an exact action payload, followed by a single PayPal execution. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const admission = admitHostedRequest(request, { admin: true });
+  const admission = await admitHostedRequest(request, { admin: true });
   if (admission) return admission;
   try {
     const { id } = await params;

@@ -10,6 +10,9 @@ import { POST as approve } from "@/app/api/proposals/[id]/approve/route";
 import { POST as reject } from "@/app/api/proposals/[id]/reject/route";
 import { GET as poll } from "@/app/api/paypal/status/route";
 import { createHostingStore } from "./store";
+import { createLocalConnection } from "@/ledger/connection";
+
+vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 
 const dir = mkdtempSync(join(tmpdir(), "aurrery-hosted-routes-"));
 const origin = "https://example.test";
@@ -30,7 +33,7 @@ describe("direct hosted API admission", () => {
     expect((ledger().prepare("SELECT count(*) AS n FROM proposals").get() as {n: number}).n).toBe(0);
   });
   it("bounds authenticated approval and rejection bodies before PayPal work", async () => {
-    const token = createHostingStore(ledger(), "s".repeat(48)).createSession("p".repeat(40));
+    const token = await createHostingStore(createLocalConnection(ledger()), "s".repeat(48)).createSession("p".repeat(40));
     const huge = new Request(`${origin}/api/proposals/missing/approve`, { method: "POST", headers: { origin, cookie: `__Host-aurrery-admin=${token}` }, body: "x".repeat(70_000) });
     expect((await approve(huge, params)).status).toBe(413);
     const rejectHuge = new Request(`${origin}/api/proposals/missing/reject`, { method: "POST", headers: { origin, cookie: `__Host-aurrery-admin=${token}` }, body: "x".repeat(70_000) });
@@ -45,8 +48,8 @@ describe("direct hosted API admission", () => {
     const bad = new Request("https://another-host.test/api/paypal/status");
     // It may fail for unavailable Sandbox credentials, but a forged Host never
     // changes the admission bucket. Fill it without calling PayPal by using the store.
-    const store = createHostingStore(ledger(), "s".repeat(48));
-    for (let i = 0; i < 30; i++) expect(store.admit("poll", "unverified-proxy-client").allowed).toBe(true);
+    const store = createHostingStore(createLocalConnection(ledger()), "s".repeat(48));
+    for (let i = 0; i < 30; i++) expect((await store.admit("poll", "unverified-proxy-client")).allowed).toBe(true);
     const response = await poll(bad);
     expect(response.status).toBe(429);
     expect(Number(response.headers.get("retry-after"))).toBeGreaterThan(0);

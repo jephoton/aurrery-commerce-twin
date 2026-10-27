@@ -1,9 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { connection } from "next/server";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GET, POST, DELETE } from "./route";
 import { ledger } from "@/ledger/db";
+
+vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 
 const dir = mkdtempSync(join(tmpdir(), "aurrery-session-route-"));
 const origin = "https://example.test";
@@ -20,6 +23,7 @@ const login = (body: string, extra: Record<string,string> = {}) => POST(new Requ
 describe("admin session API", () => {
   it("returns only safe capability state", async () => {
     const response = await GET(new Request(`${origin}/api/admin/session`));
+    expect(connection).toHaveBeenCalled();
     expect(await response.json()).toEqual({ hosted: true, configured: true, authenticated: false, canReview: false });
   });
   it("bounds login input and rejects wrong origin", async () => {

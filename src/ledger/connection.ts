@@ -155,7 +155,7 @@ type RuntimeOptions = {
   timeoutMs?: number;
 };
 
-function remoteUrl(raw: string): string {
+export function validateTursoUrl(raw: string): string {
   let parsed: URL;
   try { parsed = new URL(raw); } catch { throw new Error("Invalid ledger configuration"); }
   if (!(["https:", "libsql:"].includes(parsed.protocol)) ||
@@ -240,7 +240,7 @@ export async function createRuntimeLedgerConnection(options: RuntimeOptions = {}
     connection = createLocalConnection(options.localDatabase ?? ledger());
   } else {
     if (!env.TURSO_DATABASE_URL || !env.TURSO_AUTH_TOKEN?.trim() || env.LEDGER_PATH) throw new Error("Invalid ledger configuration");
-    const url = remoteUrl(env.TURSO_DATABASE_URL);
+    const url = validateTursoUrl(env.TURSO_DATABASE_URL);
     const timeoutMs = options.timeoutMs ?? 10_000;
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 10_000) throw new Error("Invalid ledger configuration");
     let client = options.remoteClient;
@@ -263,6 +263,16 @@ export async function createRuntimeLedgerConnection(options: RuntimeOptions = {}
 }
 
 let runtimeConnection: Promise<LedgerConnection> | undefined;
-export function runtimeLedgerConnection(): Promise<LedgerConnection> {
-  return runtimeConnection ??= createRuntimeLedgerConnection();
+/** Optional factory is for offline recovery tests; runtime callers use the default. */
+export function runtimeLedgerConnection(factory: () => Promise<LedgerConnection> = createRuntimeLedgerConnection): Promise<LedgerConnection> {
+  if (runtimeConnection) return runtimeConnection;
+  const pending = Promise.resolve().then(factory);
+  const cached = pending.catch((error: unknown) => {
+    // A failed wake/init may recover on a later request. Never retry an
+    // in-flight operation or turn an ambiguous transaction into a replay.
+    if (runtimeConnection === cached) runtimeConnection = undefined;
+    throw error;
+  });
+  runtimeConnection = cached;
+  return cached;
 }

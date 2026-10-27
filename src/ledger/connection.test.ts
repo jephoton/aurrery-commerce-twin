@@ -291,3 +291,24 @@ it("rejects an SDK fetch outside the selected Turso host and propagates caller a
   await expect(pending).rejects.toThrow("Storage request failed");
   expect(transport).toHaveBeenCalledOnce();
 });
+
+it("shares one initialization attempt then permits a later request after rejection", async () => {
+  vi.resetModules();
+  const { runtimeLedgerConnection: runtime } = await import("./connection");
+  const db = new DatabaseSync(tempPath());
+  const connection = createLocalConnection(db);
+  let fail!: (reason: Error) => void;
+  const first = new Promise<typeof connection>((_resolve, reject) => { fail = reject; });
+  const factory = vi.fn().mockImplementationOnce(() => first).mockResolvedValue(connection);
+  try {
+    const attempts = [runtime(factory), runtime(factory)];
+    await Promise.resolve();
+    expect(factory).toHaveBeenCalledOnce();
+    fail(new Error("first initialization failed"));
+    await Promise.all(attempts.map((attempt) => expect(attempt).rejects.toThrow("first initialization failed")));
+    expect(await runtime(factory)).toBe(connection);
+    expect(factory).toHaveBeenCalledTimes(2);
+    expect(await runtime(factory)).toBe(connection);
+    expect(factory).toHaveBeenCalledTimes(2);
+  } finally { db.close(); }
+});

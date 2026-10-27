@@ -1,4 +1,4 @@
-import { ledger } from "@/ledger/db";
+import { runtimeLedgerConnection } from "@/ledger/connection";
 import { hostedConfig, type HostedConfig } from "./config";
 import { createHostingStore, type LimitKind } from "./store";
 
@@ -10,28 +10,41 @@ export function parseSessionCookie(header: string | null): string | null {
   return entry ? entry.slice(SESSION_COOKIE.length + 1) : null;
 }
 
-export function guardHostedRequest(request: Request, options: { admin?: boolean; limit?: LimitKind }, config: HostedConfig, store: Store): Response | null {
+export function invalidHostedOrigin(request: Request, config: HostedConfig): Response | null {
+  return config.hosted && request.method !== "GET" && request.headers.get("origin") !== config.origin
+    ? Response.json({ error: "INVALID_ORIGIN" }, { status: 403 }) : null;
+}
+
+export async function guardHostedRequest(request: Request, options: { admin?: boolean; limit?: LimitKind }, config: HostedConfig, store: Store): Promise<Response | null> {
   if (!config.hosted) return null;
-  if (request.method !== "GET" && request.headers.get("origin") !== config.origin) return Response.json({ error: "INVALID_ORIGIN" }, { status: 403 });
-  if (options.admin && !store.isSessionValid(parseSessionCookie(request.headers.get("cookie")), config.adminPassword)) return Response.json({ error: "ADMIN_REQUIRED" }, { status: 401 });
+  const originError = invalidHostedOrigin(request, config);
+  if (originError) return originError;
+  if (options.admin && !await store.isSessionValid(parseSessionCookie(request.headers.get("cookie")), config.adminPassword)) return Response.json({ error: "ADMIN_REQUIRED" }, { status: 401 });
   if (options.limit) {
     // Render's forwarded-client header contract has not been established. All visitors
     // share a conservative client bucket; global buckets still bound aggregate use.
-    const admission = store.admit(options.limit, "unverified-proxy-client");
+    const admission = await store.admit(options.limit, "unverified-proxy-client");
     if (!admission.allowed) return Response.json({ error: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": String(admission.retryAfter) } });
   }
   return null;
 }
 
-export function hostedRuntime(): { config: HostedConfig; store: Store | null } {
-  const config = hostedConfig();
-  return { config, store: config.hosted ? createHostingStore(ledger(), config.secret) : null };
+export async function hostedRuntime(config: HostedConfig = hostedConfig()): Promise<{ config: HostedConfig; store: Store | null }> {
+  return { config, store: config.hosted ? createHostingStore(await runtimeLedgerConnection(), config.secret) : null };
 }
 
-export function admitHostedRequest(request: Request, options: { admin?: boolean; limit?: LimitKind } = {}): Response | null {
+export async function admitHostedRequest(request: Request, options: { admin?: boolean; limit?: LimitKind } = {}): Promise<Response | null> {
   try {
-    const { config, store } = hostedRuntime();
-    return store ? guardHostedRequest(request, options, config, store) : null;
+    const config = hostedConfig();
+    if (!config.hosted) return null;
+    const originError = invalidHostedOrigin(request, config);
+    if (originError) return originError;
+    if (options.admin) {
+      const token = parseSessionCookie(request.headers.get("cookie"));
+      if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return Response.json({ error: "ADMIN_REQUIRED" }, { status: 401 });
+    }
+    const { store } = await hostedRuntime(config);
+    return store ? await guardHostedRequest(request, options, config, store) : null;
   } catch {
     return Response.json({ error: "HOSTED_UNAVAILABLE" }, { status: 503 });
   }

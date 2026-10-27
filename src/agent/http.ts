@@ -33,7 +33,7 @@ async function readBody(request: Request) {
 /** Injection belongs to server tests, never request JSON or client settings. */
 export function createAgentHandler(deps: { run?: typeof runAgent; acquire?: typeof acquireAgentLease } = {}) {
   return async function handle(request: Request): Promise<Response> {
-    const admission = admitHostedRequest(request, { limit: "agent" });
+    const admission = await admitHostedRequest(request, { limit: "agent" });
     if (admission) return admission;
     let body: z.infer<typeof bodySchema>;
     try { body = await readBody(request); }

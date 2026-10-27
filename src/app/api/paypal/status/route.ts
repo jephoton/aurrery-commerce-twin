@@ -9,9 +9,9 @@ import { admitHostedRequest } from "@/hosting/guard";
 
 /** Live read of the registered sandbox subscriptions, straight from PayPal. */
 export async function GET(request: Request) {
-  const admission = admitHostedRequest(request, { limit: "poll" });
-  if (admission) return admission;
   await connection();
+  const admission = await admitHostedRequest(request, { limit: "poll" });
+  if (admission) return admission;
   try {
     const configured = paypalConfigured();
     const registered = await listSandboxSubscribers();

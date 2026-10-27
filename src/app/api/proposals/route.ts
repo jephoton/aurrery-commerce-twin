@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { connection } from "next/server";
 import { listExecutions } from "@/execution/execute";
 import { createProposal, listProposals } from "@/ledger/proposals";
 import { currentMerchant } from "@/merchant";
@@ -13,7 +14,8 @@ const BodySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const admission = admitHostedRequest(request);
+  await connection();
+  const admission = await admitHostedRequest(request);
   if (admission) return admission;
   try {
     const proposals = await listProposals();
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
 
 /** Create a proposal. The prediction is recomputed here, server-side, never taken from the client. */
 export async function POST(request: Request) {
-  const admission = admitHostedRequest(request, { limit: "preparation" });
+  const admission = await admitHostedRequest(request, { limit: "preparation" });
   if (admission) return admission;
   try {
     const body = BodySchema.parse(await readBoundedJson(request));

@@ -17,7 +17,7 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const admission = admitHostedRequest(request, { limit: "preparation" });
+  const admission = await admitHostedRequest(request, { limit: "preparation" });
   if (admission) return admission;
   try {
     const body = BodySchema.parse(await readBoundedJson(request));

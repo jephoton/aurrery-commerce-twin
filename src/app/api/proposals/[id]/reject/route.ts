@@ -6,7 +6,7 @@ import { admitHostedRequest } from "@/hosting/guard";
 const BodySchema = z.object({ reason: z.string().max(500).default("Rejected by merchant") });
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const admission = admitHostedRequest(request, { admin: true });
+  const admission = await admitHostedRequest(request, { admin: true });
   if (admission) return admission;
   try {
     const { id } = await params;
