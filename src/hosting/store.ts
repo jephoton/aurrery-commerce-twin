@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { LedgerConnection } from "@/ledger/connection";
+import { HOSTED_SCHEMA } from "@/ledger/db";
 import { authoritativeWrite } from "@/ledger/operations";
 
 export type LimitKind = "agent" | "preparation" | "poll" | "login";
@@ -19,8 +20,7 @@ const hostedSchemaReady = new WeakMap<LedgerConnection, Promise<void>>();
 function ensureHostedSchema(db: LedgerConnection): Promise<void> {
   const existing = hostedSchemaReady.get(db);
   if (existing) return existing;
-  const pending = db.executeMultiple(`CREATE TABLE IF NOT EXISTS hosted_sessions (token_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL, password_fingerprint TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS hosted_limits (bucket_key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL);`);
+  const pending = db.executeMultiple(HOSTED_SCHEMA);
   const ready = pending.catch((error: unknown) => {
     if (hostedSchemaReady.get(db) === ready) hostedSchemaReady.delete(db);
     throw error;

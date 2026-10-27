@@ -1,8 +1,9 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { ledger } from "@/ledger/db";
-import { createPredictionCache, type CacheContext, type PredictionCache } from "./cache";
+import { runtimeLedgerConnection, type LedgerConnection } from "@/ledger/connection";
+import { authoritativeWrite } from "@/ledger/operations";
+import { cacheRows, writeCacheRows, type CacheContext } from "./cache";
 import { MIN_CONFIDENCE, PredictionSchema, PROMPT_VERSION, SCHEMA_VERSION, type Prediction } from "./contracts";
 import { corpusVersion, feedbackCorpus, toModelInput } from "./corpus";
 import { CLASSIFICATION_INSTRUCTION, CLASSIFICATION_JSON_SCHEMA } from "./prompt";
@@ -42,18 +43,22 @@ export function validateSignalCacheArtifact(source: unknown, context: CacheConte
   return predictions;
 }
 /** Validate everything before any write; a failed insert rolls back the whole import. */
-export function importSignalCache(source: unknown, context: CacheContext, options: { cache?: PredictionCache } = {}) {
+export async function importSignalCache(source: unknown, context: CacheContext, options: { connection?: LedgerConnection; beforeWrite?: (index: number) => void } = {}) {
   const predictions = validateSignalCacheArtifact(source, context);
   const inputs = new Map(feedbackCorpus.map(toModelInput).map((input) => [input.id, input]));
-  const cache = options.cache ?? createPredictionCache();
-  const db = ledger();
-  db.exec("BEGIN IMMEDIATE");
+  const rows = cacheRows(predictions.map((prediction) => ({ input: inputs.get(prediction.id)!, prediction })), context);
+  if (rows.length !== 200) throw new Error("Cache import rejected: accepted predictions did not produce 200 cache rows.");
+  const connection = options.connection ?? await runtimeLedgerConnection();
   try {
-    for (const prediction of predictions) cache.set(inputs.get(prediction.id)!, context, prediction);
-    db.exec("COMMIT");
+    await authoritativeWrite(connection, async (tx) => {
+      // Bounded chunks keep statements portable; every chunk shares one transaction.
+      for (let index = 0; index < rows.length; index += 100) {
+        await writeCacheRows(tx, rows.slice(index, index + 100));
+        options.beforeWrite?.(index + 100);
+      }
+    });
   } catch {
-    db.exec("ROLLBACK");
-    throw new Error("Cache import failed; all writes rolled back.");
+    throw new Error("Cache import not confirmed; inspect the authoritative cache before retrying.");
   }
   return { provider: context.provider, model: context.model, imported: predictions.length };
 }

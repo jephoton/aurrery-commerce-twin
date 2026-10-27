@@ -83,8 +83,8 @@ it("runs Gemini HTTP through fresh classification, cache, real tools, pacing and
   expect(currentMerchant().twin).toEqual(original);
   expect(JSON.stringify({ result, events })).not.toMatch(/PRIVATE|thoughtSignature|thoughtsTokenCount/);
   const cache = createPredictionCache();
-  expect(cache.get(toModelInput(feedbackCorpus[0]), { provider: "gemini", model: env.GEMINI_MODEL })).toEqual(predictions[0]);
-  expect(cache.get(toModelInput(feedbackCorpus[0]), { provider: "groq", model: env.GEMINI_MODEL })).toBeUndefined();
+  expect(await cache.get(toModelInput(feedbackCorpus[0]), { provider: "gemini", model: env.GEMINI_MODEL })).toEqual(predictions[0]);
+  expect(await cache.get(toModelInput(feedbackCorpus[0]), { provider: "groq", model: env.GEMINI_MODEL })).toBeUndefined();
   const network = vi.fn<typeof fetch>(async () => { throw new Error("Cache should avoid HTTP"); });
   const ctx = createToolContext({ env, provider: { provider: "gemini", model: env.GEMINI_MODEL, classify: network as never } });
   expect(await ctx.dispatch("classify_feedback", {})).toMatchObject({ ok: true, data: { provider: "gemini", cacheHits: 200 } });

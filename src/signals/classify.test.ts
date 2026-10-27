@@ -50,7 +50,7 @@ describe("batch validation", () => {
 });
 
 describe("sequential classification and SQLite cache", () => {
-  beforeEach(() => { createPredictionCache(); ledger().exec("DELETE FROM feedback_prediction_cache"); });
+  beforeEach(() => { ledger().exec("DELETE FROM feedback_prediction_cache"); });
 
   it("uses batches of 20 in input order and reports progress without caching by default", async () => {
     const sizes: number[] = [];
@@ -74,6 +74,22 @@ describe("sequential classification and SQLite cache", () => {
     expect(calls).toBe(0);
     expect(result).toMatchObject({ cacheHits: 1, schemaValidCount: 1, total: 1 });
     expect(result.batches).toHaveLength(0);
+  });
+
+  it("accepts synchronous injected caches through the awaited fallback", async () => {
+    const batch = inputs();
+    const writes: string[] = [];
+    let providerCalls = 0;
+    const result = await classifyFeedback(batch, {
+      provider: fixtureProvider(undefined, () => providerCalls++),
+      cache: {
+        get(input) { return input.id === "id-0" ? prediction(input.id) : undefined; },
+        set(input) { writes.push(input.id); },
+      },
+    });
+    expect(providerCalls).toBe(1);
+    expect(result.cacheHits).toBe(1);
+    expect(writes).toEqual(["id-1", "id-2"]);
   });
 
   it("treats corrupt, mismatched-ID and low-confidence cached data as misses", async () => {
@@ -131,10 +147,10 @@ describe("sequential classification and SQLite cache", () => {
     const cache = createPredictionCache();
     const batch = inputs();
     const provider = fixtureProvider();
-    cache.set(batch[0], provider, prediction("wrong"));
-    cache.set(batch[0], provider, prediction("id-0", 0.6));
-    expect(cache.get(batch[0], provider)).toBeUndefined();
-    cache.set(batch[1], provider, prediction("id-1"));
+    await cache.set(batch[0], provider, prediction("wrong"));
+    await cache.set(batch[0], provider, prediction("id-0", 0.6));
+    expect(await cache.get(batch[0], provider)).toBeUndefined();
+    await cache.set(batch[1], provider, prediction("id-1"));
     const result = await classifyFeedback(batch, { provider, cache });
     expect(result.accepted.map((p) => p.id)).toEqual(batch.map((p) => p.id));
     expect(result.cacheHits).toBe(1);
@@ -159,13 +175,13 @@ describe("sequential classification and SQLite cache", () => {
     const cache = createPredictionCache();
     const batch = inputs(1);
     const cached = prediction("id-0");
-    cache.set(batch[0], fixtureProvider(), cached);
+    await cache.set(batch[0], fixtureProvider(), cached);
     let calls = 0;
     const fresh = { ...cached, reason: "price" };
     const result = await classifyFeedback(batch, { provider: fixtureProvider([{ items: [fresh] }], () => calls++) });
     expect(calls).toBe(1);
     expect(result.cacheHits).toBe(0);
     expect(result.accepted).toEqual([fresh]);
-    expect(cache.get(batch[0], fixtureProvider())).toEqual(cached);
+    expect(await cache.get(batch[0], fixtureProvider())).toEqual(cached);
   });
 });

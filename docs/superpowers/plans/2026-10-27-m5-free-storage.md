@@ -34,6 +34,8 @@ Scope: async hosting store/guard/session API and every guarded route caller, hos
 
 Scope: bulk async classifier cache/import/classification and their test/CLI callers; safe local-to-empty-remote import; production raw-query audit and final integration. Preserve sync test cache injection through an awaited interface when practical. Remove every remaining production raw-ledger bypass, guard accidental hosted local access, test bulk round-trip bounds and genuine provider replays, and complete the dry-run/import validation. Only after B3 reviews/full verification may the app be built for remote-hosted acceptance.
 
+Implementation checkpoint: async bulk cache, guarded raw access, read-only WAL-consistent snapshot import and temporary-fixture offline tests are in the B3 checkout. Independent spec/quality review and parent hosted acceptance remain open; no cloud import or backend switch has occurred.
+
 ### Cross-slice acceptance checklist
 
 Files: ledger/proposals/db helpers, execution, hosting store/guard/session, PayPal setup/status, signals cache/import/classifier, agent tools/run dependencies, route handlers, CLI helpers and affected tests; add safe import/check tooling and portable instructions.

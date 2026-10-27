@@ -5,6 +5,19 @@ import { DatabaseSync } from "node:sqlite";
 
 // Durable record of decisions, approvals, PayPal executions, and observed outcomes.
 
+export const HOSTED_SCHEMA = `
+CREATE TABLE IF NOT EXISTS hosted_sessions (
+  token_hash TEXT PRIMARY KEY,
+  expires_at INTEGER NOT NULL,
+  password_fingerprint TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS hosted_limits (
+  bucket_key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+`;
+
 export const LEDGER_SCHEMA = `
 CREATE TABLE IF NOT EXISTS sandbox_subscribers (
   subscription_id TEXT PRIMARY KEY,
@@ -63,11 +76,17 @@ CREATE TABLE IF NOT EXISTS audit_events (
   proposal_id TEXT,
   detail_json TEXT
 );
+CREATE TABLE IF NOT EXISTS feedback_prediction_cache (
+  cache_key TEXT PRIMARY KEY,
+  prediction_json TEXT NOT NULL
+);
+${HOSTED_SCHEMA}
 `;
 
 let db: DatabaseSync | null = null;
 
 export function ledger(): DatabaseSync {
+  if (process.env.LEDGER_BACKEND === "turso" || process.env.RENDER === "true") throw new Error("Raw local ledger access is unavailable for hosted storage");
   if (!db) {
     const path = process.env.LEDGER_PATH ?? resolve(process.cwd(), "data", "ledger.sqlite");
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });

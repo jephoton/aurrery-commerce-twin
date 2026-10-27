@@ -53,8 +53,9 @@ export async function classifyFeedback(inputs: ModelInput[], options: {
   const result: ClassificationResult = { accepted: [], unclassified: [], schemaValidCount: 0, diagnostics: [], total: inputs.length, cacheHits: 0, batches: [], metrics: emptyMetrics(), stopped: false };
   const cache = options.cache === true ? createPredictionCache() : options.cache || undefined;
   const pending: ModelInput[] = [];
+  const bulkHits = cache?.getMany ? await cache.getMany(inputs, options.provider) : undefined;
   for (const input of inputs) {
-    const hit = cache?.get(input, options.provider);
+    const hit = bulkHits ? bulkHits.get(input.id) : await cache?.get(input, options.provider);
     if (hit) { result.accepted.push(hit); result.schemaValidCount++; result.cacheHits++; }
     else pending.push(input);
   }
@@ -74,7 +75,12 @@ export async function classifyFeedback(inputs: ModelInput[], options: {
     result.metrics.latencyMs += response.metrics.latencyMs;
     result.metrics.retries += response.metrics.retries;
     for (const field of ["inputTokens", "outputTokens", "totalTokens"] as const) result.metrics.usage[field] += response.metrics.usage[field];
-    for (const accepted of batch.accepted) cache?.set(inputs.find(({ id }) => id === accepted.id)!, options.provider, accepted);
+    if (cache) {
+      const byId = new Map(inputs.map((input) => [input.id, input]));
+      const entries = batch.accepted.map((prediction) => ({ input: byId.get(prediction.id)!, prediction }));
+      if (cache.setMany) await cache.setMany(entries, options.provider);
+      else for (const entry of entries) await cache.set(entry.input, options.provider, entry.prediction);
+    }
     if (response.terminal) {
       result.stopped = true;
       result.unclassified.push(...pending.slice(offset + inputs.length).map(({ id }) => ({ id, cause: "provider_error" as const })));

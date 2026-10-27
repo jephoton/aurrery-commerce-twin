@@ -37,7 +37,7 @@ it.each([recording, geminiRecording])("replays the genuine $provider run through
   for (const input of feedbackCorpus.map(toModelInput)) {
     const prediction = predictions.find(({ id }) => id === input.id);
     expect(prediction, input.id).toBeDefined();
-    cache.set(input, { provider: recording.provider as "groq" | "gemini", model: recording.model }, prediction!);
+    await cache.set(input, { provider: recording.provider as "groq" | "gemini", model: recording.model }, prediction!);
   }
   const original = structuredClone(currentMerchant().twin);
   const events: AgentEvent[] = [];
