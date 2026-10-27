@@ -52,7 +52,7 @@ Sources checked: [Render Free](https://render.com/docs/free), [Turso pricing](ht
 | Bulk classifier cache and safe import (B3) | reviewed at `16ee349`, target-schema correction `8007080` and legacy-order correction `0be333b`; parent full 561 tests/56 files passed; actual read-only source dry-run and shared-read DB/WAL hashes passed without remote access |
 | Signature verification and transactional event deduplication | reviewed at `adc93d1` with accepted bounded OAuth clarification `160ccf2`; full offline suite 582 tests/59 files; parent focused 35 tests/3 files and typecheck; quality independently 42 tests/5 files; genuine delivery pending |
 | Measured exposure and repeatable posterior derivation | reviewed at `9e9374c` + current-run evidence `a4a936b`; quality 91 focused tests/seven files; parent production build passed with invalid runtime storage settings; browser/live acceptance pending |
-| Separate approved revert and restricted reset | pending |
+| Separate approved revert and restricted reset | revert reviewed through `dc1ab9b`; full offline 667 tests/69 files; spec pagination/evidence corrections and quality price-format/reuse corrections passed; admin reset remains next |
 | Local production/browser validation | pending |
 | Hosting budget/account and final configuration | user selected Render Free + Turso; async durable storage adaptation reviewed locally; private settings deferred while unblocked work continues; no purchase |
 | Deployed URL and persistent state across restart | pending |

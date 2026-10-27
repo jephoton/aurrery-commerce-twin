@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-27. **M0–M4 are published on main. M5 Tasks 1–2 and Storage Tasks A, B1, B2 and B3 passed independent spec and quality reviews. The user selected Render Free + Turso. M5 Task 3 sandbox webhook ingestion passed independent spec and quality reviews; genuine delivery acceptance remains pending. Task 4 measured outcomes and current-run evidence passed independent spec and quality reviews. Task 5's revert slice is implemented offline and awaits independent reviews; admin reset remains next. Hosted deployment and live Turso acceptance remain pending. No M5 approval, execution or PayPal mutation has occurred.**_
+_Last material update: 2026-10-27. **M0–M4 are published on main. M5 Tasks 1–2 and Storage Tasks A, B1, B2 and B3 passed independent spec and quality reviews. The user selected Render Free + Turso. M5 Task 3 sandbox webhook ingestion passed independent spec and quality reviews; genuine delivery acceptance remains pending. Task 4 measured outcomes and current-run evidence passed independent spec and quality reviews. Task 5's revert slice passed independent spec and quality reviews; admin reset is next. Hosted deployment and live Turso acceptance remain pending. No M5 approval, execution or PayPal mutation has occurred.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -11,7 +11,7 @@ _Last material update: 2026-10-27. **M0–M4 are published on main. M5 Tasks 1�
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
-## M5 Task 5: separate revert proposal (first slice, awaiting review)
+## M5 Task 5: separate revert proposal (first slice reviewed)
 
 <!-- Generated handoff: M5 Task 5 revert slice. -->
 
@@ -24,6 +24,8 @@ The importer treats a missing legacy claim table as empty, strictly validates re
 Offline verification for the first slice: 648 tests across 67 files passed with one Vitest worker; tracked source typecheck, zero-warning lint and diff whitespace checks passed. Fixture coverage includes separate SQLite/libSQL claim contention, legacy unresolved imports, partial reservation cleanup, source/registration tampering, price/read-back checks, partial and ambiguous execution outcomes, recovery import round trip, outstanding-action paging beyond recent history, deferred status-before-evidence refresh, error-time evidence invalidation, and unchecked controls. Independent spec re-review and quality review, production build and browser acceptance remain with the parent before Task 5's reset slice.
 
 The quality follow-up compares observed PayPal USD prices by strictly parsed cents: `24`, `24.0` and `24.00` are equivalent, while exponent notation, extra precision and malformed values fail closed. The same comparison covers execution pre-read/read-back, source eligibility and claim, import source verification, discount episode import and measured exposure boundaries. Canonical action JSON and hashes retain their exact strings. A verified restore may leave PayPal's plan override flag true; a new separately approved discount can execute when the current price is the frozen list price and all registration, claim and status checks still pass. An offline real-ledger fixture runs discount → restore → discount with the flag remaining true, two exposure episodes and no recovery schedule. This correction passes 667 tests across 69 files with one worker, typecheck and zero-warning lint. No live PayPal call or approval was made for this correction.
+
+Independent spec re-review passed at 8c70b41 after outstanding-history and ordered-evidence fixes. Quality re-review passed at dc1ab9b after strict observed USD cents comparisons and restored-pilot reuse; independently 95 tests/seven files passed. Full offline suite at that checkpoint is 667 tests/69 files with typecheck and zero-warning lint. Parent independently passed 25 initial recovery/execution/UI tests and 18 pagination/UI follow-up tests. Admin reset remains unimplemented; final build/browser/live acceptance is still pending.
 
 ## M5 Task 4: conservative measured discount outcomes (reviewed offline)
 
