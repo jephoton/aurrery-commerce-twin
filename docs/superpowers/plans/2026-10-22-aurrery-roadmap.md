@@ -69,7 +69,7 @@ Each milestone ends with working, tested software, committed on its own branch a
 **Done when:** a browser walkthrough of the whole flow looks demo-ready. Checked with the `run` skill or a screenshot on the hosted build.
 
 ## M5: Hosting and observed loop
-**Status:** in progress. Bounded computation and local access/admission are independently reviewed. The user selected **Render Free + Turso** on 2026-10-27, replacing the paid persistent-disk design; async storage adaptation precedes webhooks/recovery. Complete unblocked implementation before requesting account setup again. Further UI iteration is deferred to M8.
+**Status:** in progress. Bounded computation, hosted access/admission, async SQLite/libSQL storage, verified webhook ingestion and measured outcomes passed independent offline reviews. Current-run evidence and production build integration are verified locally. Revert recovery is implemented with review fixes in progress; admin reset, free deployment preparation, final browser checks and live hosted/webhook acceptance remain. The user selected **Render Free + Turso**, replacing the paid persistent-disk design. Complete unblocked implementation before requesting account setup again. Further UI iteration is deferred to M8.
 **Goal:** judges can use it live, and observed outcomes feed back into the twin.
 - Render Free web service with an authoritative Turso libSQL ledger and local SQLite compatibility; environment configuration; durable rate limits and a token cap per run. Free-service cold starts are an accepted deployment trade-off.
 - Webhook endpoint with PayPal signature verification and event deduplication; observations update the discount-effect posterior.
@@ -95,7 +95,8 @@ If time is short, cut M6 (CSV import). M7 (annual-plan execution) became part of
 **Done when:** a sandbox buyer approves a switch and the subscription reads back on the annual plan.
 
 ## M8: Submission
-- Create the public GitHub repo (name agreed with you then), with the MIT license visible.
+- Iterate on the product UI as requested, preserving the simulation, evidence and explicit approval behavior.
+- Public GitHub repo and visible MIT license are already complete; retain them through final publication.
 - README with a hosted URL and local setup; Devpost text, including the tools-used explanation.
 - Video script, then record (under 3:00), upload to YouTube as public.
 - Final QA on the hosted build; submit with margin before the deadline.
