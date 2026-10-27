@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-27. **M0–M4 are published on main. M5 Tasks 1–2 (bounded computation and local hosted access/admission) passed independent spec and quality reviews. The user selected Render Free + Turso. Storage Task A and Task B1 passed spec and quality reviews. Task B2's hosted session/quota migration is implemented and awaiting independent reviews; B3 signals/cache/import remains open. No M5 approval, execution or PayPal mutation has occurred.**_
+_Last material update: 2026-10-27. **M0–M4 are published on main. M5 Tasks 1–2 (bounded computation and local hosted access/admission) passed independent spec and quality reviews. The user selected Render Free + Turso. Storage Tasks A, B1 and B2 passed spec and quality reviews; B3 signals/cache/import is next. No M5 approval, execution or PayPal mutation has occurred.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -25,7 +25,9 @@ After a PayPal mutation, an ambiguous transport result, missing or mismatched re
 
 This is **not** a Turso-ready or mixed-backend checkpoint. Hosted sessions/quotas and signal cache/import still use raw `ledger()` and can bypass the local adapter queue; those are the next Task B stages. Do not deploy with `LEDGER_BACKEND=turso` or run old raw consumers alongside adapter transactions until those stages and their reviews pass. Ignored local `data/` scratch scripts are excluded from repository typechecking; tracked `src/` and `scripts/` remain checked. B1 at 0e4270c passed independent spec and quality reviews (each ran 46 focused tests/six files). Parent full offline verification passed 528 tests across 51 files; typecheck, zero-warning full lint and diff check pass, and all 173 tracked files passed the configured-secret/personal-path scan. No private data, cloud credentials, Next build, server restart, provider call or PayPal write was used.
 
-## M5 Storage Task B2: hosted session and admission migration (review pending)
+## M5 Storage Task B2: hosted session and admission migration (reviewed intermediate)
+
+Independent spec review passed after test follow-up `3cfa9e0` added actual simultaneous admissions for both two-handle SQLite and two-client libSQL. Independent quality review passed with 51 focused tests/seven files. Parent verification: full 537 tests/53 files at `b93f55d`, the seven-test contention follow-up suite, and all 175 tracked files scanned for configured secrets/personal paths. This remains an intermediate checkpoint until B3 removes raw signal/cache/import access.
 
 Hosted sessions, validation/revocation, quota admission and expired-row cleanup now use the async `LedgerConnection` and `authoritativeWrite` transactions. The actual write handle checks foreign-key enforcement. `src/hosting/guard.ts` and every guarded route await authority checks; invalid mutation origins and missing/malformed administrator cookies fail before a ledger connection is opened. The session capability and proposal-list GETs call Next's `connection()` before runtime ledger work. Cookies remain opaque 32-byte random tokens stored as hashes only, with two-hour expiry and Secure/HttpOnly/SameSite=Strict `__Host-` attributes; password comparison remains constant time. The shared unverified-proxy client bucket remains 3 agent runs/hour, with independent global 6/hour and 20/day caps, HMAC bucket keys, no administrator quota bypass and the maximum exhausted-window `Retry-After`.
 

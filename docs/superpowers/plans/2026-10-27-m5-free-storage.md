@@ -26,7 +26,7 @@ Execute the following three slices sequentially, each with a fresh implementer a
 
 Scope: async settings/audit helpers, proposals/registered pilots/state transitions, execution recording, PayPal setup/sync/status and core CLI callers, proposal routes and agent registry/proposal awaits, plus affected tests. Keep synchronous injected test dependencies usable through awaited adapters. Group state/audit writes and verify FK enforcement in the actual write transaction. Cover conditional claim races and storage failure before/after external effects with fake PayPal calls. Leave hosting/signals/import to later slices; their raw local SQLite access remains a documented intermediate risk, so do not build/deploy/switch a mixed backend.
 
-### B2: session and quota authority
+### B2: session and quota authority — reviewed at 3cfa9e0
 
 Scope: async hosting store/guard/session API and every guarded route caller, hosted configuration, access-related tests. Move sessions, revocation and admission to authoritative transactions with verified constraints, preserve existing security behavior, and add two-connection concurrency/restart tests. Replace Render's obsolete disk requirement with the selected remote backend requirements. Signals/raw import remain pending B3; do not claim full migration yet.
 
