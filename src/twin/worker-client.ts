@@ -1,6 +1,6 @@
 import "server-only";
 import { resolve } from "node:path";
-import { Worker } from "node:worker_threads";
+import type { Worker } from "node:worker_threads";
 import type { Strategy } from "./interventions";
 import type { ComparisonResult, SimulationOptions } from "./simulate";
 import type { StressResult } from "./stress";
@@ -38,7 +38,10 @@ async function run<T>(job: Job, config: WorkerRunConfig = {}): Promise<T> {
   capacity[capacityKey] = true;
   let worker: Worker;
   try {
-    worker = new Worker(config.workerFile ?? resolve(process.cwd(), "build", "twin-worker.cjs"), {
+    // Resolve this Node builtin at runtime: Turbopack must not interpret the
+    // server-owned fixture override as a bundle context over the workspace.
+    const NodeWorker = process.getBuiltinModule("node:worker_threads").Worker;
+    worker = new NodeWorker(config.workerFile ?? resolve(process.cwd(), "build", "twin-worker.cjs"), {
       env: {}, execArgv: [], resourceLimits: { maxOldGenerationSizeMb: 128 },
     });
   } catch {
