@@ -6,7 +6,7 @@
 
 M5 started from published main `35867fc`; M4 application code is `e194c25`. The existing acceptance is 454 tests, typecheck, lint and production build, with local Gemini/browser validation. M5 work is on `feat/m5-observed-loop`. Further visual iteration is deferred to M8 at the user's request.
 
-The M5 [design](../superpowers/specs/2026-10-26-m5-observed-loop-design.md) and [implementation plan](../superpowers/plans/2026-10-26-m5-observed-loop.md) define the acceptance boundaries. No hosted deployment or M5 implementation acceptance has been established yet.
+The M5 [design](../superpowers/specs/2026-10-26-m5-observed-loop-design.md) and [implementation plan](../superpowers/plans/2026-10-26-m5-observed-loop.md) define the acceptance boundaries. Tasks 1–3 and the async storage adaptation have passed independent offline spec and quality reviews. No hosted deployment acceptance has been established yet.
 
 ## Deployment research
 
@@ -32,7 +32,7 @@ Follow-up source inspection: `paypal().client.clientCredentialsAuthManager` is p
 
 ## Free hosting revision (2026-10-27)
 
-The user explicitly requested free hosting and a storage alternative. Paid Render/disk provisioning is excluded. The parent recommends **Render Free plus a Turso free remote SQLite-compatible database**, subject to the user's pending platform preference and a persistence/transaction spike. Render preserves the current long-running Node process; its free service sleeps after 15 idle minutes, may take about a minute to wake and loses local files on sleep/restart. Remote storage must be authoritative for proposals, approvals, execution claims, observations, classification cache, sessions and quotas. A periodically uploaded local SQLite backup is insufficient.
+The user explicitly requested free hosting and a storage alternative. Paid Render/disk provisioning is excluded. The user selected **Render Free plus a Turso free remote SQLite-compatible database**. The async SQLite/libSQL adapter and all durable consumers have passed offline reviews; remote persistence/transaction acceptance remains pending. Render preserves the current long-running Node process; its free service sleeps after 15 idle minutes, may take about a minute to wake and loses local files on sleep/restart. Remote storage must be authoritative for proposals, approvals, execution claims, observations, classification cache, sessions and quotas. A periodically uploaded local SQLite backup is insufficient.
 
 Turso currently lists a no-card $0 plan with 5 GB storage. Its official SDK documentation distinguishes the new Turso engine from the SQLite-derived libSQL backend and their clients. Choose a supported backend deliberately, test transaction/claim semantics and bound network operations before adapting the application. Do not assume the current synchronous `node:sqlite` API is a drop-in remote client. Do not use offline/local-first writes for payment authority or acknowledge success before remote commit.
 
@@ -45,16 +45,16 @@ Sources checked: [Render Free](https://render.com/docs/free), [Turso pricing](ht
 | Check | State |
 | --- | --- |
 | Pure worker, hard timeout, cancellation and capacity | reviewed at `35da88f`; full 474 tests/41 files pass; production build/browser integration pending |
-| Hosted access, durable request limits and secret configuration | implemented locally at `38e0a2a`; spec and quality reviews passed; free-host persistence adaptation remains open |
+| Hosted access, durable request limits and secret configuration | implemented locally at `38e0a2a`; spec and quality reviews passed; async free-host persistence adaptation reviewed; remote acceptance pending |
 | Async SQLite/libSQL adapter | reviewed at `75068b7` + oversized-response cleanup `31e2904`; parent full 518 tests/48 files passed |
 | Async proposal/execution authority (B1) | reviewed at `0e4270c`; parent full 528 tests/51 files and 173-file hygiene scan passed |
-| Async session/quota authority (B2) | implemented at `b93f55d`; spec passed after concurrency-test follow-up `3cfa9e0`; quality review pending; parent full 537 tests/53 files at the implementation checkpoint and follow-up seven-test store suite passed |
-| Bulk classifier cache and safe import (B3) | pending; raw cache/import still blocks mixed-backend deployment |
-| Signature verification and transactional event deduplication | pending |
+| Async session/quota authority (B2) | reviewed at `b93f55d` and concurrency-test follow-up `3cfa9e0`; both reviews passed; parent full 537 tests/53 files at the implementation checkpoint and follow-up seven-test store suite passed |
+| Bulk classifier cache and safe import (B3) | reviewed at `16ee349`, target-schema correction `8007080` and legacy-order correction `0be333b`; parent full 561 tests/56 files passed; actual read-only source dry-run and shared-read DB/WAL hashes passed without remote access |
+| Signature verification and transactional event deduplication | reviewed at `adc93d1` with accepted bounded OAuth clarification `160ccf2`; full offline suite 582 tests/59 files; parent focused 35 tests/3 files and typecheck; quality independently 42 tests/5 files; genuine delivery pending |
 | Measured exposure and repeatable posterior derivation | pending |
 | Separate approved revert and restricted reset | pending |
 | Local production/browser validation | pending |
-| Hosting budget/account and final configuration | user selected Render Free + Turso; async durable storage adaptation in progress; private settings requested; no purchase |
+| Hosting budget/account and final configuration | user selected Render Free + Turso; async durable storage adaptation reviewed locally; private settings deferred while unblocked work continues; no purchase |
 | Deployed URL and persistent state across restart | pending |
 | Genuine verified sandbox webhook observation | pending |
 | Hosted Gemini proposal, confirmation unchecked | pending |
@@ -62,3 +62,7 @@ Sources checked: [Render Free](https://render.com/docs/free), [Turso pricing](ht
 Live subscription mutations, merchant approvals, admin resets and paid provisioning have not been performed in M5 preparation.
 
 Verification compatibility follow-up: the official guide warns that parsing/re-serializing the webhook event can fail signature checks; the original JSON text must be preserved as the postback event value. Its certificate example uses api.sandbox.paypal.com, which must not be rejected merely because OAuth and verification calls use api-m.sandbox.paypal.com. Certificate metadata is never fetched by this app. These are offline wire-format requirements, not evidence of a genuine signed delivery.
+
+## Free deployment preparation follow-up
+
+The [Render Blueprint reference](https://render.com/docs/blueprint-spec), [Free service limitations](https://render.com/docs/free) and [Next.js deployment guide](https://render.com/docs/deploy-nextjs-app) were checked again on 2026-10-27. Prepare a Node web service with an explicit free plan, no disk, one instance, PORT-aware start and the worker bundle in its build. The platform's ephemeral filesystem cannot hold authoritative state. Keep model, PayPal and Turso calls out of build/prerender; validate private runtime configuration separately. Free sleep/restart and webhook retry behavior require live acceptance, not just local health checks. Blueprint preparation and schema validation do not provision a service or prove remote persistence.
