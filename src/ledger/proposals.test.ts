@@ -62,6 +62,7 @@ describe("proposal lifecycle", () => {
 
   it("persists campaign metadata and binds it and reason to the approved hash", async () => {
     const p = await createProposal({ objective: null, strategy: discount("price", 6), result, listPrice: 24 });
+    if (p.action.type !== "subscription_price_override") throw new Error("Expected discount action");
     expect(p.action).toMatchObject({ reason: "price", campaignMonths: 6 });
     expect(p.actionHash).toBe(hashAction(p.action));
     expect(hashAction({ ...p.action, campaignMonths: 0 })).not.toBe(p.actionHash);
@@ -121,6 +122,7 @@ describe("proposal lifecycle", () => {
 
   it("targets only subscriptions in the strategy's segment, at the discounted price", async () => {
     const p = await propose();
+    if (p.action.type !== "subscription_price_override") throw new Error("Expected discount action");
     expect(p.action.targets).toEqual(["I-PRICE000001", "I-PRICE000002"]);
     expect(p.action.newPrice).toBe("18.00");
     expect(p.status).toBe("proposed");

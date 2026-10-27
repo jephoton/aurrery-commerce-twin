@@ -9,16 +9,16 @@ import { StrategySchema } from "@/twin/interventions";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow, type LedgerValue } from "./connection";
 import { LEDGER_SCHEMA } from "./db";
 import { authoritativeWrite } from "./operations";
-import { hashAction, PriceOverrideActionSchema } from "./proposals";
+import { hashAction, PriceOverrideActionSchema, RevertActionSchema, type ProposalAction } from "./proposals";
 
 const TABLES = [
-  ["sandbox_subscribers", "rowid"], ["proposals", "id"], ["executions", "id"],
+  ["sandbox_subscribers", "rowid"], ["proposals", "id"], ["executions", "id"], ["active_target_claims", "target_id"],
   ["observations", "id"], ["paypal_webhook_events", "event_id"], ["discount_episodes", "execution_id"], ["kv", "key"], ["audit_events", "id"],
   ["feedback_prediction_cache", "cache_key"], ["hosted_sessions", "token_hash"], ["hosted_limits", "bucket_key"],
   ["sqlite_sequence", "name"],
 ] as const;
 type TableName = typeof TABLES[number][0];
-const OPTIONAL = new Set<TableName>(["discount_episodes", "paypal_webhook_events", "feedback_prediction_cache", "hosted_sessions", "hosted_limits"]);
+const OPTIONAL = new Set<TableName>(["active_target_claims", "discount_episodes", "paypal_webhook_events", "feedback_prediction_cache", "hosted_sessions", "hosted_limits"]);
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 type TableSnapshot = { table: TableName; columns: string[]; rows: LedgerRow[]; count: number; sha256: string };
 export type ImportManifest = { schemaSha256: string; tables: { table: TableName; count: number; sha256: string }[]; totalRows: number };
@@ -69,14 +69,42 @@ function validateRecords(tables: TableSnapshot[]): void {
       !Number.isFinite(Date.parse(String(row.created_at)))) throw new Error("Source pilot metadata is invalid");
   }
   for (const row of of("proposals")) {
-    let action: unknown;
+    let action: ProposalAction;
     try {
-      action = PriceOverrideActionSchema.parse(JSON.parse(String(row.action_json)));
+      const raw = JSON.parse(String(row.action_json));
+      action = raw.type === "subscription_price_revert" ? RevertActionSchema.parse(raw) : PriceOverrideActionSchema.parse(raw);
       StrategySchema.parse(JSON.parse(String(row.strategy_json)));
-      JSON.parse(String(row.simulation_json));
+      const prediction = JSON.parse(String(row.simulation_json));
+      if (action.type === "subscription_price_revert" ? prediction !== null : prediction === null) throw new Error("Invalid prediction metadata");
     } catch { throw new Error("Source proposal schema is invalid"); }
-    if (!/^prop_[0-9a-f-]{36}$/.test(String(row.id)) || row.action_type !== "subscription_price_override" ||
-      hash(String(row.action_json)) !== row.action_hash || hashAction(action as ReturnType<typeof PriceOverrideActionSchema.parse>) !== row.action_hash) throw new Error("Source proposal action hash is invalid");
+    if (!/^prop_[0-9a-f-]{36}$/.test(String(row.id)) || row.action_type !== action.type ||
+      hash(String(row.action_json)) !== row.action_hash || hashAction(action) !== row.action_hash) throw new Error("Source proposal action hash is invalid");
+    if (action.type === "subscription_price_revert") {
+      if (row.status === "proposed" || row.status === "rejected") {
+        if (row.approved_at !== null || row.approved_by !== null) throw new Error("Source recovery approval state is invalid");
+      } else if (row.approved_at === null || row.approved_by === null) throw new Error("Source recovery approval state is invalid");
+      const source = of("proposals").find((candidate) => candidate.id === action.sourceProposalId);
+      if (!source || !["succeeded", "partially_failed"].includes(String(source.status)) || source.action_type !== "subscription_price_override" ||
+        source.action_hash !== action.sourceActionHash) throw new Error("Source recovery reference is invalid");
+      const original = PriceOverrideActionSchema.parse(JSON.parse(String(source.action_json)));
+      for (const target of action.targets) {
+        const execution = of("executions").find((candidate) => Number(candidate.id) === target.sourceExecutionId);
+        if (!execution || execution.proposal_id !== source.id || execution.target_id !== target.subscriptionId ||
+          execution.operation !== "PATCH subscription fixed_price" || Number(execution.ok) !== 1 || Number(execution.verified) !== 1 ||
+          Date.parse(target.registration.createdAt) > Date.parse(String(execution.created_at)) ||
+          !original.targets.includes(target.subscriptionId) || target.expectedCurrentPrice !== original.newPrice || target.listPrice !== original.listPrice)
+          throw new Error("Source recovery target is invalid");
+        try { if (JSON.parse(String(execution.response_json)).observed?.regularPrice !== target.expectedCurrentPrice) throw new Error(); }
+        catch { throw new Error("Source recovery execution is invalid"); }
+      }
+    }
+  }
+  for (const row of of("active_target_claims")) {
+    const proposal = of("proposals").find((candidate) => candidate.id === row.proposal_id);
+    if (!proposal || proposal.status !== "executing" || !Number.isFinite(Date.parse(String(row.claimed_at)))) throw new Error("Source target claim is invalid");
+    const action = JSON.parse(String(proposal.action_json)) as ProposalAction;
+    const targets = action.type === "subscription_price_override" ? action.targets : action.targets.map((target) => target.subscriptionId);
+    if (!targets.includes(String(row.target_id))) throw new Error("Source target claim is invalid");
   }
   for (const row of of("discount_episodes")) {
     const execution = of("executions").find(e => e.id === row.execution_id);

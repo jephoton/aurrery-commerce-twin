@@ -25,7 +25,27 @@ export const PriceOverrideActionSchema = z.object({
   targets: z.array(z.string().regex(/^I-[A-Z0-9]+$/)).min(1).max(MAX_TARGETS_PER_ACTION),
 });
 export type PriceOverrideAction = z.infer<typeof PriceOverrideActionSchema>;
-export type ProposalAction = PriceOverrideAction;
+const Money = z.string().regex(/^\d+\.\d{2}$/);
+const RevertTargetSchema = z.object({
+  subscriptionId: z.string().regex(/^I-[A-Z0-9]+$/),
+  sourceExecutionId: z.number().int().positive(),
+  expectedCurrentPrice: Money,
+  listPrice: Money,
+  registration: z.object({ label: z.string().min(1), segment: z.enum(SEGMENTS), reason: z.enum(REASONS), createdAt: z.string().datetime() }).strict(),
+}).strict();
+export const RevertActionSchema = z.object({
+  type: z.literal("subscription_price_revert"),
+  sourceProposalId: z.string().regex(/^prop_[0-9a-f-]{36}$/),
+  sourceActionHash: z.string().regex(/^[a-f0-9]{64}$/),
+  targets: z.array(RevertTargetSchema).min(1).max(MAX_TARGETS_PER_ACTION),
+}).strict().superRefine((action, ctx) => {
+  if (new Set(action.targets.map((target) => target.subscriptionId)).size !== action.targets.length)
+    ctx.addIssue({ code: "custom", message: "Duplicate recovery target", path: ["targets"] });
+  if (action.targets.some((target) => Number(target.expectedCurrentPrice) >= Number(target.listPrice)))
+    ctx.addIssue({ code: "custom", message: "Recovery price is not a discount", path: ["targets"] });
+});
+export type RevertAction = z.infer<typeof RevertActionSchema>;
+export type ProposalAction = PriceOverrideAction | RevertAction;
 
 export type ProposalStatus = "proposed" | "approved" | "executing" | "succeeded" | "partially_failed" | "failed" | "rejected";
 
@@ -34,7 +54,7 @@ export interface Proposal {
   createdAt: string;
   objective: string | null;
   strategy: Strategy;
-  prediction: Pick<StrategyResult, "metrics" | "vsBaseline" | "probValueBelowBaseline">;
+  prediction: Pick<StrategyResult, "metrics" | "vsBaseline" | "probValueBelowBaseline"> | null;
   action: ProposalAction;
   actionHash: string;
   status: ProposalStatus;
@@ -69,7 +89,7 @@ function parseSubscriber(r: LedgerRow): SandboxSubscriber {
 }
 
 /** Snapshot today's matching pilots. Later campaign entrants require separate proposals and approvals. */
-export function buildActionFromSubscribers(strategy: Strategy, listPrice: number, subscribers: SandboxSubscriber[], eligibleTargetIds?: readonly string[]): ProposalAction {
+export function buildActionFromSubscribers(strategy: Strategy, listPrice: number, subscribers: SandboxSubscriber[], eligibleTargetIds?: readonly string[]): PriceOverrideAction {
   const iv = strategy.intervention;
   if (iv.kind !== "targeted_discount") {
     throw new ProposalError(`Strategy kind "${iv.kind}" has no executable PayPal action in this build.`, "NOT_EXECUTABLE");
@@ -125,6 +145,22 @@ async function proposalOn(tx: LedgerExecutor, id: string): Promise<Proposal> {
   return parseProposal((await tx.query("SELECT * FROM proposals WHERE id = ?", [id]))[0], id);
 }
 
+async function assertRegistrationMutable(tx: LedgerExecutor, subscriptionIds: string[], label: string): Promise<void> {
+  const ids = new Set(subscriptionIds);
+  for (const pilot of await tx.query("SELECT subscription_id FROM sandbox_subscribers WHERE label=?", [label])) ids.add(String(pilot.subscription_id));
+  for (const id of ids) {
+    if ((await tx.query("SELECT target_id FROM active_target_claims WHERE target_id=?", [id])).length)
+      throw new Error("Pilot has an active execution claim.");
+  }
+  // A legacy executing action can predate the reservation table.
+  for (const row of await tx.query("SELECT action_json FROM proposals WHERE status='executing'")) {
+    let action: ProposalAction;
+    try { action = JSON.parse(String(row.action_json)); } catch { throw new Error("Unresolved execution blocks pilot registration changes."); }
+    const targets = action.type === "subscription_price_override" ? action.targets : action.type === "subscription_price_revert" ? action.targets.map((target) => target.subscriptionId) : null;
+    if (!targets || !Array.isArray(targets) || targets.some((target) => ids.has(target))) throw new Error("Pilot has an active execution claim.");
+  }
+}
+
 /** Bind a workflow to a connection for offline tests or migration tooling. */
 export function createProposalRepository(connection: LedgerConnection) {
   return {
@@ -135,17 +171,19 @@ export function createProposalRepository(connection: LedgerConnection) {
     },
     async registerSandboxSubscriber(s: SandboxSubscriber): Promise<void> {
       await authoritativeWrite(connection, async (tx) => {
+        await assertRegistrationMutable(tx, [s.subscriptionId], s.label);
         await tx.execute("INSERT OR REPLACE INTO sandbox_subscribers (subscription_id, label, segment, reason, created_at) VALUES (?, ?, ?, ?, ?)", [s.subscriptionId, s.label, s.segment, s.reason, now()]);
       });
     },
     /** Change only the identifier: preserve rowid, cohort metadata and proposal targets. */
     async replaceSandboxSubscription(previousId: string, label: string, subscriptionId: string): Promise<void> {
       await authoritativeWrite(connection, async (tx) => {
+        await assertRegistrationMutable(tx, [previousId, subscriptionId], label);
         const result = await tx.execute("UPDATE sandbox_subscribers SET subscription_id = ? WHERE subscription_id = ? AND label = ?", [subscriptionId, previousId, label]);
         if (result.rowsAffected !== 1) throw new Error("Pilot registration changed during recovery; no replacement was made.");
       });
     },
-    async buildAction(strategy: Strategy, listPrice: number, eligibleTargetIds?: readonly string[]): Promise<ProposalAction> {
+    async buildAction(strategy: Strategy, listPrice: number, eligibleTargetIds?: readonly string[]): Promise<PriceOverrideAction> {
       return buildActionFromSubscribers(strategy, listPrice, await this.listSandboxSubscribers(), eligibleTargetIds);
     },
     async createProposal(input: CreateProposalInput): Promise<Proposal> {
@@ -162,6 +200,38 @@ export function createProposalRepository(connection: LedgerConnection) {
           [id, now(), input.objective, JSON.stringify(strategy), JSON.stringify(prediction), action.type, JSON.stringify(action), actionHash],
         );
         await auditOn(tx, "proposal.created", id, { strategyId: strategy.id, action });
+        return proposalOn(tx, id);
+      });
+    },
+    async createRevertProposal(sourceProposalId: string): Promise<Proposal> {
+      return authoritativeWrite(connection, async (tx) => {
+        const source = await proposalOn(tx, sourceProposalId);
+        if (source.action.type !== "subscription_price_override" || !["succeeded", "partially_failed"].includes(source.status) ||
+          hashAction(source.action) !== source.actionHash) throw new ProposalError("Source is not a completed discount action.", "INVALID_STATE");
+        const executions = await tx.query("SELECT id,target_id,response_json,created_at FROM executions WHERE proposal_id=? AND operation='PATCH subscription fixed_price' AND ok=1 AND verified=1 ORDER BY id", [source.id]);
+        const targets: RevertAction["targets"] = [];
+        for (const execution of executions) {
+          const id = String(execution.target_id);
+          if (!source.action.targets.includes(id)) continue;
+          let reported: { observed?: { regularPrice?: string } };
+          try { reported = JSON.parse(String(execution.response_json)); } catch { continue; }
+          if (reported.observed?.regularPrice !== source.action.newPrice) continue;
+          const latest = (await tx.query("SELECT id FROM executions WHERE target_id=? AND ok=1 AND verified=1 ORDER BY id DESC LIMIT 1", [id]))[0];
+          if (Number(latest?.id) !== Number(execution.id)) continue;
+          const registration = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [id]))[0];
+          if (!registration || Date.parse(String(registration.created_at)) > Date.parse(String(execution.created_at)) || registration.segment !== source.action.segment ||
+            (source.action.reason !== "any" && registration.reason !== source.action.reason)) continue;
+          targets.push({ subscriptionId: id, sourceExecutionId: Number(execution.id), expectedCurrentPrice: source.action.newPrice,
+            listPrice: source.action.listPrice, registration: { label: String(registration.label), segment: registration.segment as typeof SEGMENTS[number],
+              reason: registration.reason as ReasonId, createdAt: String(registration.created_at) } });
+        }
+        if (!targets.length) throw new ProposalError("No verified registered discount targets remain eligible.", "NO_TARGETS");
+        const action = RevertActionSchema.parse({ type: "subscription_price_revert", sourceProposalId: source.id, sourceActionHash: source.actionHash, targets });
+        const id = `prop_${randomUUID()}`;
+        await tx.execute(`INSERT INTO proposals (id,created_at,objective,strategy_json,simulation_json,action_type,action_json,action_hash,status)
+          VALUES (?,?,?,?,?,?,?,?,'proposed')`, [id, now(), `Restore verified discount from ${source.id}`, JSON.stringify(source.strategy), "null",
+            action.type, JSON.stringify(action), hashAction(action)]);
+        await auditOn(tx, "proposal.revert_created", id, { sourceProposalId: source.id, sourceActionHash: source.actionHash, targets: targets.map((target) => target.subscriptionId) });
         return proposalOn(tx, id);
       });
     },
@@ -193,20 +263,90 @@ export function createProposalRepository(connection: LedgerConnection) {
     },
     /** Exactly one caller wins the conditional transition. */
     async claimForExecution(id: string): Promise<Proposal> {
-      return authoritativeWrite(connection, async (tx) => {
-        const res = await tx.execute("UPDATE proposals SET status = 'executing' WHERE id = ? AND status = 'approved'", [id]);
-        if (res.rowsAffected !== 1) {
-          const p = await proposalOn(tx, id);
-          throw new ProposalError(`Proposal is ${p.status}; only an approved proposal can be executed, once.`, "INVALID_STATE");
+      const result = await authoritativeWrite(connection, async (tx) => {
+        const p = await proposalOn(tx, id);
+        if (p.status !== "approved") throw new ProposalError(`Proposal is ${p.status}; only an approved proposal can be executed, once.`, "INVALID_STATE");
+        const fail = async (reason: string) => {
+          await tx.execute("DELETE FROM active_target_claims WHERE proposal_id=?", [id]);
+          await tx.execute("UPDATE proposals SET status='failed',completed_at=? WHERE id=? AND status='approved'", [now(), id]);
+          await auditOn(tx, "proposal.preflight_failed", id, { reason });
+          return null;
+        };
+        const targets = p.action.type === "subscription_price_override" ? p.action.targets : p.action.targets.map((target) => target.subscriptionId);
+        if (p.action.type === "subscription_price_revert") {
+          const action = RevertActionSchema.safeParse(p.action);
+          if (!action.success || hashAction(p.action) !== p.actionHash) return fail("invalid_revert_action");
+          const source = await proposalOn(tx, action.data.sourceProposalId);
+          if (source.action.type !== "subscription_price_override" || !["succeeded", "partially_failed"].includes(source.status) ||
+            source.actionHash !== action.data.sourceActionHash || hashAction(source.action) !== source.actionHash) return fail("stale_source");
+          for (const target of action.data.targets) {
+            const registration = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [target.subscriptionId]))[0];
+            if (!registration || registration.label !== target.registration.label || registration.segment !== target.registration.segment ||
+              registration.reason !== target.registration.reason || registration.created_at !== target.registration.createdAt ||
+              !source.action.targets.includes(target.subscriptionId) || source.action.newPrice !== target.expectedCurrentPrice || source.action.listPrice !== target.listPrice) return fail("registration_or_source_changed");
+            const execution = (await tx.query("SELECT proposal_id,target_id,operation,ok,verified,response_json,created_at FROM executions WHERE id=?", [target.sourceExecutionId]))[0];
+            const latest = (await tx.query("SELECT id FROM executions WHERE target_id=? AND ok=1 AND verified=1 ORDER BY id DESC LIMIT 1", [target.subscriptionId]))[0];
+            if (!execution || execution.proposal_id !== source.id || execution.target_id !== target.subscriptionId ||
+              execution.operation !== "PATCH subscription fixed_price" || Number(execution.ok) !== 1 || Number(execution.verified) !== 1 ||
+              Date.parse(target.registration.createdAt) > Date.parse(String(execution.created_at)) || Number(latest?.id) !== target.sourceExecutionId) return fail("source_execution_changed");
+            try { if (JSON.parse(String(execution.response_json)).observed?.regularPrice !== target.expectedCurrentPrice) return fail("source_price_changed"); }
+            catch { return fail("source_execution_invalid"); }
+          }
+        } else {
+          const action = PriceOverrideActionSchema.safeParse(p.action);
+          if (!action.success || hashAction(p.action) !== p.actionHash) return fail("invalid_discount_action");
+          for (const target of action.data.targets) {
+            const registration = (await tx.query("SELECT segment,reason FROM sandbox_subscribers WHERE subscription_id=?", [target]))[0];
+            if (!registration || registration.segment !== action.data.segment ||
+              (action.data.reason !== "any" && registration.reason !== action.data.reason)) return fail("registration_changed");
+          }
         }
+        // Imported older ledgers can have unresolved executions without a claims table.
+        const executing = await tx.query("SELECT id,action_json FROM proposals WHERE status='executing' AND id<>?", [id]);
+        for (const row of executing) {
+          let prior: ProposalAction;
+          try { prior = JSON.parse(String(row.action_json)); } catch { return fail("unreadable_executing_action"); }
+          const priorTargets = prior.type === "subscription_price_override" ? prior.targets : prior.type === "subscription_price_revert" ? prior.targets.map((target) => target.subscriptionId) : null;
+          if (!priorTargets || !Array.isArray(priorTargets) || priorTargets.some((target) => targets.includes(target))) return fail("unresolved_target");
+        }
+        for (const target of targets) {
+          const reserved = await tx.execute("INSERT OR IGNORE INTO active_target_claims (target_id,proposal_id,claimed_at) VALUES (?,?,?)", [target, id, now()]);
+          if (reserved.rowsAffected !== 1) return fail("target_claimed");
+        }
+        const res = await tx.execute("UPDATE proposals SET status = 'executing' WHERE id = ? AND status = 'approved'", [id]);
+        if (res.rowsAffected !== 1) throw new ProposalError("Proposal claim lost.", "INVALID_STATE");
         await auditOn(tx, "proposal.executing", id, null);
         return proposalOn(tx, id);
+      });
+      if (!result) throw new ProposalError("Preflight failed before PayPal mutation; create and approve a fresh proposal.", "INVALID_STATE");
+      return result;
+    },
+    async validateTargetForExecution(proposal: Proposal, subscriptionId: string): Promise<boolean> {
+      return authoritativeWrite(connection, async (tx) => {
+        if (proposal.status !== "executing") return false;
+        const claim = (await tx.query("SELECT proposal_id FROM active_target_claims WHERE target_id=?", [subscriptionId]))[0];
+        if (claim?.proposal_id !== proposal.id) return false;
+        const action = proposal.action;
+        if (action.type === "subscription_price_override") {
+          if (!action.targets.includes(subscriptionId)) return false;
+          const pilot = (await tx.query("SELECT segment,reason FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];
+          return !!pilot && pilot.segment === action.segment && (action.reason === "any" || pilot.reason === action.reason);
+        }
+        const target = action.targets.find((candidate) => candidate.subscriptionId === subscriptionId);
+        if (!target) return false;
+        const pilot = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];
+        const latest = (await tx.query("SELECT id FROM executions WHERE target_id=? AND ok=1 AND verified=1 ORDER BY id DESC LIMIT 1", [subscriptionId]))[0];
+        return !!pilot && pilot.label === target.registration.label && pilot.segment === target.registration.segment &&
+          pilot.reason === target.registration.reason && pilot.created_at === target.registration.createdAt && Number(latest?.id) === target.sourceExecutionId;
       });
     },
     async finishExecution(id: string, status: "succeeded" | "partially_failed" | "failed", revertAfter: string | null, summary?: { succeeded: number; total: number }): Promise<void> {
       await authoritativeWrite(connection, async (tx) => {
+        const action = (await proposalOn(tx, id)).action;
+        if (action.type === "subscription_price_revert" && revertAfter !== null) throw new ProposalError("A recovery cannot schedule a revert.", "INVALID_STATE");
         const res = await tx.execute("UPDATE proposals SET status = ?, completed_at = ?, revert_after = ? WHERE id = ? AND status = 'executing'", [status, now(), revertAfter, id]);
         if (res.rowsAffected !== 1) throw new ProposalError("Only an executing proposal can be completed.", "INVALID_STATE");
+        await tx.execute("DELETE FROM active_target_claims WHERE proposal_id=?", [id]);
         await auditOn(tx, `proposal.${status}`, id, { revertAfter });
         if (summary) await auditOn(tx, "execution.report", id, summary);
       });
@@ -221,9 +361,11 @@ export const registerSandboxSubscriber = async (s: SandboxSubscriber) => (await 
 export const replaceSandboxSubscription = async (previousId: string, label: string, subscriptionId: string) => (await runtimeRepository()).replaceSandboxSubscription(previousId, label, subscriptionId);
 export const buildAction = async (strategy: Strategy, listPrice: number, eligibleTargetIds?: readonly string[]) => (await runtimeRepository()).buildAction(strategy, listPrice, eligibleTargetIds);
 export const createProposal = async (input: CreateProposalInput) => (await runtimeRepository()).createProposal(input);
+export const createRevertProposal = async (sourceProposalId: string) => (await runtimeRepository()).createRevertProposal(sourceProposalId);
 export const getProposal = async (id: string) => (await runtimeRepository()).getProposal(id);
 export const listProposals = async (limit?: number) => (await runtimeRepository()).listProposals(limit);
 export const approveProposal = async (id: string, actionHash: string, approvedBy: string) => (await runtimeRepository()).approveProposal(id, actionHash, approvedBy);
 export const rejectProposal = async (id: string, reason: string) => (await runtimeRepository()).rejectProposal(id, reason);
 export const claimForExecution = async (id: string) => (await runtimeRepository()).claimForExecution(id);
+export const validateTargetForExecution = async (proposal: Proposal, subscriptionId: string) => (await runtimeRepository()).validateTargetForExecution(proposal, subscriptionId);
 export const finishExecution = async (id: string, status: "succeeded" | "partially_failed" | "failed", revertAfter: string | null, summary?: { succeeded: number; total: number }) => (await runtimeRepository()).finishExecution(id, status, revertAfter, summary);

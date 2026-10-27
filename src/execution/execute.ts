@@ -2,7 +2,7 @@ import "server-only";
 import { now } from "@/ledger/db";
 import { runtimeLedgerConnection, type LedgerConnection } from "@/ledger/connection";
 import { auditOn, authoritativeWrite } from "@/ledger/operations";
-import { claimForExecution, finishExecution, getProposal, ProposalError, type Proposal } from "@/ledger/proposals";
+import { claimForExecution, finishExecution, getProposal, validateTargetForExecution, ProposalError, type Proposal } from "@/ledger/proposals";
 import { getSubscription, overrideSubscriptionPrice, type SubscriptionSnapshot } from "@/paypal/subscriptions";
 import { PriceOverrideActionSchema } from "@/ledger/proposals";
 import { REASONS, SEGMENTS } from "@/twin/types";
@@ -33,6 +33,8 @@ type Dependencies = {
   patch: typeof overrideSubscriptionPrice;
   read: typeof getSubscription;
   record: (id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null) => Promise<void>;
+  recordObservation?: typeof recordObservation;
+  validateTarget?: typeof validateTargetForExecution;
 };
 
 export async function recordTarget(id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null, connection?: LedgerConnection, recordedAt = now()): Promise<void> {
@@ -70,10 +72,47 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
   catch (error) { if (error instanceof ProposalError) throw error; throw new ExecutionReconciliationRequired(id); }
   const action = proposal.action;
   const outcomes: TargetOutcome[] = [];
-  for (const subscriptionId of action.targets) {
-    const request = { subscriptionId, path: "/plan/billing_cycles/@sequence==1/pricing_scheme/fixed_price", value: { currency_code: "USD", value: action.newPrice } };
+  const targets = action.type === "subscription_price_override"
+    ? action.targets.map((subscriptionId) => ({ subscriptionId, expectedCurrentPrice: action.listPrice, listPrice: action.newPrice }))
+    : action.targets;
+  for (const target of targets) {
+    const { subscriptionId } = target;
+    const requestedPrice = target.listPrice;
+    const request = { subscriptionId, path: "/plan/billing_cycles/@sequence==1/pricing_scheme/fixed_price", value: { currency_code: "USD", value: requestedPrice } };
+    let current: SubscriptionSnapshot;
+    try {
+      if (deps.validateTarget && !(await deps.validateTarget(proposal, subscriptionId))) {
+        const outcome: TargetOutcome = { subscriptionId, ok: false, httpStatus: null, debugId: null, verified: false, observed: null, error: "Registration or verified action changed before mutation." };
+        await deps.record(id, request, outcome, null);
+        outcomes.push(outcome);
+        continue;
+      }
+      const before = await deps.read(subscriptionId);
+      if (!before.ok) throw new ExecutionReconciliationRequired(id);
+      current = before.value;
+      if (deps.recordObservation) await deps.recordObservation(current, "paypal.execution_preread");
+    } catch { throw new ExecutionReconciliationRequired(id); }
+    if (current.id !== subscriptionId || current.status !== "ACTIVE" || current.regularPrice !== target.expectedCurrentPrice ||
+      (action.type === "subscription_price_override" ? current.planOverridden : !current.planOverridden)) {
+      const outcome: TargetOutcome = { subscriptionId, ok: false, httpStatus: null, debugId: null, verified: false,
+        observed: { status: current.status, regularPrice: current.regularPrice, planOverridden: current.planOverridden, nextBillingTime: current.nextBillingTime },
+        error: "Current subscription did not match the approved price and status." };
+      try { await deps.record(id, request, outcome, null); } catch { throw new ExecutionReconciliationRequired(id); }
+      outcomes.push(outcome);
+      continue;
+    }
+    try {
+      if (deps.validateTarget && !(await deps.validateTarget(proposal, subscriptionId))) {
+        const outcome: TargetOutcome = { subscriptionId, ok: false, httpStatus: null, debugId: null, verified: false,
+          observed: { status: current.status, regularPrice: current.regularPrice, planOverridden: current.planOverridden, nextBillingTime: current.nextBillingTime },
+          error: "Registration or verified action changed after the PayPal read." };
+        await deps.record(id, request, outcome, null);
+        outcomes.push(outcome);
+        continue;
+      }
+    } catch { throw new ExecutionReconciliationRequired(id); }
     let patched: Awaited<ReturnType<typeof overrideSubscriptionPrice>>;
-    try { patched = await deps.patch(subscriptionId, action.newPrice); }
+    try { patched = await deps.patch(subscriptionId, requestedPrice); }
     catch { throw new ExecutionReconciliationRequired(id); }
     const outcome: TargetOutcome = {
       subscriptionId,
@@ -92,7 +131,8 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
       if (read.ok) {
         snapshot = read.value;
         outcome.observed = { status: snapshot.status, regularPrice: snapshot.regularPrice, planOverridden: snapshot.planOverridden, nextBillingTime: snapshot.nextBillingTime };
-        outcome.verified = snapshot.regularPrice !== null && Number(snapshot.regularPrice) === Number(action.newPrice);
+        outcome.verified = snapshot.id === subscriptionId && snapshot.status === "ACTIVE" &&
+          snapshot.regularPrice !== null && Number(snapshot.regularPrice) === Number(requestedPrice);
       } else outcome.error = `Applied, but read-back failed: ${read.error.name}: ${read.error.message}`;
     }
     try { await deps.record(id, request, outcome, snapshot); }
@@ -102,9 +142,9 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
     const knownFailure = !outcome.ok && [400, 401, 403, 404, 422].includes(outcome.httpStatus ?? 0);
     if (!knownFailure && (!outcome.ok || !outcome.verified)) throw new ExecutionReconciliationRequired(id);
   }
-  const succeeded = outcomes.filter((outcome) => outcome.ok).length;
+  const succeeded = outcomes.filter((outcome) => outcome.ok && outcome.verified).length;
   const status = succeeded === action.targets.length ? "succeeded" : succeeded === 0 ? "failed" : "partially_failed";
-  const revertAfter = succeeded ? new Date(Date.now() + action.months * 30 * 86_400_000).toISOString() : null;
+  const revertAfter = action.type === "subscription_price_override" && succeeded ? new Date(Date.now() + action.months * 30 * 86_400_000).toISOString() : null;
   try { await deps.finish(id, status, revertAfter, { succeeded, total: action.targets.length }); }
   catch { throw new ExecutionReconciliationRequired(id); }
   try { return { proposal: await deps.get(id), outcomes }; }
@@ -113,7 +153,7 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
 
 export const executeProposal = (id: string): Promise<ExecutionReport> => executeProposalWith(id, {
   claim: claimForExecution, get: getProposal, finish: finishExecution,
-  patch: overrideSubscriptionPrice, read: getSubscription, record: recordTarget,
+  patch: overrideSubscriptionPrice, read: getSubscription, record: recordTarget, recordObservation, validateTarget: validateTargetForExecution,
 });
 
 export async function recordObservation(s: SubscriptionSnapshot, source: string, connection?: LedgerConnection): Promise<void> {

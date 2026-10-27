@@ -3,6 +3,9 @@ import { createClient } from "@libsql/client";
 import { describe, expect, it } from "vitest";
 import { createLibsqlConnection, createLocalConnection, initializeLedgerSchema } from "./connection";
 import { createProposalRepository } from "./proposals";
+import { hashAction, type PriceOverrideAction } from "./proposals";
+
+const action: PriceOverrideAction = { type: "subscription_price_override", segment: "core", reason: "any", listPrice: "24.00", newPrice: "18.00", discountPct: 25, months: 3, campaignMonths: 0, targets: ["I-TEST"] };
 
 for (const backend of ["Node SQLite", "libSQL file"] as const) describe(`${backend} proposal authority`, () => {
   it("allows exactly one of two connections to claim an approved proposal and audits the winner", async () => {
@@ -15,7 +18,8 @@ for (const backend of ["Node SQLite", "libSQL file"] as const) describe(`${backe
     try {
       await initializeLedgerSchema(first);
       await initializeLedgerSchema(second);
-      await first.execute("INSERT INTO proposals (id, created_at, strategy_json, simulation_json, action_type, action_json, action_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", ["p", "now", "{}", "{}", "subscription_price_override", "{}", "hash", "approved"]);
+      await first.execute("INSERT INTO sandbox_subscribers (subscription_id,label,segment,reason,created_at) VALUES (?,?,?,?,?)", ["I-TEST", "pilot", "core", "other", new Date().toISOString()]);
+      await first.execute("INSERT INTO proposals (id, created_at, strategy_json, simulation_json, action_type, action_json, action_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", ["p", "now", "{}", "{}", action.type, JSON.stringify(action), hashAction(action), "approved"]);
       const outcomes = await Promise.allSettled([createProposalRepository(first).claimForExecution("p"), createProposalRepository(second).claimForExecution("p")]);
       expect(outcomes.filter((result) => result.status === "fulfilled")).toHaveLength(1);
       expect(outcomes.filter((result) => result.status === "rejected")).toHaveLength(1);

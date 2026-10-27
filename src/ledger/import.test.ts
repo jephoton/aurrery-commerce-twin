@@ -7,7 +7,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, expect, it } from "vitest";
 import { createLibsqlConnection, createLocalConnection, initializeLedgerSchema } from "./connection";
 import { LEDGER_SCHEMA } from "./db";
-import { hashAction, PriceOverrideActionSchema } from "./proposals";
+import { createProposalRepository, hashAction, PriceOverrideActionSchema, RevertActionSchema } from "./proposals";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { importLedger } from "./import";
 import { recordTarget } from "@/execution/execute";
@@ -38,6 +38,76 @@ it("accepts a legacy ledger without episode snapshots and never backfills histor
   const unchanged = new DatabaseSync(path, { readOnly: true });
   expect(unchanged.prepare("SELECT name FROM sqlite_master WHERE name='discount_episodes'").all()).toEqual([]);
   unchanged.close();
+});
+it("accepts a legacy ledger without target claims and leaves an unresolved action visible", async () => {
+  const path = join(dir, "legacy-claims.sqlite");
+  const source = new DatabaseSync(path);
+  source.exec(LEDGER_SCHEMA);
+  source.exec("DROP TABLE active_target_claims");
+  source.close();
+  const manifest = await importLedger({ sourcePath: path, dryRun: true });
+  expect(manifest.tables.find((row) => row.table === "active_target_claims")?.count).toBe(0);
+  const unchanged = new DatabaseSync(path, { readOnly: true });
+  expect(unchanged.prepare("SELECT name FROM sqlite_master WHERE name='active_target_claims'").all()).toEqual([]);
+  unchanged.close();
+});
+it("prevents a new overlapping claim after importing a legacy unresolved action without claim rows", async () => {
+  const path = join(dir, "legacy-unresolved.sqlite");
+  const source = new DatabaseSync(path);
+  source.exec(LEDGER_SCHEMA);
+  source.exec("DROP TABLE active_target_claims");
+  const action = PriceOverrideActionSchema.parse({ type: "subscription_price_override", segment: "core", reason: "price", listPrice: "24.00", newPrice: "18.00", discountPct: 25, months: 3, campaignMonths: 0, targets: ["I-FIXTURE"] });
+  const at = "2026-01-01T00:00:00.000Z";
+  source.prepare("INSERT INTO sandbox_subscribers VALUES (?,?,?,?,?)").run("I-FIXTURE", "Pilot", "core", "price", at);
+  source.prepare("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status) VALUES (?,?,?,?,?,?,?,?)")
+    .run("prop_00000000-0000-4000-8000-000000000061", at, JSON.stringify(STARTER_STRATEGIES[1]), "{}", action.type, JSON.stringify(action), hashAction(action), "executing");
+  source.close();
+  const client = createClient({ url: `file:${join(dir, "legacy-unresolved-target.sqlite")}` });
+  try {
+    const target = createLibsqlConnection(client);
+    await initializeLedgerSchema(target);
+    await importLedger({ sourcePath: path, target });
+    const fresh = "prop_00000000-0000-4000-8000-000000000062";
+    await target.execute("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status) VALUES (?,?,?,?,?,?,?,?)",
+      [fresh, at, JSON.stringify(STARTER_STRATEGIES[1]), "{}", action.type, JSON.stringify(action), hashAction(action), "approved"]);
+    const repository = createProposalRepository(target);
+    await expect(repository.claimForExecution(fresh)).rejects.toMatchObject({ code: "INVALID_STATE" });
+    expect((await repository.getProposal(fresh)).status).toBe("failed");
+    expect(await target.query("SELECT * FROM active_target_claims")).toEqual([]);
+  } finally { client.close(); }
+});
+
+it("round trips a recovery proposal, its null forecast and active target claim", async () => {
+  const path = join(dir, "recovery-source.sqlite");
+  const source = new DatabaseSync(path);
+  source.exec(`PRAGMA foreign_keys=ON; ${LEDGER_SCHEMA}`);
+  const at = "2026-01-01T00:00:00.000Z";
+  const discount = PriceOverrideActionSchema.parse({ type: "subscription_price_override", segment: "core", reason: "price", listPrice: "24.00", newPrice: "18.00", discountPct: 25, months: 3, campaignMonths: 0, targets: ["I-FIXTURE"] });
+  const sourceId = "prop_00000000-0000-4000-8000-000000000021";
+  const recoveryId = "prop_00000000-0000-4000-8000-000000000022";
+  source.prepare("INSERT INTO sandbox_subscribers VALUES (?,?,?,?,?)").run("I-FIXTURE", "Pilot", "core", "price", at);
+  source.prepare("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status) VALUES (?,?,?,?,?,?,?,?)")
+    .run(sourceId, at, JSON.stringify(STARTER_STRATEGIES[1]), "{}", discount.type, JSON.stringify(discount), hashAction(discount), "succeeded");
+  source.prepare("INSERT INTO executions (proposal_id,target_id,operation,request_json,ok,http_status,response_json,verified,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(sourceId, "I-FIXTURE", "PATCH subscription fixed_price", "{}", 1, 204, JSON.stringify({ observed: { regularPrice: "18.00" } }), 1, at);
+  const executionId = Number(source.prepare("SELECT id FROM executions").get()!.id);
+  const recovery = RevertActionSchema.parse({ type: "subscription_price_revert", sourceProposalId: sourceId, sourceActionHash: hashAction(discount), targets: [{ subscriptionId: "I-FIXTURE", sourceExecutionId: executionId, expectedCurrentPrice: "18.00", listPrice: "24.00", registration: { label: "Pilot", segment: "core", reason: "price", createdAt: at } }] });
+  source.prepare("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status,approved_at,approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)")
+    .run(recoveryId, at, JSON.stringify(STARTER_STRATEGIES[1]), "null", recovery.type, JSON.stringify(recovery), hashAction(recovery), "executing", at, "merchant");
+  source.prepare("INSERT INTO active_target_claims VALUES (?,?,?)").run("I-FIXTURE", recoveryId, at);
+  source.close();
+  const client = createClient({ url: `file:${join(dir, "recovery-target.sqlite")}` });
+  try {
+    const target = createLibsqlConnection(client);
+    await initializeLedgerSchema(target);
+    await importLedger({ sourcePath: path, target });
+    expect(await target.query("SELECT simulation_json,action_json,status FROM proposals WHERE id=?", [recoveryId])).toEqual([{ simulation_json: "null", action_json: JSON.stringify(recovery), status: "executing" }]);
+    expect(await target.query("SELECT target_id,proposal_id FROM active_target_claims")).toEqual([{ target_id: "I-FIXTURE", proposal_id: recoveryId }]);
+  } finally { client.close(); }
+  const tampered = new DatabaseSync(path);
+  tampered.prepare("UPDATE proposals SET simulation_json='{}' WHERE id=?").run(recoveryId);
+  tampered.close();
+  await expect(importLedger({ sourcePath: path, dryRun: true })).rejects.toThrow(/proposal schema/i);
 });
 afterAll(() => { try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows native client lock. */ } });
 it("round trips linked episode snapshots through a checked libSQL target", async () => {

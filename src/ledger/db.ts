@@ -55,6 +55,11 @@ CREATE TABLE IF NOT EXISTS executions (
   created_at TEXT NOT NULL,
   UNIQUE (proposal_id, target_id, operation)
 );
+CREATE TABLE IF NOT EXISTS active_target_claims (
+  target_id TEXT PRIMARY KEY,
+  proposal_id TEXT NOT NULL REFERENCES proposals(id),
+  claimed_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS observations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   subscription_id TEXT NOT NULL,

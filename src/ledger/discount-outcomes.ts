@@ -66,7 +66,7 @@ export function deriveDiscountOutcomes(episodes: DiscountEpisode[], facts: Disco
 export async function readDiscountOutcomes(connection?: LedgerConnection, now = new Date().toISOString()): Promise<DiscountEvidence> {
   return authoritativeWrite(connection ?? await runtimeLedgerConnection(), async tx => {
     const rows = await tx.query("SELECT * FROM discount_episodes ORDER BY started_at,execution_id");
-    const facts = await tx.query("SELECT subscription_id,observed_at,status,regular_price FROM observations WHERE source IN ('paypal.status','paypal.get_subscription','paypal.webhook') ORDER BY observed_at,id");
+    const facts = await tx.query("SELECT subscription_id,observed_at,status,regular_price FROM observations WHERE source IN ('paypal.status','paypal.get_subscription','paypal.webhook','paypal.execution_preread') ORDER BY observed_at,id");
     return deriveDiscountOutcomes(rows.map(r => ({ executionId: Number(r.execution_id), subscriptionId: String(r.subscription_id), segment: r.segment as SegmentId, reason: r.reason as ReasonId, startedAt: String(r.started_at), endsAt: String(r.ends_at), discountedPrice: String(r.discounted_price) })), facts.map(r => ({ subscriptionId: String(r.subscription_id), observedAt: String(r.observed_at), status: String(r.status), regularPrice: r.regular_price === null ? null : String(r.regular_price) })), now);
   });
 }

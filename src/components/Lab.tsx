@@ -17,6 +17,7 @@ import { DecisionSummary } from "./DecisionSummary";
 import { EvidencePanel } from "./EvidencePanel";
 import { MerchantOverview } from "./MerchantOverview";
 import { AdminAccess } from "./AdminAccess";
+import { RecoveryPanel } from "./RecoveryPanel";
 import { canReviewAccess, type AccessState } from "./admin-access";
 
 export interface MerchantSummary {
@@ -299,6 +300,8 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
         </section>
       )}
 
+      <RecoveryPanel canReview={canReviewAccess(access)} paypalConfigured={!!paypal?.configured} onObservedChange={refreshPayPal} />
+
       <section className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Pilot cohort in PayPal Sandbox</h2>
@@ -364,6 +367,7 @@ function ProposalCard({
   onReject: () => void;
 }) {
   const a = proposal.action;
+  if (a.type !== "subscription_price_override" || !proposal.prediction) return null;
   const labels = new Map(paypal?.subscriptions.map((s) => [s.subscriptionId, s.label]) ?? []);
   const d = proposal.prediction.vsBaseline.totalValue;
   return (
