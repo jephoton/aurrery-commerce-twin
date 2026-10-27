@@ -156,6 +156,7 @@ it.each([
   ["missing execution foreign key", (schema: string) => schema.replace("proposal_id TEXT NOT NULL REFERENCES proposals(id)", "proposal_id TEXT NOT NULL")],
   ["missing execution uniqueness", (schema: string) => schema.replace(",\n  UNIQUE (proposal_id, target_id, operation)", "")],
   ["altered proposal status check", (schema: string) => schema.replace("'failed','rejected'", "'failed','rejected','paused'")],
+  ["missing webhook observation foreign key", (schema: string) => schema.replace("observation_id INTEGER UNIQUE REFERENCES observations(id)", "observation_id INTEGER UNIQUE")],
 ])("rejects an empty target with %s before inserting rows", async (name, weaken) => {
   const slug = name.replaceAll(" ", "-");
   const sourcePath = join(dir, `source-weak-${slug}.sqlite`);
@@ -194,6 +195,42 @@ it("imports a pre-reason ledger upgraded by the supported ALTER without changing
     { subscription_id: "I-ZZZ", reason: "price" }, { subscription_id: "I-AAA", reason: "other" },
   ]);
   expect(readFileSync(sourcePath)).toEqual(before);
+  client.close();
+});
+
+it("imports an M4 source without webhook events into the checked canonical target", async () => {
+  const sourcePath = join(dir, "source-m4-no-webhooks.sqlite");
+  const source = new DatabaseSync(sourcePath);
+  const oldSchema = LEDGER_SCHEMA.replace(/CREATE TABLE IF NOT EXISTS paypal_webhook_events \([\s\S]*?\n\);\n/, "");
+  source.exec(oldSchema);
+  source.prepare("INSERT INTO observations (subscription_id,observed_at,status,source) VALUES (?,?,?,?)").run("I-FIXTURE", "2026-10-26T00:00:00Z", "ACTIVE", "paypal.status");
+  source.close();
+  const before = readFileSync(sourcePath);
+  const client = createClient({ url: `file:${join(dir, "target-m4-no-webhooks.sqlite")}` });
+  const target = createLibsqlConnection(client);
+  await initializeLedgerSchema(target);
+  const result = await importLedger({ sourcePath, target });
+  expect(result.tables.find(({ table }) => table === "paypal_webhook_events")?.count).toBe(0);
+  expect(await target.query("SELECT COUNT(*) AS n FROM observations")).toEqual([{ n: 1 }]);
+  expect(await target.query("PRAGMA foreign_key_check")).toEqual([]);
+  expect(readFileSync(sourcePath)).toEqual(before);
+  client.close();
+});
+
+it("preserves event-to-observation relationships across a safe import", async () => {
+  const sourcePath = join(dir, "source-with-webhooks.sqlite");
+  const source = new DatabaseSync(sourcePath);
+  source.exec(`PRAGMA foreign_keys=ON; ${LEDGER_SCHEMA}`);
+  source.prepare("INSERT INTO observations (subscription_id,observed_at,status,source) VALUES (?,?,?,?)").run("I-FIXTURE", "2026-10-26T00:00:00Z", "ACTIVE", "paypal.webhook");
+  source.prepare("INSERT INTO paypal_webhook_events (event_id,event_type,event_at,received_at,subscription_id,disposition,observation_id) VALUES (?,?,?,?,?,?,?)")
+    .run("WH-SYNTHETIC", "BILLING.SUBSCRIPTION.ACTIVATED", "2026-10-26T00:00:00Z", "2026-10-27T00:00:00Z", "I-FIXTURE", "observed", 1);
+  source.close();
+  const client = createClient({ url: `file:${join(dir, "target-with-webhooks.sqlite")}` });
+  const target = createLibsqlConnection(client);
+  await initializeLedgerSchema(target);
+  await importLedger({ sourcePath, target });
+  expect(await target.query("SELECT event_id,observation_id FROM paypal_webhook_events")).toEqual([{ event_id: "WH-SYNTHETIC", observation_id: 1 }]);
+  expect(await target.query("PRAGMA foreign_key_check")).toEqual([]);
   client.close();
 });
 

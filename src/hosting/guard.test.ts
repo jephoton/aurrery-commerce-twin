@@ -16,6 +16,24 @@ const store = createHostingStore(connection, config.hosted ? config.secret : "")
 afterEach(async () => { await connection.executeMultiple("DELETE FROM hosted_limits; DELETE FROM hosted_sessions;"); });
 afterAll(() => { db.close(); rmSync(dir, { recursive: true, force: true }); });
 describe("hosted request guard", () => {
+  it("applies a separate global webhook quota of 30 per minute and 1200 per day", async () => {
+    await initializeLedgerSchema(connection);
+    const moment = 1_000;
+    const admissions = [];
+    for (let i = 0; i < 31; i++) admissions.push(await store.admit("webhook", `client-${i}`, moment));
+    expect(admissions.filter((result) => result.allowed)).toHaveLength(30);
+    expect(admissions[30].retryAfter).toBeGreaterThan(0);
+    expect((await store.admit("webhook", "new-client", 61_000)).allowed).toBe(true);
+  });
+  it("stops webhook admission at the durable daily global cap across minute windows", async () => {
+    await initializeLedgerSchema(connection);
+    for (let minute = 0; minute < 40; minute++) {
+      for (let attempt = 0; attempt < 30; attempt++)
+        expect((await store.admit("webhook", `client-${attempt}`, minute * 60_000 + 1_000)).allowed).toBe(true);
+    }
+    expect((await store.admit("webhook", "fresh", 40 * 60_000 + 1_000)).allowed).toBe(false);
+    expect((await store.admit("webhook", "fresh", 24 * 60 * 60_000 + 1_000)).allowed).toBe(true);
+  });
   it("rejects absent and wrong origins even with a valid session", async () => {
     await initializeLedgerSchema(connection);
     const token = await store.createSession(config.hosted ? config.adminPassword : "");

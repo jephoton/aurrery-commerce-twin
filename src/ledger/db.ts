@@ -65,6 +65,18 @@ CREATE TABLE IF NOT EXISTS observations (
   last_payment_json TEXT,
   source TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS paypal_webhook_events (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  event_at TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  subscription_id TEXT,
+  disposition TEXT NOT NULL CHECK (disposition IN ('observed','ignored')),
+  ignored_reason TEXT,
+  observation_id INTEGER UNIQUE REFERENCES observations(id),
+  CHECK ((disposition = 'observed' AND observation_id IS NOT NULL AND ignored_reason IS NULL) OR
+         (disposition = 'ignored' AND observation_id IS NULL AND ignored_reason IS NOT NULL))
+);
 CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

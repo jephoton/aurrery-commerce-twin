@@ -50,4 +50,14 @@ export async function admitHostedRequest(request: Request, options: { admin?: bo
   }
 }
 
+/** Public signed deliveries use a durable global quota and never inherit browser Origin/session checks. */
+export async function admitWebhookRequest(): Promise<Response | null> {
+  try {
+    const config = hostedConfig();
+    const store = createHostingStore(await runtimeLedgerConnection(), config.hosted ? config.secret : "local-webhook-global");
+    const admission = await store.admit("webhook", "global");
+    return admission.allowed ? null : Response.json({ error: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": String(admission.retryAfter) } });
+  } catch { return Response.json({ error: "WEBHOOK_UNAVAILABLE" }, { status: 503 }); }
+}
+
 export const sessionCookieOptions = { httpOnly: true, secure: true, sameSite: "strict" as const, path: "/", maxAge: 2 * 60 * 60 };

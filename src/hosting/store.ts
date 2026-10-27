@@ -3,7 +3,7 @@ import type { LedgerConnection } from "@/ledger/connection";
 import { HOSTED_SCHEMA } from "@/ledger/db";
 import { authoritativeWrite } from "@/ledger/operations";
 
-export type LimitKind = "agent" | "preparation" | "poll" | "login";
+export type LimitKind = "agent" | "preparation" | "poll" | "login" | "webhook";
 type Limit = { scope: "client" | "global"; max: number; windowMs: number };
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -12,6 +12,7 @@ const LIMITS: Record<LimitKind, Limit[]> = {
   preparation: [{ scope: "client", max: 30, windowMs: HOUR }, { scope: "global", max: 60, windowMs: HOUR }],
   poll: [{ scope: "client", max: 30, windowMs: HOUR }, { scope: "global", max: 60, windowMs: HOUR }],
   login: [{ scope: "client", max: 5, windowMs: 15 * 60 * 1000 }, { scope: "global", max: 30, windowMs: 15 * 60 * 1000 }],
+  webhook: [{ scope: "global", max: 30, windowMs: 60 * 1000 }, { scope: "global", max: 1200, windowMs: DAY }],
 };
 export const limitsFor = (kind: LimitKind): Limit[] => LIMITS[kind];
 
