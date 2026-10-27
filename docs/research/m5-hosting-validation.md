@@ -46,6 +46,10 @@ Sources checked: [Render Free](https://render.com/docs/free), [Turso pricing](ht
 | --- | --- |
 | Pure worker, hard timeout, cancellation and capacity | reviewed at `35da88f`; full 474 tests/41 files pass; production build/browser integration pending |
 | Hosted access, durable request limits and secret configuration | implemented locally at `38e0a2a`; spec and quality reviews passed; free-host persistence adaptation remains open |
+| Async SQLite/libSQL adapter | reviewed at `75068b7` + oversized-response cleanup `31e2904`; parent full 518 tests/48 files passed |
+| Async proposal/execution authority (B1) | reviewed at `0e4270c`; parent full 528 tests/51 files and 173-file hygiene scan passed |
+| Async session/quota authority (B2) | implemented at `b93f55d`; spec passed after concurrency-test follow-up `3cfa9e0`; quality review pending; parent full 537 tests/53 files at the implementation checkpoint and follow-up seven-test store suite passed |
+| Bulk classifier cache and safe import (B3) | pending; raw cache/import still blocks mixed-backend deployment |
 | Signature verification and transactional event deduplication | pending |
 | Measured exposure and repeatable posterior derivation | pending |
 | Separate approved revert and restricted reset | pending |
