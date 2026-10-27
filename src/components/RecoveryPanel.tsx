@@ -6,12 +6,32 @@ import type { ExecutionReport } from "@/execution/execute";
 import type { DiscountEvidence } from "@/ledger/discount-outcomes";
 
 type Listed = Proposal & { executions: { ok: boolean; verified: boolean }[] };
-type Props = { canReview: boolean; paypalConfigured: boolean; onObservedChange: () => void };
+type OutstandingPage = { proposals: Proposal[]; nextCursor: string | null };
+type Props = { canReview: boolean; paypalConfigured: boolean; onObservedChange: () => Promise<boolean> };
 
-export function pendingActions(proposals: Listed[]): Listed[] {
+export function pendingActions(proposals: Proposal[]): Proposal[] {
   return proposals.filter((proposal) => proposal.action.type === "subscription_price_revert"
     ? ["proposed", "approved", "executing"].includes(proposal.status)
     : ["approved", "executing"].includes(proposal.status));
+}
+
+/** An execution error can follow a successful earlier target, so refresh facts even on rejection. */
+export async function runRecoveryAttempt<T>(
+  mutate: () => Promise<T>, refreshStatus: () => Promise<boolean>, readEvidence: () => Promise<DiscountEvidence>,
+  setEvidence: (value: DiscountEvidence | null) => void,
+): Promise<T> {
+  setEvidence(null);
+  let result: T | undefined;
+  let failure: unknown;
+  let failed = false;
+  try { result = await mutate(); }
+  catch (error) { failure = error; failed = true; }
+  try {
+    if (await refreshStatus()) setEvidence(await readEvidence());
+    else setEvidence(null);
+  } catch { setEvidence(null); }
+  if (failed) throw failure;
+  return result as T;
 }
 
 async function json<T>(url: string, body?: unknown): Promise<T> {
@@ -23,56 +43,83 @@ async function json<T>(url: string, body?: unknown): Promise<T> {
 
 export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange }: Props) {
   const [sources, setSources] = useState<Listed[]>([]);
-  const [pending, setPending] = useState<Listed[]>([]);
+  const [pending, setPending] = useState<Proposal[]>([]);
+  const [outstandingCursor, setOutstandingCursor] = useState<string | null>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [report, setReport] = useState<ExecutionReport | null>(null);
   const [currentEvidence, setCurrentEvidence] = useState<DiscountEvidence | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    const data = await json<{ proposals: Listed[] }>("/api/proposals");
+  const reload = useCallback(async (selectedId?: string) => {
+    const [data, outstanding, selected] = await Promise.all([
+      json<{ proposals: Listed[] }>("/api/proposals"), json<OutstandingPage>("/api/proposals/outstanding"),
+      selectedId ? json<{ proposal: Proposal }>(`/api/proposals/${encodeURIComponent(selectedId)}`).catch(() => null) : Promise.resolve(null),
+    ]);
     setSources(data.proposals.filter((p) => p.action.type === "subscription_price_override" &&
       ["succeeded", "partially_failed"].includes(p.status) && p.executions.some((execution) => execution.ok && execution.verified)));
-    setPending(pendingActions(data.proposals));
-    setProposal((current) => current ? data.proposals.find((p) => p.id === current.id) ?? current : null);
+    setPending(pendingActions(outstanding.proposals));
+    setOutstandingCursor(outstanding.nextCursor);
+    if (selectedId) setProposal(selected?.proposal ?? null);
   }, []);
   useEffect(() => {
-    void json<{ proposals: Listed[] }>("/api/proposals")
-      .then((data) => {
+    void Promise.all([json<{ proposals: Listed[] }>("/api/proposals"), json<OutstandingPage>("/api/proposals/outstanding")])
+      .then(([data, outstanding]) => {
         setSources(data.proposals.filter((p) => p.action.type === "subscription_price_override" &&
           ["succeeded", "partially_failed"].includes(p.status) && p.executions.some((execution) => execution.ok && execution.verified)));
-        setPending(pendingActions(data.proposals));
+        setPending(pendingActions(outstanding.proposals));
+        setOutstandingCursor(outstanding.nextCursor);
       })
       .catch(() => setError("Proposal history unavailable."));
   }, []);
 
+  const loadMore = async () => {
+    if (!outstandingCursor || busy) return;
+    setBusy(true); setError(null);
+    try {
+      const page = await json<OutstandingPage>(`/api/proposals/outstanding?cursor=${encodeURIComponent(outstandingCursor)}`);
+      setPending((current) => {
+        const known = new Set(current.map((proposal) => proposal.id));
+        return [...current, ...pendingActions(page.proposals).filter((proposal) => !known.has(proposal.id))];
+      });
+      setOutstandingCursor(page.nextCursor);
+    } catch (failure) { setError((failure as Error).message); }
+    finally { setBusy(false); }
+  };
+
   const prepare = async (sourceProposalId: string) => {
     if (busy) return;
-    setBusy(true); setError(null); setReport(null); setConfirmed(false);
+    setBusy(true); setError(null); setReport(null); setConfirmed(false); setCurrentEvidence(null);
     try {
       const result = await json<{ proposal: Proposal }>("/api/proposals/revert", { sourceProposalId });
       setProposal(result.proposal);
-      await reload();
+      await reload(result.proposal.id);
     } catch (failure) { setError((failure as Error).message); }
     finally { setBusy(false); }
   };
   const act = async (resume: boolean) => {
     if (!proposal || !confirmed || !canReview || busy) return;
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setCurrentEvidence(null); setReport(null);
     try {
-      const result = await json<ExecutionReport>(`/api/proposals/${proposal.id}/${resume ? "execute" : "approve"}`,
-        resume ? { actionHash: proposal.actionHash, confirmed: true } : { actionHash: proposal.actionHash, approvedBy: "merchant (demo)" });
-      setReport(result); setProposal(result.proposal); onObservedChange();
-      try { setCurrentEvidence((await json<{ evidence: DiscountEvidence }>("/api/twin")).evidence); }
-      catch { setCurrentEvidence(null); }
+      const result = await runRecoveryAttempt(
+        () => json<ExecutionReport>(`/api/proposals/${proposal.id}/${resume ? "execute" : "approve"}`,
+          resume ? { actionHash: proposal.actionHash, confirmed: true } : { actionHash: proposal.actionHash, approvedBy: "merchant (demo)" }),
+        onObservedChange,
+        async () => (await json<{ evidence: DiscountEvidence }>("/api/twin")).evidence,
+        setCurrentEvidence,
+      );
+      setReport(result); setProposal(result.proposal);
     } catch (failure) { setError((failure as Error).message); }
-    finally { setConfirmed(false); setBusy(false); try { await reload(); } catch { /* Preserve the action result. */ } }
+    finally {
+      setConfirmed(false);
+      try { await reload(proposal.id); } catch { setProposal(null); }
+      setBusy(false);
+    }
   };
   const reject = async () => {
     if (!proposal || busy || !canReview) return;
     setBusy(true); setError(null);
-    try { const result = await json<{ proposal: Proposal }>(`/api/proposals/${proposal.id}/reject`, {}); setProposal(result.proposal); }
+    try { const result = await json<{ proposal: Proposal }>(`/api/proposals/${proposal.id}/reject`, {}); setProposal(result.proposal); await reload(result.proposal.id); }
     catch (failure) { setError((failure as Error).message); }
     finally { setConfirmed(false); setBusy(false); }
   };
@@ -89,15 +136,16 @@ export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange }:
         <p className="mt-1 text-sm text-muted">Choose an action to inspect its current ledger state. Selection never approves or executes it.</p>
         <ul className="mt-2 space-y-2">{pending.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="break-all font-mono">{item.id} · {item.action.type === "subscription_price_revert" ? "restoration" : "discount"} · {item.status}</span>
-          <button type="button" disabled={busy} onClick={() => { setProposal(item); setConfirmed(false); setReport(null); setError(null); }} className="min-h-10 rounded-lg border border-border px-3 hover:bg-background disabled:opacity-50">Review action</button>
+          <button type="button" disabled={busy} onClick={() => { setProposal(item); setConfirmed(false); setReport(null); setCurrentEvidence(null); setError(null); }} className="min-h-10 rounded-lg border border-border px-3 hover:bg-background disabled:opacity-50">Review action</button>
         </li>)}</ul>
+        {outstandingCursor && <button type="button" disabled={busy} onClick={() => void loadMore()} className="mt-3 min-h-10 rounded-lg border border-border px-3 hover:bg-background disabled:opacity-50">Load more outstanding actions</button>}
       </div>}
       {proposal?.action.type === "subscription_price_revert" && <RecoveryReview proposal={proposal} confirmed={confirmed} canReview={canReview} paypalConfigured={paypalConfigured} busy={busy}
         onConfirm={setConfirmed} onApprove={() => void act(false)} onResume={() => void act(true)} onReject={() => void reject()} />}
       {proposal?.action.type === "subscription_price_override" && <DiscountResumeReview proposal={proposal} confirmed={confirmed} canReview={canReview} paypalConfigured={paypalConfigured} busy={busy}
         onConfirm={setConfirmed} onResume={() => void act(true)} />}
       {report && <p className="mt-3 text-sm">Restoration {report.proposal.status.replaceAll("_", " ")}: {report.outcomes.filter((outcome) => outcome.ok && outcome.verified).length} of {report.outcomes.length} target(s) verified. Current PayPal prices can be checked below; the run&apos;s simulation snapshot remains historical.</p>}
-      {currentEvidence && <p className="mt-2 text-sm text-muted">Current ledger after restoration: {currentEvidence.episodes} verified discount episodes · {currentEvidence.subscriberMonths.toFixed(3)} observed discounted subscriber-months. Previous run evidence snapshots remain as recorded.</p>}
+      {currentEvidence && <p className="mt-2 text-sm text-muted">Current ledger after the action attempt: {currentEvidence.episodes} verified discount episodes · {currentEvidence.subscriberMonths.toFixed(3)} observed discounted subscriber-months. Previous run evidence snapshots remain as recorded.</p>}
       {error && <p role="alert" className="mt-3 text-sm text-negative">{error}</p>}
     </section>
   );

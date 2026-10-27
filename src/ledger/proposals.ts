@@ -48,6 +48,7 @@ export type RevertAction = z.infer<typeof RevertActionSchema>;
 export type ProposalAction = PriceOverrideAction | RevertAction;
 
 export type ProposalStatus = "proposed" | "approved" | "executing" | "succeeded" | "partially_failed" | "failed" | "rejected";
+export type ProposalCursor = { createdAt: string; id: string };
 
 export interface Proposal {
   id: string;
@@ -242,6 +243,21 @@ export function createProposalRepository(connection: LedgerConnection) {
         return rows.map((row) => parseProposal(row, String(row.id)));
       });
     },
+    async listOutstandingProposals(limit = 20, before?: ProposalCursor): Promise<{ proposals: Proposal[]; nextCursor: ProposalCursor | null }> {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 ||
+        (before && (!Number.isFinite(Date.parse(before.createdAt)) || !/^prop_[0-9a-f-]{36}$/.test(before.id))))
+        throw new ProposalError("Invalid outstanding proposal page.", "INVALID_STATE");
+      return authoritativeWrite(connection, async (tx) => {
+        const rows = await tx.query(`SELECT * FROM proposals WHERE
+          ((action_type='subscription_price_revert' AND status IN ('proposed','approved','executing')) OR
+           (action_type='subscription_price_override' AND status IN ('approved','executing')))
+          ${before ? "AND (created_at < ? OR (created_at = ? AND id < ?))" : ""}
+          ORDER BY created_at DESC,id DESC LIMIT ?`, before ? [before.createdAt, before.createdAt, before.id, limit + 1] : [limit + 1]);
+        const proposals = rows.slice(0, limit).map((row) => parseProposal(row, String(row.id)));
+        const last = proposals.at(-1);
+        return { proposals, nextCursor: rows.length > limit && last ? { createdAt: last.createdAt, id: last.id } : null };
+      });
+    },
     /** Approval binds to the exact action payload the merchant saw. */
     async approveProposal(id: string, actionHash: string, approvedBy: string): Promise<Proposal> {
       return authoritativeWrite(connection, async (tx) => {
@@ -364,6 +380,7 @@ export const createProposal = async (input: CreateProposalInput) => (await runti
 export const createRevertProposal = async (sourceProposalId: string) => (await runtimeRepository()).createRevertProposal(sourceProposalId);
 export const getProposal = async (id: string) => (await runtimeRepository()).getProposal(id);
 export const listProposals = async (limit?: number) => (await runtimeRepository()).listProposals(limit);
+export const listOutstandingProposals = async (limit?: number, before?: ProposalCursor) => (await runtimeRepository()).listOutstandingProposals(limit, before);
 export const approveProposal = async (id: string, actionHash: string, approvedBy: string) => (await runtimeRepository()).approveProposal(id, actionHash, approvedBy);
 export const rejectProposal = async (id: string, reason: string) => (await runtimeRepository()).rejectProposal(id, reason);
 export const claimForExecution = async (id: string) => (await runtimeRepository()).claimForExecution(id);

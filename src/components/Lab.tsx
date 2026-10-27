@@ -73,9 +73,11 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
   const finishAgent = useCallback(() => setBusy(null), []);
 
   const refreshPayPal = useCallback(() => {
-    api<PayPalStatus>("/api/paypal/status").then(setPayPal).catch((e) => setError(e.message));
+    return api<PayPalStatus>("/api/paypal/status")
+      .then((status) => { setPayPal(status); return true; })
+      .catch((e) => { setError(e.message); return false; });
   }, []);
-  useEffect(refreshPayPal, [refreshPayPal]);
+  useEffect(() => { void refreshPayPal(); }, [refreshPayPal]);
   useEffect(() => { api<AccessState>("/api/admin/session").then(setAccess).catch(() => setError("Administrator access unavailable.")); }, []);
 
   const simulate = async () => {
@@ -305,7 +307,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
       <section className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Pilot cohort in PayPal Sandbox</h2>
-          <button onClick={refreshPayPal} className="min-h-10 rounded-lg px-3 text-sm text-brand-accent hover:bg-background hover:underline">
+          <button onClick={() => void refreshPayPal()} className="min-h-10 rounded-lg px-3 text-sm text-brand-accent hover:bg-background hover:underline">
             Refresh from PayPal
           </button>
         </div>

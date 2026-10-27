@@ -154,6 +154,28 @@ describe("revert proposal authority", () => {
     } finally { db.close(); }
   });
 
+  it("pages outstanding recovery and approved discount actions beyond twenty newer proposals", async () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      const connection = createLocalConnection(db);
+      const repository = await seed(connection);
+      const revert = await repository.createRevertProposal(sourceId);
+      await repository.approveProposal(revert.id, revert.actionHash, "merchant");
+      await repository.claimForExecution(revert.id);
+      const approvedId = "prop_00000000-0000-4000-8000-000000000071";
+      await connection.execute("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status) VALUES (?,?,?,?,?,?,?,?)",
+        [approvedId, "2020-01-01T00:00:00.000Z", "{}", "{}", sourceAction.type, JSON.stringify(sourceAction), hashAction(sourceAction), "approved"]);
+      for (let index = 0; index < 25; index++) await connection.execute("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status) VALUES (?,?,?,?,?,?,?,?)",
+        [`prop_${String(index + 100).padStart(8, "0")}-0000-4000-8000-000000000000`, "2030-01-01T00:00:00.000Z", "{}", "{}", sourceAction.type, JSON.stringify(sourceAction), hashAction(sourceAction), "proposed"]);
+      const first = await repository.listOutstandingProposals(1);
+      expect(first.proposals).toHaveLength(1);
+      expect(first.nextCursor).not.toBeNull();
+      const second = await repository.listOutstandingProposals(1, first.nextCursor!);
+      expect(new Set([...first.proposals, ...second.proposals].map((proposal) => proposal.id))).toEqual(new Set([revert.id, approvedId]));
+      expect(second.nextCursor).toBeNull();
+    } finally { db.close(); }
+  });
+
   for (const backend of ["SQLite", "libSQL"] as const) it(`coordinates different approved proposals across ${backend} connections`, async () => {
     const dir = mkdtempSync(join(tmpdir(), "aurrery-revert-"));
     const path = join(dir, "ledger.sqlite");

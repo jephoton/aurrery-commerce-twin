@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DiscountResumeReview, RecoveryReview, pendingActions } from "./RecoveryPanel";
+import { DiscountResumeReview, RecoveryReview, pendingActions, runRecoveryAttempt } from "./RecoveryPanel";
 import type { Proposal } from "@/ledger/proposals";
 
 it("renders a recovery as a current-to-list restoration with no simulated benefit and unchecked confirmation", () => {
@@ -37,4 +37,30 @@ it("shows reconciliation without an execution control for an executing recovery"
   const html = renderToStaticMarkup(createElement(RecoveryReview, { proposal, confirmed: false, canReview: true, paypalConfigured: true, onConfirm: vi.fn(), onApprove: vi.fn(), onReject: vi.fn(), busy: false }));
   expect(html).toContain("reconciliation");
   expect(html).not.toContain("Execute approved restoration");
+});
+
+it("waits for status observations before reading current evidence", async () => {
+  let release!: (value: boolean) => void;
+  const status = new Promise<boolean>((resolve) => { release = resolve; });
+  const calls: string[] = [];
+  const readEvidence = vi.fn(async () => { calls.push("evidence"); return { episodes: 1 } as never; });
+  const pending = runRecoveryAttempt(async () => { calls.push("mutation"); return "report"; },
+    async () => { calls.push("status-start"); return status; }, readEvidence,
+    (value) => { calls.push(value === null ? "cleared" : "updated"); });
+  await Promise.resolve();
+  expect(readEvidence).not.toHaveBeenCalled();
+  release(true);
+  expect(await pending).toBe("report");
+  expect(calls).toEqual(["cleared", "mutation", "status-start", "evidence", "updated"]);
+});
+
+it("invalidates prior current evidence after partial execution followed by reconciliation error", async () => {
+  let current: { episodes: number } | null = { episodes: 5 };
+  const reconcile = new Error("reconcile after one target");
+  const status = vi.fn(async () => true);
+  await expect(runRecoveryAttempt(async () => { throw reconcile; }, status,
+    async () => { throw new Error("evidence unavailable"); },
+    (value) => { current = value as { episodes: number } | null; })).rejects.toBe(reconcile);
+  expect(status).toHaveBeenCalledOnce();
+  expect(current).toBeNull();
 });
