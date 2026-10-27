@@ -2,7 +2,7 @@
 
 <!-- Generated handoff: M5 measured outcome policy. -->
 
-Status: accepted for M5 implementation; independent review pending.
+Status: accepted; independent spec and quality reviews passed at a4a936b.
 
 Record an episode only alongside a successful price-verified execution and its read-back, snapshotting the registered pilot's assessed segment and reason at that time. Never reconstruct historical reasons. One subscriber-month is 30 elapsed days; the approved duration, current time and the next verified episode bound each interval. Matched-price ACTIVE read-backs extend exposure; an override alone contributes zero. Repeated readings and delivery order cannot create additional elapsed time.
 
