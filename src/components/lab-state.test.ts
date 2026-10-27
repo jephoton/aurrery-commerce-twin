@@ -6,6 +6,7 @@ import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import type { Proposal } from "@/ledger/proposals";
 import type { ExecutionReport } from "@/execution/execute";
 import type { AgentEvent } from "@/agent/contracts";
+import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
 
 const comparison = compareStrategies(buildDemoTwin().twin, STARTER_STRATEGIES, { runs: 2, horizonMonths: 2 });
 const proposal = { id: "p1", strategy: STARTER_STRATEGIES[0] } as Proposal;
@@ -65,6 +66,16 @@ it("clears a confirmed proposal and execution report when the objective is edite
 const rulesEvent: Extract<AgentEvent, { type: "rules" }> = { type: "rules", rules: { horizonMonths: 3, discountBudget: 1000, maxProbWorse: .5 } };
 const stressEvent: Extract<AgentEvent, { type: "stress" }> = { type: "stress", strategyId: proposal.strategy.id, stress: { base: comparison.strategies[1], stressed: comparison.strategies[1], stressedParams: buildDemoTwin().twin.params, shifted: [] } };
 const classificationEvent = { type: "classification", summary: { provider: "gemini", model: "test" }, hitmap: {}, provenance: {} } as Extract<AgentEvent, { type: "classification" }>;
+it("keeps one run's counts and changes while classification updates its provenance and revisions", () => {
+  const snapshot: ObservedSnapshot = { evidence: { episodes: 1, subscriberMonths: .5, posteriorSubscriberMonths: .5, cancellations: 0, censoredEpisodes: 0, posteriorCancellations: 0, limitation: "Fixture" }, changes: [], provenance: { rr: { source: "observed", note: "Measured" } } };
+  const initial = dashboardReducer(emptyDashboard, { type: "event", event: { type: "observed_snapshot", snapshot } });
+  const classified = dashboardReducer(initial, { type: "event", event: { ...classificationEvent, provenance: { ...snapshot.provenance, reason: { source: "estimated", note: "Classified" } } } });
+  const revised = dashboardReducer(classified, { type: "event", event: rulesEvent });
+  expect(revised.observedSnapshot).toEqual({ ...snapshot, provenance: { ...snapshot.provenance, reason: { source: "estimated", note: "Classified" } } });
+  const manual = dashboardReducer(revised, { type: "comparison", comparison, source: "manual", observedSnapshot: snapshot });
+  expect(manual.observedSnapshot).toEqual(snapshot);
+  expect(manual.evidence).toBeNull();
+});
 
 it("retains current rules and matching stress until the comparison is replaced", () => {
   const ruled = dashboardReducer(emptyDashboard, { type: "event", event: rulesEvent });

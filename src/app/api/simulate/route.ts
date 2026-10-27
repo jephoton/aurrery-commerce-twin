@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { observedMerchant } from "@/merchant/observed";
+import { toObservedSnapshot } from "@/merchant/observed-snapshot";
 import { StrategySchema } from "@/twin/interventions";
 import { runComparison } from "@/twin/worker-client";
 import { errorResponse, readBoundedJson } from "../_lib/http";
@@ -21,7 +22,10 @@ export async function POST(request: Request) {
   if (admission) return admission;
   try {
     const body = BodySchema.parse(await readBoundedJson(request));
-    return Response.json(await runComparison((await observedMerchant()).twin, body.strategies, body.options, { signal: request.signal }));
+    const merchant = await observedMerchant();
+    const observedSnapshot = toObservedSnapshot(merchant);
+    const comparison = await runComparison(merchant.twin, body.strategies, body.options, { signal: request.signal });
+    return Response.json({ ...comparison, observedSnapshot });
   } catch (e) {
     return errorResponse(e);
   }

@@ -1,5 +1,8 @@
 import { expect, it, vi } from "vitest";
 import { AgentSession } from "./agent-session";
+import { dashboardReducer, emptyDashboard } from "./lab-state";
+import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
+import type { AgentEvent } from "@/agent/contracts";
 
 const response = (message: string) => new Response(JSON.stringify({ runId: "r1", seq: 1, event: { type: "summary", message } }) + "\n" + JSON.stringify({ runId: "r1", seq: 2, event: { type: "done", status: "complete" } }) + "\n");
 it("ignores late events and completion from a stopped run after a new run starts", async () => {
@@ -29,4 +32,19 @@ it("keeps one active request through duplicate start attempts and aborts its fet
   session.stop();
   expect(signal?.aborted).toBe(true);
   expect(session.active).toBe(false);
+});
+it("cannot replace a new run's observed snapshot with a stopped generation's late snapshot", async () => {
+  const snapshot = (months: number): ObservedSnapshot => ({ evidence: { episodes: 1, subscriberMonths: months, posteriorSubscriberMonths: months, cancellations: 0, censoredEpisodes: 0, posteriorCancellations: 0, limitation: "Fixture observational evidence" }, changes: [], provenance: { rr: { source: "observed", note: `Measured ${months}`, evidenceCount: months } } });
+  const stream = (value: ObservedSnapshot) => new Response([ { type: "observed_snapshot", snapshot: value }, { type: "done", status: "incomplete" } ].map((event, i) => JSON.stringify({ runId: "fixture", seq: i + 1, event })).join("\n") + "\n");
+  let oldResponse!: (response: Response) => void;
+  const fetcher = vi.fn<typeof fetch>(async (): Promise<Response> => fetcher.mock.calls.length === 1 ? new Promise<Response>(resolve => { oldResponse = resolve; }) : stream(snapshot(.5)));
+  let state = emptyDashboard;
+  const session = new AgentSession();
+  const options = { fetch: fetcher, onEvent(event: AgentEvent) { state = dashboardReducer(state, { type: "event", event }); }, onResult() {}, onError() {}, onFinish() {} };
+  const old = session.run("Old", options);
+  session.stop();
+  await session.run("New", options);
+  oldResponse(stream(snapshot(.1)));
+  await old;
+  expect(state.observedSnapshot).toEqual(snapshot(.5));
 });

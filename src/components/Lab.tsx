@@ -5,7 +5,7 @@ import type { AgentEvent } from "@/agent/contracts";
 import type { ExecutionReport } from "@/execution/execute";
 import type { Proposal } from "@/ledger/proposals";
 import type { Strategy } from "@/twin/interventions";
-import type { ComparisonResult } from "@/twin/simulate";
+import { ObservedSnapshotSchema, type ObservedComparison } from "@/merchant/observed-snapshot";
 import type { Provenance, SegmentId } from "@/twin/types";
 import type { DiscountEvidence } from "@/ledger/discount-outcomes";
 import type { ParameterChange } from "@/twin/calibrate";
@@ -61,7 +61,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; starterStrategies: Strategy[] }) {
   const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
-  const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
+  const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress, observedSnapshot }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
   const [access, setAccess] = useState<AccessState | null>(null);
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
@@ -83,8 +83,8 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
     setError(null);
     dispatch({ type: "reset" });
     try {
-      const result = await api<ComparisonResult>("/api/simulate", { method: "POST", body: JSON.stringify({ strategies: starterStrategies }) });
-      dispatch({ type: "comparison", comparison: result, source: "manual" });
+      const { observedSnapshot, ...comparison } = await api<ObservedComparison>("/api/simulate", { method: "POST", body: JSON.stringify({ strategies: starterStrategies }) });
+      dispatch({ type: "comparison", comparison, source: "manual", observedSnapshot: ObservedSnapshotSchema.parse(observedSnapshot) });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -227,7 +227,7 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
               ]}
             />
           </div>
-          <div className="min-w-0 lg:col-span-2"><EvidencePanel summary={summary} evidence={evidence} source={comparisonSource} /></div>
+          <div className="min-w-0 lg:col-span-2"><EvidencePanel summary={summary} evidence={evidence} source={comparisonSource} snapshot={observedSnapshot} /></div>
         </section>
       )}
 

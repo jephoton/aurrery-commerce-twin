@@ -8,6 +8,7 @@ const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.round(Math.abs(n)).to
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 export function AgentActivity({ event }: { event: AgentEvent }) {
   switch (event.type) {
+    case "observed_snapshot": return <p className="text-muted">Loaded measured evidence: {event.snapshot.evidence.posteriorSubscriberMonths.toFixed(3)} qualified discounted subscriber-months for this run.</p>;
     case "status": case "summary": return <p className="whitespace-pre-wrap text-muted">{event.message}</p>;
     case "wait": return <p>{event.message} Waiting about {Math.ceil(event.durationMs / 1000)} seconds; Stop remains available.</p>;
     case "tool_started": return <p className="text-muted">Running {event.name.replaceAll("_", " ")}…</p>;

@@ -4,6 +4,7 @@ import type { MerchantTwin } from "@/twin/types";
 import type { ComparisonResult } from "@/twin/simulate";
 import type { StressResult } from "@/twin/stress";
 import type { EvidenceSummary } from "@/signals/evidence";
+import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
 
 export const DecisionRulesSchema = z.strictObject({
   discountBudget: z.number().finite().min(0).max(100000),
@@ -21,6 +22,7 @@ export interface ClassificationSummary {
 }
 /** Public activity and evidence only; never provider reasoning or hidden labels. */
 export type AgentEvent =
+  | { type: "observed_snapshot"; snapshot: ObservedSnapshot }
   | { type: "status"; message: string }
   | { type: "wait"; durationMs: number; message: string }
   | { type: "tool_started"; name: string }

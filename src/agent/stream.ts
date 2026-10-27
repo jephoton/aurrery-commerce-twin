@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AgentEvent } from "./contracts";
 import { StrategySchema } from "@/twin/interventions";
 import { METRIC_KEYS, SEGMENTS, type TwinParams } from "@/twin/types";
+import { ObservedSnapshotSchema } from "@/merchant/observed-snapshot";
 
 export const MAX_FRAME_BYTES = 512 * 1024;
 export interface AgentFrame { runId: string; seq: number; event: AgentEvent }
@@ -20,6 +21,7 @@ const rules = z.object({ discountBudget: finite.min(0).max(100000), maxProbWorse
 const action = z.object({ type: z.literal("subscription_price_override"), segment: z.enum(SEGMENTS), reason: z.enum(["price", "any"]), listPrice: text, newPrice: text, discountPct: finite, months: count, campaignMonths: count, targets: z.array(text).min(1).max(25) });
 const proposal = z.object({ id: text, createdAt: text, objective: text.nullable(), strategy: StrategySchema, prediction: z.object({ metrics, vsBaseline: deltas, probValueBelowBaseline: probability }), action, actionHash: text, status: z.enum(["proposed", "approved", "executing", "succeeded", "partially_failed", "failed", "rejected"]), approvedAt: text.nullable(), approvedBy: text.nullable(), completedAt: text.nullable(), revertAfter: text.nullable() });
 const eventSchema: z.ZodType<AgentEvent> = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("observed_snapshot"), snapshot: ObservedSnapshotSchema }),
   z.strictObject({ type: z.literal("status"), message: text }),
   z.strictObject({ type: z.literal("wait"), durationMs: count, message: text }),
   z.strictObject({ type: z.literal("tool_started"), name: text }),

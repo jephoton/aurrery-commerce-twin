@@ -13,7 +13,9 @@ describe("manual simulation route", () => {
   it("returns the exact seeded worker comparison", async () => {
     const response = await POST(request(JSON.stringify(body)));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(compareStrategies(currentMerchant().twin, body.strategies, body.options));
+    const { observedSnapshot, ...comparison } = await response.json();
+    expect(comparison).toEqual(compareStrategies(currentMerchant().twin, body.strategies, body.options));
+    expect(observedSnapshot).toMatchObject({ evidence: { episodes: 0, subscriberMonths: 0 }, changes: [], provenance: currentMerchant().twin.provenance });
   });
   it("rejects oversized bodies before computation", async () => {
     const response = await POST(request(JSON.stringify({ ...body, padding: "x".repeat(70_000) })));

@@ -1,15 +1,19 @@
 import type { AgentEvent } from "@/agent/contracts";
 import type { MerchantSummary } from "./Lab";
+import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
 
 interface Props {
   summary: MerchantSummary;
   evidence: Extract<AgentEvent, { type: "classification" }> | null;
   source: "manual" | "agent" | null;
+  snapshot?: ObservedSnapshot | null;
 }
 
-export function EvidencePanel({ summary, evidence, source }: Props) {
+export function EvidencePanel({ summary, evidence, source, snapshot }: Props) {
   const classified = source === "agent" ? evidence : null;
-  const provenance = classified?.provenance ?? summary.provenance;
+  const provenance = snapshot?.provenance ?? (source ? {} : summary.provenance);
+  const measured = snapshot?.evidence ?? (source ? undefined : summary.observedEvidence);
+  const changes = snapshot?.changes ?? (source ? undefined : summary.parameterChanges);
   return (
     <aside className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="evidence-title">
       <p className="eyebrow">Evidence record</p>
@@ -33,15 +37,16 @@ export function EvidencePanel({ summary, evidence, source }: Props) {
           </> : <p className="mt-1 text-muted">{source === "manual" ? "Manual comparison: no AI classification applied." : "No feedback classified in this run."}</p>}
         </div>
       </div>
-      {summary.observedEvidence && <div className="mt-3 rounded-lg border border-border bg-background p-4 text-sm">
+      {measured && <div className="mt-3 rounded-lg border border-border bg-background p-4 text-sm">
         <h4 className="font-medium">Measured sandbox outcomes</h4>
-        <p className="mt-1 text-muted">Evidence snapshot at page load. Refresh to include newer observations.</p>
-        <p className="mt-1">{summary.observedEvidence.episodes} verified discount episodes · {summary.observedEvidence.subscriberMonths.toFixed(3)} observed discounted subscriber-months (30 days/month).</p>
-        <p className="mt-1">{summary.observedEvidence.cancellations} ambiguous cancellation facts · {summary.observedEvidence.censoredEpisodes} episodes excluded, including preceding survival.</p>
-        <p className="mt-1">Calibration: {summary.observedEvidence.posteriorSubscriberMonths.toFixed(3)} subscriber-months · {summary.observedEvidence.posteriorCancellations} qualified posterior cancellations.</p>
-        {summary.parameterChanges?.length ? <ul className="mt-2 space-y-1">{summary.parameterChanges.map(change => <li key={change.parameter}>{change.parameter}: mean {change.before.mean.toFixed(4)} → {change.after.mean.toFixed(4)} · {change.evidence}</li>)}</ul> : <p className="mt-1">No measured effect parameter changes. A price override alone is not retention evidence.</p>}
-        <p className="mt-2 text-muted">{summary.observedEvidence.limitation}</p>
+        <p className="mt-1 text-muted">{snapshot ? "Evidence snapshot used for this run." : "Evidence snapshot at page load."}</p>
+        <p className="mt-1">{measured.episodes} verified discount episodes · {measured.subscriberMonths.toFixed(3)} observed discounted subscriber-months (30 days/month).</p>
+        <p className="mt-1">{measured.cancellations} ambiguous cancellation facts · {measured.censoredEpisodes} episodes excluded, including preceding survival.</p>
+        <p className="mt-1">Calibration: {measured.posteriorSubscriberMonths.toFixed(3)} subscriber-months · {measured.posteriorCancellations} qualified posterior cancellations.</p>
+        {changes?.length ? <ul className="mt-2 space-y-1">{changes.map(change => <li key={change.parameter}>{change.parameter}: mean {change.before.mean.toFixed(4)} → {change.after.mean.toFixed(4)} · {change.evidence}</li>)}</ul> : <p className="mt-1">No measured effect parameter changes. A price override alone is not retention evidence.</p>}
+        <p className="mt-2 text-muted">{measured.limitation}</p>
       </div>}
+      {source && !snapshot && <p className="mt-3 text-sm text-muted">Measured evidence snapshot unavailable for this run.</p>}
       <p className="mt-3 text-sm text-muted">{source === "manual" ? "Canonical synthetic twin estimates with separately measured sandbox effects and registered pilots." : classified ? "Classified synthetic feedback updates reason estimates; measured effects, historical estimates and intervention assumptions remain distinct." : "Current synthetic history, measured sandbox effects and model assumptions."}</p>
       <details className="mt-4 border-t border-border pt-3 text-sm">
         <summary className="min-h-10 cursor-pointer pt-2 font-medium text-brand-accent">Sources and assumptions</summary>
