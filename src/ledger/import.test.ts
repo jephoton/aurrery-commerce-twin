@@ -89,7 +89,7 @@ it("round trips a recovery proposal, its null forecast and active target claim",
   source.prepare("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status) VALUES (?,?,?,?,?,?,?,?)")
     .run(sourceId, at, JSON.stringify(STARTER_STRATEGIES[1]), "{}", discount.type, JSON.stringify(discount), hashAction(discount), "succeeded");
   source.prepare("INSERT INTO executions (proposal_id,target_id,operation,request_json,ok,http_status,response_json,verified,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
-    .run(sourceId, "I-FIXTURE", "PATCH subscription fixed_price", "{}", 1, 204, JSON.stringify({ observed: { regularPrice: "18.00" } }), 1, at);
+    .run(sourceId, "I-FIXTURE", "PATCH subscription fixed_price", "{}", 1, 204, JSON.stringify({ observed: { regularPrice: "18.0" } }), 1, at);
   const executionId = Number(source.prepare("SELECT id FROM executions").get()!.id);
   const recovery = RevertActionSchema.parse({ type: "subscription_price_revert", sourceProposalId: sourceId, sourceActionHash: hashAction(discount), targets: [{ subscriptionId: "I-FIXTURE", sourceExecutionId: executionId, expectedCurrentPrice: "18.00", listPrice: "24.00", registration: { label: "Pilot", segment: "core", reason: "price", createdAt: at } }] });
   source.prepare("INSERT INTO proposals (id,created_at,strategy_json,simulation_json,action_type,action_json,action_hash,status,approved_at,approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)")
@@ -108,11 +108,17 @@ it("round trips a recovery proposal, its null forecast and active target claim",
   tampered.prepare("UPDATE proposals SET simulation_json='{}' WHERE id=?").run(recoveryId);
   tampered.close();
   await expect(importLedger({ sourcePath: path, dryRun: true })).rejects.toThrow(/proposal schema/i);
+  const malformed = new DatabaseSync(path);
+  malformed.prepare("UPDATE proposals SET simulation_json='null' WHERE id=?").run(recoveryId);
+  malformed.prepare("UPDATE executions SET response_json=? WHERE proposal_id=?").run(JSON.stringify({ observed: { regularPrice: "1.8e1" } }), sourceId);
+  malformed.close();
+  await expect(importLedger({ sourcePath: path, dryRun: true })).rejects.toThrow(/recovery execution/i);
 });
 afterAll(() => { try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows native client lock. */ } });
 it("round trips linked episode snapshots through a checked libSQL target", async () => {
   const path = join(dir, "episode-source.sqlite");
   const source = await episodeSource(path);
+  source.prepare("UPDATE observations SET regular_price='18.0' WHERE source='paypal.get_subscription'").run();
   const expected = source.prepare("SELECT * FROM discount_episodes").all();
   source.close();
   const client = createClient({ url: `file:${join(dir, "episode-target.sqlite")}` });
@@ -128,6 +134,7 @@ it.each([
   ["wrong pilot", "UPDATE discount_episodes SET subscription_id='I-OTHER'"],
   ["wrong time", "UPDATE discount_episodes SET ends_at='2026-04-01T00:00:00.000Z'"],
   ["wrong price", "UPDATE discount_episodes SET discounted_price='17.00'"],
+  ["exponent observed price", "UPDATE observations SET regular_price='1.8e1' WHERE source='paypal.get_subscription'"],
   ["wrong segment", "UPDATE discount_episodes SET segment='at_risk'"],
   ["wrong reason", "UPDATE discount_episodes SET reason='other'"],
   ["wrong operation", "UPDATE executions SET operation='fixture unrelated operation'"],

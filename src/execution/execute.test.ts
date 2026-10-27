@@ -147,3 +147,35 @@ it("stops recovery on an ambiguous PATCH acknowledgement without touching the ne
   expect(patch).toHaveBeenCalledTimes(1);
   expect(finish).not.toHaveBeenCalled();
 });
+
+it("accepts equivalent observed cents and allows a new discount while list-price override remains true", async () => {
+  const proposal = { id: "p", action: { type: "subscription_price_override", targets: ["I-ONE"], listPrice: "24.00", newPrice: "18.00", months: 3 } } as Proposal;
+  const patch = vi.fn().mockResolvedValue({ ok: true, value: { httpStatus: 204 }, debugId: null });
+  const read = vi.fn().mockResolvedValueOnce({ ok: true, value: { id: "I-ONE", status: "ACTIVE", regularPrice: "24.0", planOverridden: true, nextBillingTime: null, lastPayment: null, planId: null, raw: {} }, debugId: null })
+    .mockResolvedValueOnce({ ok: true, value: { id: "I-ONE", status: "ACTIVE", regularPrice: "18", planOverridden: true, nextBillingTime: null, lastPayment: null, planId: null, raw: {} }, debugId: null });
+  const finish = vi.fn();
+  const report = await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish, patch, read, record: vi.fn(), recordObservation: vi.fn() });
+  expect(patch).toHaveBeenCalledWith("I-ONE", "18.00");
+  expect(report.outcomes[0].verified).toBe(true);
+  expect(finish).toHaveBeenCalledWith("p", "succeeded", expect.any(String), { succeeded: 1, total: 1 });
+});
+
+it("rejects exponent-form observed prices even when they coerce to the approved amount", async () => {
+  const proposal = { id: "p", action: { type: "subscription_price_override", targets: ["I-ONE"], listPrice: "24.00", newPrice: "18.00", months: 3 } } as Proposal;
+  const patch = vi.fn();
+  const report = await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish: vi.fn(), patch,
+    read: async () => ({ ok: true, value: { id: "I-ONE", status: "ACTIVE", regularPrice: "2.4e1", planOverridden: false, nextBillingTime: null, lastPayment: null, planId: null, raw: {} }, debugId: null }),
+    record: vi.fn(), recordObservation: vi.fn() });
+  expect(patch).not.toHaveBeenCalled();
+  expect(report.outcomes[0].ok).toBe(false);
+});
+
+it("does not verify an exponent-form PayPal read-back", async () => {
+  const proposal = { id: "p", action: { type: "subscription_price_override", targets: ["I-ONE"], listPrice: "24.00", newPrice: "18.00", months: 3 } } as Proposal;
+  const read = vi.fn().mockResolvedValueOnce({ ok: true, value: { id: "I-ONE", status: "ACTIVE", regularPrice: "24.00", planOverridden: false, nextBillingTime: null, lastPayment: null, planId: null, raw: {} }, debugId: null })
+    .mockResolvedValueOnce({ ok: true, value: { id: "I-ONE", status: "ACTIVE", regularPrice: "1.8e1", planOverridden: true, nextBillingTime: null, lastPayment: null, planId: null, raw: {} }, debugId: null });
+  const record = vi.fn();
+  await expect(executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish: vi.fn(),
+    patch: async () => ({ ok: true, value: { httpStatus: 204 }, debugId: null }), read, record, recordObservation: vi.fn() })).rejects.toThrow(/reconcile/i);
+  expect(record.mock.calls[0][2].verified).toBe(false);
+});

@@ -40,6 +40,9 @@ it("caps at restore/nonactive and never counts time to an unknown-price boundary
     expect(outcome.cancellations).toBe(0);
   }
 });
+it("treats an exponent-form price as an invalid observation boundary", () => {
+  expect(derive([fact(0), fact(5), fact(10, "ACTIVE", "1.8e1"), fact(20)]).subscriberMonths).toBe(5 / 30);
+});
 it("does not bridge failed/unknown state, or attribute cancellation after a verified restore", () => {
   for (const boundary of [fact(10, "PAYMENT_FAILED", null), fact(10, "ACTIVE", null), fact(10, "UNKNOWN", null)]) expect(derive([fact(5), boundary, fact(20)]).subscriberMonths).toBe(5 / 30);
   expect(derive([fact(5), fact(10, "ACTIVE", "24.00"), fact(15, "CANCELLED", null)]).cancellations).toBe(0);

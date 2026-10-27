@@ -6,6 +6,7 @@ import { isAbsolute, join } from "node:path";
 import { backup, DatabaseSync } from "node:sqlite";
 import { REASONS, SEGMENTS } from "@/twin/types";
 import { StrategySchema } from "@/twin/interventions";
+import { sameUsdAmount, usdCents } from "@/paypal/prices";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow, type LedgerValue } from "./connection";
 import { LEDGER_SCHEMA } from "./db";
 import { authoritativeWrite } from "./operations";
@@ -94,7 +95,7 @@ function validateRecords(tables: TableSnapshot[]): void {
           Date.parse(target.registration.createdAt) > Date.parse(String(execution.created_at)) ||
           !original.targets.includes(target.subscriptionId) || target.expectedCurrentPrice !== original.newPrice || target.listPrice !== original.listPrice)
           throw new Error("Source recovery target is invalid");
-        try { if (JSON.parse(String(execution.response_json)).observed?.regularPrice !== target.expectedCurrentPrice) throw new Error(); }
+        try { if (!sameUsdAmount(JSON.parse(String(execution.response_json)).observed?.regularPrice, target.expectedCurrentPrice)) throw new Error(); }
         catch { throw new Error("Source recovery execution is invalid"); }
       }
     }
@@ -111,6 +112,8 @@ function validateRecords(tables: TableSnapshot[]): void {
     const observation = of("observations").find(o => o.id === row.start_observation_id);
     const proposal = execution && of("proposals").find(p => p.id === execution.proposal_id);
     const action = proposal ? PriceOverrideActionSchema.parse(JSON.parse(String(proposal.action_json))) : null;
+    const discountedCents = action ? usdCents(action.newPrice) : null;
+    const listCents = action ? usdCents(action.listPrice) : null;
     const start = Date.parse(String(row.started_at));
     if (!execution || !observation || !action || Number(execution.ok) !== 1 || Number(execution.verified) !== 1 ||
       row.segment !== action.segment || (action.reason !== "any" && row.reason !== action.reason) || execution.operation !== "PATCH subscription fixed_price" || observation.status !== "ACTIVE" ||
@@ -118,7 +121,7 @@ function validateRecords(tables: TableSnapshot[]): void {
       !SEGMENTS.includes(String(row.segment) as typeof SEGMENTS[number]) || !REASONS.includes(String(row.reason) as typeof REASONS[number]) ||
       !Number.isFinite(start) || row.started_at !== execution.created_at || row.started_at !== observation.observed_at ||
       Date.parse(String(row.ends_at)) !== start + action.months * 30 * 86_400_000 || row.discounted_price !== action.newPrice ||
-      observation.regular_price === null || Number(observation.regular_price) !== Number(action.newPrice) || Number(action.newPrice) >= Number(action.listPrice) ||
+      !sameUsdAmount(observation.regular_price, action.newPrice) || discountedCents === null || listCents === null || discountedCents >= listCents ||
       observation.source !== "paypal.get_subscription") throw new Error("Source discount episode is invalid");
   }
 }

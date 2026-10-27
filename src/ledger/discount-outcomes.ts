@@ -3,6 +3,7 @@ import type { ReasonId, SegmentId } from "@/twin/types";
 import type { DiscountOutcomeObservation } from "@/twin/calibrate";
 import { runtimeLedgerConnection, type LedgerConnection } from "./connection";
 import { authoritativeWrite } from "./operations";
+import { sameUsdAmount } from "@/paypal/prices";
 
 export const SUBSCRIBER_MONTH_MS = 30 * 86_400_000;
 export const OUTCOME_LIMITATION = "Observational evidence with an assumed counterfactual; selection and censoring limit interpretation. PayPal cancellation facts prove neither voluntary intent nor discounted price. Ambiguous cancellation episodes (including prior survival) are excluded from calibration. No causal retention claim.";
@@ -37,7 +38,7 @@ export function deriveDiscountOutcomes(episodes: DiscountEpisode[], facts: Disco
     const nextStart = next ? Date.parse(next.startedAt) : Infinity;
     const end = Math.min(Date.parse(episode.endsAt), Date.parse(now), nextStart);
     if (end <= start) continue;
-    const matched = (f: DiscountFact) => f.status === "ACTIVE" && f.regularPrice !== null && Number(f.regularPrice) === Number(episode.discountedPrice);
+    const matched = (f: DiscountFact) => f.status === "ACTIVE" && sameUsdAmount(f.regularPrice, episode.discountedPrice);
     const priority = (f: DiscountFact) => f.status === "CANCELLED" ? 0 : matched(f) ? 2 : 1;
     const orderedFacts = [...timely].sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt) || priority(a) - priority(b));
     let through = start, stopped = false, closed = false, cancelled = false;
@@ -47,7 +48,7 @@ export function deriveDiscountOutcomes(episodes: DiscountEpisode[], facts: Disco
       // Cancellations within the approved window are ambiguous even after the last positive read.
       if (closed) continue;
       if (time <= end && f.status === "CANCELLED" && transitions.has(key(f))) cancelled = true;
-      if ((f.regularPrice !== null && Number(f.regularPrice) !== Number(episode.discountedPrice)) || f.status === "EXPIRED") closed = true;
+      if ((f.regularPrice !== null && !sameUsdAmount(f.regularPrice, episode.discountedPrice)) || f.status === "EXPIRED") closed = true;
       if (stopped) continue;
       if (f.status === "PAYMENT_COMPLETED") continue;
       if (!matched(f)) { stopped = true; continue; }

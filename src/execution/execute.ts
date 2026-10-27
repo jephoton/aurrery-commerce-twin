@@ -4,6 +4,7 @@ import { runtimeLedgerConnection, type LedgerConnection } from "@/ledger/connect
 import { auditOn, authoritativeWrite } from "@/ledger/operations";
 import { claimForExecution, finishExecution, getProposal, validateTargetForExecution, ProposalError, type Proposal } from "@/ledger/proposals";
 import { getSubscription, overrideSubscriptionPrice, type SubscriptionSnapshot } from "@/paypal/subscriptions";
+import { sameUsdAmount, usdCents } from "@/paypal/prices";
 import { PriceOverrideActionSchema } from "@/ledger/proposals";
 import { REASONS, SEGMENTS } from "@/twin/types";
 import { SUBSCRIBER_MONTH_MS } from "@/ledger/discount-outcomes";
@@ -54,9 +55,12 @@ export async function recordTarget(id: string, request: unknown, outcome: Target
       const stored = (await tx.query("SELECT action_json FROM proposals WHERE id=?", [id]))[0];
       const action = PriceOverrideActionSchema.safeParse(JSON.parse(String(stored?.action_json ?? "null")));
       const pilot = (await tx.query("SELECT segment,reason FROM sandbox_subscribers WHERE subscription_id=?", [outcome.subscriptionId]))[0];
+      const discountedCents = action.success ? usdCents(action.data.newPrice) : null;
+      const listCents = action.success ? usdCents(action.data.listPrice) : null;
       if (action.success && pilot && SEGMENTS.includes(pilot.segment as typeof SEGMENTS[number]) && REASONS.includes(pilot.reason as typeof REASONS[number]) &&
         pilot.segment === action.data.segment && (action.data.reason === "any" || pilot.reason === action.data.reason) &&
-        action.data.targets.includes(snapshot.id) && Number(snapshot.regularPrice) === Number(action.data.newPrice) && Number(action.data.newPrice) < Number(action.data.listPrice)) {
+        action.data.targets.includes(snapshot.id) && sameUsdAmount(snapshot.regularPrice, action.data.newPrice) &&
+        discountedCents !== null && listCents !== null && discountedCents < listCents) {
         await tx.execute(`INSERT INTO discount_episodes (execution_id,start_observation_id,subscription_id,segment,reason,started_at,ends_at,discounted_price) VALUES (?,?,?,?,?,?,?,?)`,
           [execution.lastInsertRowid!, observation.lastInsertRowid!, snapshot.id, String(pilot.segment), String(pilot.reason), recordedAt, new Date(Date.parse(recordedAt) + action.data.months * SUBSCRIBER_MONTH_MS).toISOString(), action.data.newPrice]);
       }
@@ -92,8 +96,8 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
       current = before.value;
       if (deps.recordObservation) await deps.recordObservation(current, "paypal.execution_preread");
     } catch { throw new ExecutionReconciliationRequired(id); }
-    if (current.id !== subscriptionId || current.status !== "ACTIVE" || current.regularPrice !== target.expectedCurrentPrice ||
-      (action.type === "subscription_price_override" ? current.planOverridden : !current.planOverridden)) {
+    if (current.id !== subscriptionId || current.status !== "ACTIVE" || !sameUsdAmount(current.regularPrice, target.expectedCurrentPrice) ||
+      (action.type === "subscription_price_revert" && !current.planOverridden)) {
       const outcome: TargetOutcome = { subscriptionId, ok: false, httpStatus: null, debugId: null, verified: false,
         observed: { status: current.status, regularPrice: current.regularPrice, planOverridden: current.planOverridden, nextBillingTime: current.nextBillingTime },
         error: "Current subscription did not match the approved price and status." };
@@ -131,8 +135,7 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
       if (read.ok) {
         snapshot = read.value;
         outcome.observed = { status: snapshot.status, regularPrice: snapshot.regularPrice, planOverridden: snapshot.planOverridden, nextBillingTime: snapshot.nextBillingTime };
-        outcome.verified = snapshot.id === subscriptionId && snapshot.status === "ACTIVE" &&
-          snapshot.regularPrice !== null && Number(snapshot.regularPrice) === Number(requestedPrice);
+        outcome.verified = snapshot.id === subscriptionId && snapshot.status === "ACTIVE" && sameUsdAmount(snapshot.regularPrice, requestedPrice);
       } else outcome.error = `Applied, but read-back failed: ${read.error.name}: ${read.error.message}`;
     }
     try { await deps.record(id, request, outcome, snapshot); }

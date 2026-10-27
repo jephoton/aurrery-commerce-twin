@@ -72,6 +72,26 @@ describe("revert proposal authority", () => {
     } finally { db.close(); }
   });
 
+  it("accepts cents-equivalent source read-back formatting at preview and claim, rejecting malformed replacements", async () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      const connection = createLocalConnection(db);
+      const repository = await seed(connection);
+      await connection.execute("UPDATE executions SET response_json=? WHERE target_id='I-ONE'", [JSON.stringify({ observed: { regularPrice: "18.0" } })]);
+      await connection.execute("UPDATE executions SET verified=0 WHERE target_id='I-TWO'");
+      const accepted = await repository.createRevertProposal(sourceId);
+      expect(accepted.action.targets).toMatchObject([{ subscriptionId: "I-ONE" }]);
+      await repository.approveProposal(accepted.id, accepted.actionHash, "merchant");
+      expect((await repository.claimForExecution(accepted.id)).status).toBe("executing");
+      await repository.finishExecution(accepted.id, "failed", null);
+      const later = await repository.createRevertProposal(sourceId);
+      await repository.approveProposal(later.id, later.actionHash, "merchant");
+      await connection.execute("UPDATE executions SET response_json=? WHERE target_id='I-ONE'", [JSON.stringify({ observed: { regularPrice: "1.8e1" } })]);
+      await expect(repository.claimForExecution(later.id)).rejects.toMatchObject({ code: "INVALID_STATE" });
+      expect((await repository.getProposal(later.id)).status).toBe("failed");
+    } finally { db.close(); }
+  });
+
   it("rejects a changed registration or later verified action even at the same price", async () => {
     const db = new DatabaseSync(":memory:");
     try {

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { StrategySchema, type Strategy } from "@/twin/interventions";
 import type { StrategyResult } from "@/twin/simulate";
 import { REASONS, SEGMENTS, type ReasonId } from "@/twin/types";
+import { sameUsdAmount } from "@/paypal/prices";
 import { now } from "./db";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow } from "./connection";
 import { auditOn, authoritativeWrite } from "./operations";
@@ -216,7 +217,7 @@ export function createProposalRepository(connection: LedgerConnection) {
           if (!source.action.targets.includes(id)) continue;
           let reported: { observed?: { regularPrice?: string } };
           try { reported = JSON.parse(String(execution.response_json)); } catch { continue; }
-          if (reported.observed?.regularPrice !== source.action.newPrice) continue;
+          if (!sameUsdAmount(reported.observed?.regularPrice, source.action.newPrice)) continue;
           const latest = (await tx.query("SELECT id FROM executions WHERE target_id=? AND ok=1 AND verified=1 ORDER BY id DESC LIMIT 1", [id]))[0];
           if (Number(latest?.id) !== Number(execution.id)) continue;
           const registration = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [id]))[0];
@@ -305,7 +306,7 @@ export function createProposalRepository(connection: LedgerConnection) {
             if (!execution || execution.proposal_id !== source.id || execution.target_id !== target.subscriptionId ||
               execution.operation !== "PATCH subscription fixed_price" || Number(execution.ok) !== 1 || Number(execution.verified) !== 1 ||
               Date.parse(target.registration.createdAt) > Date.parse(String(execution.created_at)) || Number(latest?.id) !== target.sourceExecutionId) return fail("source_execution_changed");
-            try { if (JSON.parse(String(execution.response_json)).observed?.regularPrice !== target.expectedCurrentPrice) return fail("source_price_changed"); }
+            try { if (!sameUsdAmount(JSON.parse(String(execution.response_json)).observed?.regularPrice, target.expectedCurrentPrice)) return fail("source_price_changed"); }
             catch { return fail("source_execution_invalid"); }
           }
         } else {
