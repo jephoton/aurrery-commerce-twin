@@ -136,7 +136,7 @@ Task 2 local verification at `38e0a2a`: **46 focused tests across nine files**, 
 
 | Branch | Contents | Pushed? |
 | --- | --- | --- |
-| `feat/m5-observed-loop` | M5 design, validation preparation and reviewed bounded computation worker; later tasks in progress | no; local work |
+| `feat/m5-observed-loop` | Reviewed M5 local implementation and production acceptance; external hosting/webhook gates pending | yes; reviewed application code at `fe2687d`, branch remote verified at `a530ae4` before this publication note |
 | `feat/m4-product-ui` | Complete, reviewed M4 product UI and numerical correction | yes; merged into main; preserved milestone ref |
 | `main` | M0–M4, selected Gemini provider, tested agent and polished product UI | yes; M4 remote refs verified at `7178738` before this publication-note update |
 | `feat/m3-agent-loop` | Reviewed M3, Gemini adapter/pacing, genuine Groq/Gemini replays and accepted functional dashboard flow | yes; merged into main; preserved milestone ref |
@@ -569,3 +569,5 @@ A genuine default-objective Gemini 3.5 Flash-Lite browser run completed all seve
 Read-only ledger verification after QA: six proposals, all proposed; zero approval audit events, executions, discount episodes, webhook events or active target claims; 119 observations. Fresh PayPal GETs showed all four registered pilots ACTIVE at $24.0, with D retaining its old override flag. The running app remains on 3001; the unrelated app on 3000 was untouched. Screenshots are private ignored artifacts.
 
 A further temporary hosted-mode server probe was rejected by automatic approval review with no specific reason. It did not start, and no bypass was attempted. Guard/unit/API fixture tests pass, but actual hosted HTTP/browser auth is still an external acceptance gate. Turso database URL/token and Render API key are absent; Gemini is configured via its supported private key alias. User was asked for Turso setup only after unblocked local implementation and QA finished. Next: configure the free libSQL database, privately import BEFORE hosted visits create state, deploy the reviewed M5 branch, verify persistence/auth and a genuine Sandbox event/resend without duplicate observation, then hosted Gemini with confirmation unchecked. Do not recreate healthy pilots, use simulator events as signature proof, or replay uncertain writes. Main stays M0–M4 until M5 external acceptance.
+
+Publication: the reviewed M5 branch was pushed to jephoton/aurrery-commerce-twin and its remote ref matched a530ae4 before this documentation note. GitHub authentication was verified as active jephoton; the stale alternate account was not used. Main/origin/main remain `35867fc` (M0–M4); no M5 merge or hosted completion is claimed. The working tree is expected clean after this note is committed and pushed.
