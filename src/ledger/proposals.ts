@@ -48,6 +48,7 @@ export const RevertActionSchema = z.object({
     ctx.addIssue({ code: "custom", message: "Recovery price is not a discount", path: ["targets"] });
 });
 export type RevertAction = z.infer<typeof RevertActionSchema>;
+export const ResetRegistrationSnapshotSchema = RevertTargetSchema.pick({ subscriptionId: true, registration: true });
 const ResetTargetSchema = RevertTargetSchema.omit({ sourceExecutionId: true, listPrice: true }).extend({
   expectedCurrentPrice: z.string().refine((price) => usdCents(price) !== null, "Invalid observed USD amount"),
 });

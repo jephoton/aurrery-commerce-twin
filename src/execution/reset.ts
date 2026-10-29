@@ -3,7 +3,7 @@ import type { SandboxSubscriber, ResetAction, Proposal } from "@/ledger/proposal
 import type { Result, SubscriptionSnapshot } from "@/paypal/subscriptions";
 import { PILOT_COHORT } from "@/paypal/pilot-cohort";
 import { sameUsdAmount, usdCents } from "@/paypal/prices";
-import { createResetProposal, ProposalError } from "@/ledger/proposals";
+import { createResetProposal, ProposalError, ResetRegistrationSnapshotSchema } from "@/ledger/proposals";
 import { runtimeLedgerConnection } from "@/ledger/connection";
 import { authoritativeWrite } from "@/ledger/operations";
 import { getSubscription } from "@/paypal/subscriptions";
@@ -23,25 +23,34 @@ export async function previewDemoResetWith(deps: ResetDependencies): Promise<Res
   if (usdCents(canonicalListPrice) === null || usdCents(canonicalListPrice) === 0)
     throw new ProposalError("Canonical list price is invalid.", "INVALID_STATE");
   const registered = await deps.list();
-  if (new Set(registered.map((pilot) => pilot.subscriptionId)).size !== registered.length)
-    throw new ProposalError("Duplicate pilot identity.", "INVALID_STATE");
   const dates = await deps.registrations();
-  const targets: ResetAction["targets"] = [];
-  const skipped: ResetPreview["skipped"] = [];
-  for (const member of PILOT_COHORT) {
+  // Validate every expected registration before any PayPal read or skip report.
+  // A pilot can be skipped at its current price/status only after its authority is valid.
+  const resolved = PILOT_COHORT.map((member) => {
     const matches = registered.filter((row) => row.label === member.label);
     if (matches.length > 1) throw new ProposalError("Duplicate pilot registration.", "INVALID_STATE");
-    if (!matches.length) { skipped.push({ label: member.label, subscriptionId: null, reason: "unregistered" }); continue; }
+    if (!matches.length) return { member, pilot: null };
     const pilot = matches[0];
-    if (pilot.segment !== member.segment || pilot.reason !== member.reason || !dates[pilot.subscriptionId])
+    const snapshot = ResetRegistrationSnapshotSchema.safeParse({ subscriptionId: pilot.subscriptionId, registration: {
+      label: pilot.label, segment: pilot.segment, reason: pilot.reason, createdAt: dates[pilot.subscriptionId],
+    } });
+    if (!snapshot.success || snapshot.data.registration.segment !== member.segment || snapshot.data.registration.reason !== member.reason)
       throw new ProposalError("Pilot registration is inconsistent.", "INVALID_STATE");
+    return { member, pilot: snapshot.data };
+  });
+  const ids = resolved.flatMap(({ pilot }) => pilot ? [pilot.subscriptionId] : []);
+  if (new Set(ids).size !== ids.length) throw new ProposalError("Duplicate pilot identity.", "INVALID_STATE");
+  const targets: ResetAction["targets"] = [];
+  const skipped: ResetPreview["skipped"] = [];
+  for (const { member, pilot } of resolved) {
+    if (!pilot) { skipped.push({ label: member.label, subscriptionId: null, reason: "unregistered" }); continue; }
     const read = await deps.read(pilot.subscriptionId);
     if (!read.ok || read.value.id !== pilot.subscriptionId) throw new ProposalError("Pilot PayPal status could not be verified.", "INVALID_STATE");
     if (read.value.status !== "ACTIVE") { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "inactive" }); continue; }
     if (usdCents(read.value.regularPrice) === null) throw new ProposalError("Pilot price could not be verified.", "INVALID_STATE");
     if (sameUsdAmount(read.value.regularPrice, canonicalListPrice)) { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "already_list_price" }); continue; }
     targets.push({ subscriptionId: pilot.subscriptionId, expectedCurrentPrice: read.value.regularPrice!,
-      registration: { label: pilot.label, segment: member.segment, reason: member.reason, createdAt: dates[pilot.subscriptionId] } });
+      registration: pilot.registration });
   }
   return { proposal: targets.length ? await deps.create(canonicalListPrice, targets) : null, skipped };
 }

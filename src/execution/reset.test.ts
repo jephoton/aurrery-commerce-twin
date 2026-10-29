@@ -7,6 +7,37 @@ import * as paypal from "@/paypal/subscriptions";
 
 afterEach(() => vi.restoreAllMocks());
 
+for (const status of ["ACTIVE", "SUSPENDED"]) {
+  it.each([
+    ["malformed ID", "not-an-id", "2026-01-01T00:00:00.000Z"],
+    ["ID containing a path", "I-B/OTHER", "2026-01-01T00:00:00.000Z"],
+    ["malformed date", "I-B", "not-a-date"],
+    ["date without timestamp", "I-B", "2026-01-01"],
+  ])(`rejects %s for a would-be ${status === "ACTIVE" ? "already-list" : "inactive"} pilot before any cohort SDK read`, async (_name, subscriptionId, createdAt) => {
+    const read = vi.fn(async (id: string) => ({ ok: true, value: { id, status, regularPrice: "24.00", planOverridden: true }, debugId: null } as never));
+    const create = vi.fn();
+    await expect(previewDemoResetWith({ list: async () => [
+      { subscriptionId: "I-A", ...PILOT_COHORT[0] }, { subscriptionId, ...PILOT_COHORT[1] },
+    ], registrations: async () => ({ "I-A": "2026-01-01T00:00:00.000Z", [subscriptionId]: createdAt }),
+      read, create, listPrice: () => 24 })).rejects.toMatchObject({ code: "INVALID_STATE" });
+    expect(read).not.toHaveBeenCalled(); expect(create).not.toHaveBeenCalled();
+  });
+}
+
+it("ignores malformed unrelated registry labels while reporting missing cohort members", async () => {
+  const read = vi.fn(async (id: string) => ({ ok: true, value: { id, status: "ACTIVE", regularPrice: "24.00" }, debugId: null } as never));
+  const create = vi.fn();
+  const preview = await previewDemoResetWith({ list: async () => [
+    { subscriptionId: "I-A", ...PILOT_COHORT[0] },
+    { subscriptionId: "invalid-extra", label: "unrelated", segment: "invalid", reason: "other" },
+  ], registrations: async () => ({ "I-A": "2026-01-01T00:00:00.000Z", "invalid-extra": "not-a-date" }), read, create, listPrice: () => 24 });
+  expect(preview.proposal).toBeNull(); expect(read.mock.calls).toEqual([["I-A"]]); expect(create).not.toHaveBeenCalled();
+  expect(preview.skipped).toEqual([
+    { label: PILOT_COHORT[0].label, subscriptionId: "I-A", reason: "already_list_price" },
+    ...PILOT_COHORT.slice(1).map((pilot) => ({ label: pilot.label, subscriptionId: null, reason: "unregistered" })),
+  ]);
+});
+
 it("does not normalize invalid registry attributes into an already-list no-op", async () => {
   const db = new DatabaseSync(":memory:");
   try {
