@@ -9,7 +9,7 @@ import type { AgentEvent } from "@/agent/contracts";
 import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
 
 const comparison = compareStrategies(buildDemoTwin().twin, STARTER_STRATEGIES, { runs: 2, horizonMonths: 2 });
-const proposal = { id: "p1", strategy: STARTER_STRATEGIES[0] } as Proposal;
+const proposal = { id: "p1", strategy: STARTER_STRATEGIES[0] } as Proposal & { strategy: typeof STARTER_STRATEGIES[number] };
 it("resets all review, comparison, confirmation and evidence state on a new run or manual simulation", () => {
   const state = { ...emptyDashboard, comparison, proposal, confirmed: true, selectedId: proposal.strategy.id };
   expect(dashboardReducer(state, { type: "reset" })).toEqual(emptyDashboard);

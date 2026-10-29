@@ -4,13 +4,58 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createClient } from "@libsql/client";
-import { afterAll, expect, it } from "vitest";
+import { afterAll, expect, it, vi } from "vitest";
 import { createLibsqlConnection, createLocalConnection, initializeLedgerSchema } from "./connection";
 import { LEDGER_SCHEMA } from "./db";
 import { createProposalRepository, hashAction, PriceOverrideActionSchema, RevertActionSchema } from "./proposals";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { importLedger } from "./import";
 import { recordTarget } from "@/execution/execute";
+import { PILOT_COHORT } from "@/paypal/pilot-cohort";
+
+async function resetSource(path: string, status: "proposed" | "approved" | "executing" = "proposed") {
+  const source = new DatabaseSync(path);
+  const connection = createLocalConnection(source); await initializeLedgerSchema(connection);
+  const repo = createProposalRepository(connection);
+  await repo.registerSandboxSubscriber({ subscriptionId: "I-RESET", ...PILOT_COHORT[0] });
+  const createdAt = String((await connection.query("SELECT created_at FROM sandbox_subscribers"))[0].created_at);
+  const proposal = await repo.createResetProposal("24.00", [{ subscriptionId: "I-RESET", expectedCurrentPrice: "18.0", registration: { ...PILOT_COHORT[0], createdAt } }]);
+  if (status !== "proposed") await repo.approveResetProposal(proposal.id, proposal.actionHash, "fixture administrator");
+  if (status === "executing") await repo.claimForExecution(proposal.id);
+  source.close();
+  return proposal;
+}
+
+it.each(["proposed", "approved", "executing"] as const)("round trips a %s reset, raw captured price, honest metadata and pending claims", async (status) => {
+  const path = join(dir, `reset-${status}.sqlite`);
+  const proposal = await resetSource(path, status);
+  const client = createClient({ url: `file:${join(dir, `reset-${status}-target.sqlite`)}` });
+  try {
+    const target = createLibsqlConnection(client); await initializeLedgerSchema(target);
+    await importLedger({ sourcePath: path, target });
+    expect(await target.query("SELECT action_json,action_hash,strategy_json,simulation_json,status,revert_after FROM proposals")).toEqual([
+      { action_json: JSON.stringify(proposal.action), action_hash: proposal.actionHash, strategy_json: "null", simulation_json: "null", status, revert_after: null },
+    ]);
+    expect(await target.query("SELECT target_id,proposal_id FROM active_target_claims")).toEqual(status === "executing" ? [{ target_id: "I-RESET", proposal_id: proposal.id }] : []);
+    expect(await target.query("SELECT * FROM discount_episodes")).toEqual([]);
+  } finally { client.close(); }
+});
+
+it.each([
+  ["forecast", "UPDATE proposals SET simulation_json='{}'"],
+  ["strategy", `UPDATE proposals SET strategy_json='${JSON.stringify(STARTER_STRATEGIES[0])}'`],
+  ["schedule", "UPDATE proposals SET revert_after='2026-12-01T00:00:00.000Z'"],
+  ["missing approval", "UPDATE proposals SET status='approved'"],
+  ["invented approval", "UPDATE proposals SET approved_at='2026-01-01T00:00:00.000Z',approved_by='invented'"],
+  ["premature completion", "UPDATE proposals SET completed_at='2026-01-01T00:00:00.000Z'"],
+])("rejects reset import with %s before target access", async (name, sql) => {
+  const path = join(dir, `reset-invalid-${name.replaceAll(" ", "-")}.sqlite`);
+  await resetSource(path);
+  const source = new DatabaseSync(path); source.exec(sql); source.close();
+  const openTarget = vi.fn();
+  await expect(importLedger({ sourcePath: path, openTarget })).rejects.toThrow(/reset|proposal|recovery/i);
+  expect(openTarget).not.toHaveBeenCalled();
+});
 
 async function episodeSource(path: string) {
   const source = new DatabaseSync(path);

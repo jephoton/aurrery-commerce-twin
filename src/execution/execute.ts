@@ -14,6 +14,7 @@ import { SUBSCRIBER_MONTH_MS } from "@/ledger/discount-outcomes";
 export interface TargetOutcome {
   subscriptionId: string;
   ok: boolean;
+  skipped?: boolean;
   httpStatus: number | null;
   debugId: string | null;
   verified: boolean;
@@ -78,7 +79,7 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
   const outcomes: TargetOutcome[] = [];
   const targets = action.type === "subscription_price_override"
     ? action.targets.map((subscriptionId) => ({ subscriptionId, expectedCurrentPrice: action.listPrice, listPrice: action.newPrice }))
-    : action.targets;
+    : action.type === "subscription_price_reset" ? action.targets.map((target) => ({ ...target, listPrice: action.canonicalListPrice })) : action.targets;
   for (const target of targets) {
     const { subscriptionId } = target;
     const requestedPrice = target.listPrice;
@@ -96,6 +97,14 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
       current = before.value;
       if (deps.recordObservation) await deps.recordObservation(current, "paypal.execution_preread");
     } catch { throw new ExecutionReconciliationRequired(id); }
+    if (action.type === "subscription_price_reset" && current.id === subscriptionId && current.status === "ACTIVE" && sameUsdAmount(current.regularPrice, requestedPrice)) {
+      const outcome: TargetOutcome = { subscriptionId, ok: false, skipped: true, httpStatus: null, debugId: null, verified: false,
+        observed: { status: current.status, regularPrice: current.regularPrice, planOverridden: current.planOverridden, nextBillingTime: current.nextBillingTime },
+        error: "Already at canonical list price; no PATCH sent." };
+      try { await deps.record(id, request, outcome, null); } catch { throw new ExecutionReconciliationRequired(id); }
+      outcomes.push(outcome);
+      continue;
+    }
     if (current.id !== subscriptionId || current.status !== "ACTIVE" || !sameUsdAmount(current.regularPrice, target.expectedCurrentPrice) ||
       (action.type === "subscription_price_revert" && !current.planOverridden)) {
       const outcome: TargetOutcome = { subscriptionId, ok: false, httpStatus: null, debugId: null, verified: false,
@@ -146,7 +155,8 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
     if (!knownFailure && (!outcome.ok || !outcome.verified)) throw new ExecutionReconciliationRequired(id);
   }
   const succeeded = outcomes.filter((outcome) => outcome.ok && outcome.verified).length;
-  const status = succeeded === action.targets.length ? "succeeded" : succeeded === 0 ? "failed" : "partially_failed";
+  const completed = succeeded + outcomes.filter((outcome) => outcome.skipped).length;
+  const status = completed === action.targets.length ? "succeeded" : completed === 0 ? "failed" : "partially_failed";
   const revertAfter = action.type === "subscription_price_override" && succeeded ? new Date(Date.now() + action.months * 30 * 86_400_000).toISOString() : null;
   try { await deps.finish(id, status, revertAfter, { succeeded, total: action.targets.length }); }
   catch { throw new ExecutionReconciliationRequired(id); }

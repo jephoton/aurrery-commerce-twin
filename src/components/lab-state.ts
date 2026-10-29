@@ -51,7 +51,7 @@ export function dashboardReducer(state: DashboardState, action: Action): Dashboa
       if (event.type === "rules") return { ...state, ...clearReview, comparison: null, selectedId: null, comparisonSource: null, rules: event.rules, stress: null };
       if (event.type === "comparison") return dashboardReducer(state, { type: "comparison", comparison: event.comparison, source: "agent" });
       if (event.type === "stress" && state.comparisonSource === "agent" && event.stress.base.strategy.id === event.strategyId && event.stress.stressed.strategy.id === event.strategyId && state.comparison?.strategies.some(s => s.strategy.id === event.strategyId && s.strategy.id !== state.comparison?.baselineId)) return { ...state, stress: event };
-      if (event.type === "proposal" && state.comparison?.strategies.some(s => s.strategy.id === event.proposal.strategy.id)) return { ...state, ...clearReview, selectedId: event.proposal.strategy.id, proposal: event.proposal, proposalSource: "agent" };
+      if (event.type === "proposal" && event.proposal.strategy && state.comparison?.strategies.some(s => s.strategy.id === event.proposal.strategy?.id)) return { ...state, ...clearReview, selectedId: event.proposal.strategy.id, proposal: event.proposal, proposalSource: "agent" };
       return state;
     }
   }

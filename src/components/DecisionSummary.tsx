@@ -18,7 +18,7 @@ const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
 export function DecisionSummary({ selected, proposal, proposalSource, rules, stress, horizonMonths, source, busy }: Props) {
-  const currentProposal = selected && proposal?.strategy.id === selected.strategy.id ? proposal : null;
+  const currentProposal = selected && proposal?.strategy?.id === selected.strategy.id ? proposal : null;
   const matchingStress = selected && stress?.strategyId === selected.strategy.id ? stress : null;
   const manualActionAfterAgentComparison = !!currentProposal && proposalSource === "manual" && source === "agent";
   if (!selected) return (

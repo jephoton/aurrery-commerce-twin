@@ -52,7 +52,7 @@ export function AgentActivity({ event }: { event: AgentEvent }) {
     );
     case "proposal": return (
       <div>
-        <p className="font-medium">Proposed: {event.proposal.strategy.name}</p>
+        <p className="font-medium">Proposed: {event.proposal.strategy?.name ?? "Recovery action"}</p>
         <p>{event.rationale}</p>
         <p className="text-muted">Tradeoffs: {event.tradeoffs}</p>
         <p>Review the exact action in Approval below. Merchant confirmation is required.</p>

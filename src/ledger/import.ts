@@ -10,7 +10,7 @@ import { sameUsdAmount, usdCents } from "@/paypal/prices";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow, type LedgerValue } from "./connection";
 import { LEDGER_SCHEMA } from "./db";
 import { authoritativeWrite } from "./operations";
-import { hashAction, PriceOverrideActionSchema, RevertActionSchema, type ProposalAction } from "./proposals";
+import { hashAction, PriceOverrideActionSchema, RevertActionSchema, ResetActionSchema, type ProposalAction } from "./proposals";
 
 const TABLES = [
   ["sandbox_subscribers", "rowid"], ["proposals", "id"], ["executions", "id"], ["active_target_claims", "target_id"],
@@ -73,13 +73,25 @@ function validateRecords(tables: TableSnapshot[]): void {
     let action: ProposalAction;
     try {
       const raw = JSON.parse(String(row.action_json));
-      action = raw.type === "subscription_price_revert" ? RevertActionSchema.parse(raw) : PriceOverrideActionSchema.parse(raw);
-      StrategySchema.parse(JSON.parse(String(row.strategy_json)));
+      action = raw.type === "subscription_price_revert" ? RevertActionSchema.parse(raw) :
+        raw.type === "subscription_price_reset" ? ResetActionSchema.parse(raw) : PriceOverrideActionSchema.parse(raw);
+      const strategy = JSON.parse(String(row.strategy_json));
+      if (action.type === "subscription_price_reset") { if (strategy !== null) throw new Error("Invalid reset strategy"); }
+      else StrategySchema.parse(strategy);
       const prediction = JSON.parse(String(row.simulation_json));
-      if (action.type === "subscription_price_revert" ? prediction !== null : prediction === null) throw new Error("Invalid prediction metadata");
+      if (action.type !== "subscription_price_override" ? prediction !== null : prediction === null) throw new Error("Invalid prediction metadata");
     } catch { throw new Error("Source proposal schema is invalid"); }
     if (!/^prop_[0-9a-f-]{36}$/.test(String(row.id)) || row.action_type !== action.type ||
       hash(String(row.action_json)) !== row.action_hash || hashAction(action) !== row.action_hash) throw new Error("Source proposal action hash is invalid");
+    if (action.type === "subscription_price_reset") {
+      if (row.revert_after !== null) throw new Error("Source reset cannot schedule a recovery");
+      const approved = !["proposed", "rejected"].includes(String(row.status));
+      if (approved ? !Number.isFinite(Date.parse(String(row.approved_at))) || typeof row.approved_by !== "string" || !row.approved_by.trim()
+        : row.approved_at !== null || row.approved_by !== null) throw new Error("Source reset approval state is invalid");
+      const terminal = ["succeeded", "partially_failed", "failed", "rejected"].includes(String(row.status));
+      if (terminal ? !Number.isFinite(Date.parse(String(row.completed_at))) : row.completed_at !== null)
+        throw new Error("Source reset completion state is invalid");
+    }
     if (action.type === "subscription_price_revert") {
       if (row.status === "proposed" || row.status === "rejected") {
         if (row.approved_at !== null || row.approved_by !== null) throw new Error("Source recovery approval state is invalid");

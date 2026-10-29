@@ -4,7 +4,9 @@ import { z } from "zod";
 import { StrategySchema, type Strategy } from "@/twin/interventions";
 import type { StrategyResult } from "@/twin/simulate";
 import { REASONS, SEGMENTS, type ReasonId } from "@/twin/types";
-import { sameUsdAmount } from "@/paypal/prices";
+import { sameUsdAmount, usdCents } from "@/paypal/prices";
+import { PILOT_COHORT } from "@/paypal/pilot-cohort";
+import { currentMerchant } from "@/merchant";
 import { now } from "./db";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow } from "./connection";
 import { auditOn, authoritativeWrite } from "./operations";
@@ -46,7 +48,29 @@ export const RevertActionSchema = z.object({
     ctx.addIssue({ code: "custom", message: "Recovery price is not a discount", path: ["targets"] });
 });
 export type RevertAction = z.infer<typeof RevertActionSchema>;
-export type ProposalAction = PriceOverrideAction | RevertAction;
+const ResetTargetSchema = RevertTargetSchema.omit({ sourceExecutionId: true, listPrice: true }).extend({
+  expectedCurrentPrice: z.string().refine((price) => usdCents(price) !== null, "Invalid observed USD amount"),
+});
+export const ResetActionSchema = z.object({
+  type: z.literal("subscription_price_reset"), canonicalListPrice: Money,
+  targets: z.array(ResetTargetSchema).min(1).max(PILOT_COHORT.length),
+}).strict().superRefine((action, ctx) => {
+  if (usdCents(action.canonicalListPrice) === null || usdCents(action.canonicalListPrice) === 0)
+    ctx.addIssue({ code: "custom", message: "Invalid canonical list price", path: ["canonicalListPrice"] });
+  for (const target of action.targets) {
+    const expected = PILOT_COHORT.find((pilot) => pilot.label === target.registration.label);
+    if (!expected || expected.segment !== target.registration.segment || expected.reason !== target.registration.reason)
+      ctx.addIssue({ code: "custom", message: "Invalid demo pilot metadata", path: ["targets"] });
+  }
+  if (new Set(action.targets.map((target) => target.subscriptionId)).size !== action.targets.length)
+    ctx.addIssue({ code: "custom", message: "Duplicate reset target", path: ["targets"] });
+  if (new Set(action.targets.map((target) => target.registration.label)).size !== action.targets.length)
+    ctx.addIssue({ code: "custom", message: "Duplicate pilot label", path: ["targets"] });
+  if (action.targets.some((target) => sameUsdAmount(target.expectedCurrentPrice, action.canonicalListPrice)))
+    ctx.addIssue({ code: "custom", message: "Already at list price", path: ["targets"] });
+});
+export type ResetAction = z.infer<typeof ResetActionSchema>;
+export type ProposalAction = PriceOverrideAction | RevertAction | ResetAction;
 
 export type ProposalStatus = "proposed" | "approved" | "executing" | "succeeded" | "partially_failed" | "failed" | "rejected";
 export type ProposalCursor = { createdAt: string; id: string };
@@ -55,7 +79,7 @@ export interface Proposal {
   id: string;
   createdAt: string;
   objective: string | null;
-  strategy: Strategy;
+  strategy: Strategy | null;
   prediction: Pick<StrategyResult, "metrics" | "vsBaseline" | "probValueBelowBaseline"> | null;
   action: ProposalAction;
   actionHash: string;
@@ -158,7 +182,7 @@ async function assertRegistrationMutable(tx: LedgerExecutor, subscriptionIds: st
   for (const row of await tx.query("SELECT action_json FROM proposals WHERE status='executing'")) {
     let action: ProposalAction;
     try { action = JSON.parse(String(row.action_json)); } catch { throw new Error("Unresolved execution blocks pilot registration changes."); }
-    const targets = action.type === "subscription_price_override" ? action.targets : action.type === "subscription_price_revert" ? action.targets.map((target) => target.subscriptionId) : null;
+    const targets = action.type === "subscription_price_override" ? action.targets : action.targets.map((target) => target.subscriptionId);
     if (!targets || !Array.isArray(targets) || targets.some((target) => ids.has(target))) throw new Error("Pilot has an active execution claim.");
   }
 }
@@ -237,6 +261,27 @@ export function createProposalRepository(connection: LedgerConnection) {
         return proposalOn(tx, id);
       });
     },
+    async createResetProposal(canonicalListPrice: string, snapshots: ResetAction["targets"]): Promise<Proposal> {
+      const action = ResetActionSchema.parse({ type: "subscription_price_reset", canonicalListPrice, targets: snapshots });
+      return authoritativeWrite(connection, async (tx) => {
+        if (!sameUsdAmount(currentMerchant().twin.params.listPrice.toFixed(2), canonicalListPrice))
+          throw new ProposalError("Canonical list price changed.", "INVALID_STATE");
+        for (const target of action.targets) {
+          const expected = PILOT_COHORT.find((pilot) => pilot.label === target.registration.label);
+          const actual = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [target.subscriptionId]))[0];
+          const sameLabel = await tx.query("SELECT subscription_id FROM sandbox_subscribers WHERE label=?", [target.registration.label]);
+          if (sameLabel.length !== 1 || !expected || !actual || expected.segment !== target.registration.segment || expected.reason !== target.registration.reason ||
+            actual.label !== expected.label || actual.segment !== expected.segment || actual.reason !== expected.reason || actual.created_at !== target.registration.createdAt)
+            throw new ProposalError("Reset target is not a current registered demo pilot.", "INVALID_STATE");
+        }
+        const id = `prop_${randomUUID()}`;
+        await tx.execute(`INSERT INTO proposals (id,created_at,objective,strategy_json,simulation_json,action_type,action_json,action_hash,status)
+          VALUES (?,?,?,?,?,?,?,?,'proposed')`, [id, now(), "Restore current demo pilots to canonical list price", "null", "null",
+            action.type, JSON.stringify(action), hashAction(action)]);
+        await auditOn(tx, "proposal.reset_created", id, { targets: action.targets.map((target) => target.subscriptionId), canonicalListPrice });
+        return proposalOn(tx, id);
+      });
+    },
     async getProposal(id: string): Promise<Proposal> { return authoritativeWrite(connection, (tx) => proposalOn(tx, id)); },
     async listProposals(limit = 20): Promise<Proposal[]> {
       return authoritativeWrite(connection, async (tx) => {
@@ -250,7 +295,7 @@ export function createProposalRepository(connection: LedgerConnection) {
         throw new ProposalError("Invalid outstanding proposal page.", "INVALID_STATE");
       return authoritativeWrite(connection, async (tx) => {
         const rows = await tx.query(`SELECT * FROM proposals WHERE
-          ((action_type='subscription_price_revert' AND status IN ('proposed','approved','executing')) OR
+          ((action_type IN ('subscription_price_revert','subscription_price_reset') AND status IN ('proposed','approved','executing')) OR
            (action_type='subscription_price_override' AND status IN ('approved','executing')))
           ${before ? "AND (created_at < ? OR (created_at = ? AND id < ?))" : ""}
           ORDER BY created_at DESC,id DESC LIMIT ?`, before ? [before.createdAt, before.createdAt, before.id, limit + 1] : [limit + 1]);
@@ -263,10 +308,22 @@ export function createProposalRepository(connection: LedgerConnection) {
     async approveProposal(id: string, actionHash: string, approvedBy: string): Promise<Proposal> {
       return authoritativeWrite(connection, async (tx) => {
         const p = await proposalOn(tx, id);
+        if (p.action.type === "subscription_price_reset") throw new ProposalError("Reset requires its explicit administrator confirmation.", "INVALID_STATE");
         if (p.actionHash !== actionHash) throw new ProposalError("Approved payload does not match the proposal.", "HASH_MISMATCH");
         const res = await tx.execute("UPDATE proposals SET status = 'approved', approved_at = ?, approved_by = ? WHERE id = ? AND status = 'proposed' AND action_hash = ?", [now(), approvedBy, id, actionHash]);
         if (res.rowsAffected !== 1) throw new ProposalError(`Proposal is ${p.status}, not awaiting approval.`, "INVALID_STATE");
         await auditOn(tx, "proposal.approved", id, { approvedBy, actionHash });
+        return proposalOn(tx, id);
+      });
+    },
+    async approveResetProposal(id: string, actionHash: string, approvedBy: string): Promise<Proposal> {
+      return authoritativeWrite(connection, async (tx) => {
+        const p = await proposalOn(tx, id);
+        if (p.action.type !== "subscription_price_reset" || p.status !== "proposed") throw new ProposalError("Reset is not awaiting confirmation.", "INVALID_STATE");
+        if (p.actionHash !== actionHash || hashAction(p.action) !== actionHash) throw new ProposalError("Reset payload hash changed.", "HASH_MISMATCH");
+        const result = await tx.execute("UPDATE proposals SET status='approved',approved_at=?,approved_by=? WHERE id=? AND status='proposed' AND action_hash=?", [now(), approvedBy, id, actionHash]);
+        if (result.rowsAffected !== 1) throw new ProposalError("Reset approval lost.", "INVALID_STATE");
+        await auditOn(tx, "proposal.reset_approved", id, { approvedBy, actionHash });
         return proposalOn(tx, id);
       });
     },
@@ -290,7 +347,19 @@ export function createProposalRepository(connection: LedgerConnection) {
           return null;
         };
         const targets = p.action.type === "subscription_price_override" ? p.action.targets : p.action.targets.map((target) => target.subscriptionId);
-        if (p.action.type === "subscription_price_revert") {
+        if (p.action.type === "subscription_price_reset") {
+          const action = ResetActionSchema.safeParse(p.action);
+          if (!action.success || hashAction(p.action) !== p.actionHash || !sameUsdAmount(currentMerchant().twin.params.listPrice.toFixed(2), p.action.canonicalListPrice))
+            return fail("invalid_or_stale_reset");
+          for (const target of action.data.targets) {
+            const expected = PILOT_COHORT.find((pilot) => pilot.label === target.registration.label);
+            const actual = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [target.subscriptionId]))[0];
+            const sameLabel = await tx.query("SELECT subscription_id FROM sandbox_subscribers WHERE label=?", [target.registration.label]);
+            if (sameLabel.length !== 1 || !expected || !actual || expected.segment !== target.registration.segment || expected.reason !== target.registration.reason ||
+              actual.label !== expected.label || actual.segment !== expected.segment || actual.reason !== expected.reason || actual.created_at !== target.registration.createdAt)
+              return fail("reset_registration_changed");
+          }
+        } else if (p.action.type === "subscription_price_revert") {
           const action = RevertActionSchema.safeParse(p.action);
           if (!action.success || hashAction(p.action) !== p.actionHash) return fail("invalid_revert_action");
           const source = await proposalOn(tx, action.data.sourceProposalId);
@@ -323,7 +392,7 @@ export function createProposalRepository(connection: LedgerConnection) {
         for (const row of executing) {
           let prior: ProposalAction;
           try { prior = JSON.parse(String(row.action_json)); } catch { return fail("unreadable_executing_action"); }
-          const priorTargets = prior.type === "subscription_price_override" ? prior.targets : prior.type === "subscription_price_revert" ? prior.targets.map((target) => target.subscriptionId) : null;
+          const priorTargets = prior.type === "subscription_price_override" ? prior.targets : prior.targets.map((target) => target.subscriptionId);
           if (!priorTargets || !Array.isArray(priorTargets) || priorTargets.some((target) => targets.includes(target))) return fail("unresolved_target");
         }
         for (const target of targets) {
@@ -349,9 +418,19 @@ export function createProposalRepository(connection: LedgerConnection) {
           const pilot = (await tx.query("SELECT segment,reason FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];
           return !!pilot && pilot.segment === action.segment && (action.reason === "any" || pilot.reason === action.reason);
         }
+        const pilot = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];
+        if (action.type === "subscription_price_reset") {
+          const target = action.targets.find((candidate) => candidate.subscriptionId === subscriptionId);
+          if (!target) return false;
+          const expected = PILOT_COHORT.find((member) => member.label === target.registration.label);
+          const sameLabel = await tx.query("SELECT subscription_id FROM sandbox_subscribers WHERE label=?", [target.registration.label]);
+          return sameLabel.length === 1 && !!expected && expected.segment === target.registration.segment && expected.reason === target.registration.reason &&
+            sameUsdAmount(currentMerchant().twin.params.listPrice.toFixed(2), action.canonicalListPrice) &&
+            !!pilot && pilot.label === expected.label && pilot.segment === expected.segment && pilot.reason === expected.reason &&
+            pilot.created_at === target.registration.createdAt;
+        }
         const target = action.targets.find((candidate) => candidate.subscriptionId === subscriptionId);
         if (!target) return false;
-        const pilot = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];
         const latest = (await tx.query("SELECT id FROM executions WHERE target_id=? AND ok=1 AND verified=1 ORDER BY id DESC LIMIT 1", [subscriptionId]))[0];
         return !!pilot && pilot.label === target.registration.label && pilot.segment === target.registration.segment &&
           pilot.reason === target.registration.reason && pilot.created_at === target.registration.createdAt && Number(latest?.id) === target.sourceExecutionId;
@@ -360,7 +439,7 @@ export function createProposalRepository(connection: LedgerConnection) {
     async finishExecution(id: string, status: "succeeded" | "partially_failed" | "failed", revertAfter: string | null, summary?: { succeeded: number; total: number }): Promise<void> {
       await authoritativeWrite(connection, async (tx) => {
         const action = (await proposalOn(tx, id)).action;
-        if (action.type === "subscription_price_revert" && revertAfter !== null) throw new ProposalError("A recovery cannot schedule a revert.", "INVALID_STATE");
+        if (action.type !== "subscription_price_override" && revertAfter !== null) throw new ProposalError("A recovery cannot schedule a revert.", "INVALID_STATE");
         const res = await tx.execute("UPDATE proposals SET status = ?, completed_at = ?, revert_after = ? WHERE id = ? AND status = 'executing'", [status, now(), revertAfter, id]);
         if (res.rowsAffected !== 1) throw new ProposalError("Only an executing proposal can be completed.", "INVALID_STATE");
         await tx.execute("DELETE FROM active_target_claims WHERE proposal_id=?", [id]);
@@ -379,10 +458,12 @@ export const replaceSandboxSubscription = async (previousId: string, label: stri
 export const buildAction = async (strategy: Strategy, listPrice: number, eligibleTargetIds?: readonly string[]) => (await runtimeRepository()).buildAction(strategy, listPrice, eligibleTargetIds);
 export const createProposal = async (input: CreateProposalInput) => (await runtimeRepository()).createProposal(input);
 export const createRevertProposal = async (sourceProposalId: string) => (await runtimeRepository()).createRevertProposal(sourceProposalId);
+export const createResetProposal = async (listPrice: string, snapshots: ResetAction["targets"]) => (await runtimeRepository()).createResetProposal(listPrice, snapshots);
 export const getProposal = async (id: string) => (await runtimeRepository()).getProposal(id);
 export const listProposals = async (limit?: number) => (await runtimeRepository()).listProposals(limit);
 export const listOutstandingProposals = async (limit?: number, before?: ProposalCursor) => (await runtimeRepository()).listOutstandingProposals(limit, before);
 export const approveProposal = async (id: string, actionHash: string, approvedBy: string) => (await runtimeRepository()).approveProposal(id, actionHash, approvedBy);
+export const approveResetProposal = async (id: string, actionHash: string, approvedBy: string) => (await runtimeRepository()).approveResetProposal(id, actionHash, approvedBy);
 export const rejectProposal = async (id: string, reason: string) => (await runtimeRepository()).rejectProposal(id, reason);
 export const claimForExecution = async (id: string) => (await runtimeRepository()).claimForExecution(id);
 export const validateTargetForExecution = async (proposal: Proposal, subscriptionId: string) => (await runtimeRepository()).validateTargetForExecution(proposal, subscriptionId);

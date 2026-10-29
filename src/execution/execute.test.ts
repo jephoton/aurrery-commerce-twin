@@ -4,6 +4,28 @@ import { createLocalConnection, initializeLedgerSchema } from "@/ledger/connecti
 import { executeProposalWith, listExecutions } from "./execute";
 import type { Proposal } from "@/ledger/proposals";
 
+it("reset patches only an active expected-price target to the canonical list price without scheduling a revert", async () => {
+  const proposal = { id: "p", action: { type: "subscription_price_reset", canonicalListPrice: "24.00", targets: [{ subscriptionId: "I-ONE", expectedCurrentPrice: "18.00" }] } } as Proposal;
+  const patch = vi.fn().mockResolvedValue({ ok: true, value: { httpStatus: 204 }, debugId: null });
+  const finish = vi.fn();
+  const read = vi.fn().mockResolvedValueOnce({ ok: true, value: { id: "I-ONE", status: "ACTIVE", regularPrice: "18.0", planOverridden: true, nextBillingTime: null, lastPayment: null, planId: null, raw: {} }, debugId: null })
+    .mockResolvedValueOnce({ ok: true, value: { id: "I-ONE", status: "ACTIVE", regularPrice: "24.0", planOverridden: true, nextBillingTime: null, lastPayment: null, planId: null, raw: {} }, debugId: null });
+  await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish, patch, read, record: vi.fn() });
+  expect(patch).toHaveBeenCalledOnce();
+  expect(patch).toHaveBeenCalledWith("I-ONE", "24.00");
+  expect(finish).toHaveBeenCalledWith("p", "succeeded", null, { succeeded: 1, total: 1 });
+});
+
+it("reset does not PATCH an already-list-priced target even when its override flag remains true", async () => {
+  const proposal = { id: "p", action: { type: "subscription_price_reset", canonicalListPrice: "24.00", targets: [{ subscriptionId: "I-ONE", expectedCurrentPrice: "18.00" }] } } as Proposal;
+  const patch = vi.fn();
+  const record = vi.fn();
+  await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish: vi.fn(), patch,
+    read: async () => ({ ok: true, value: { id: "I-ONE", status: "ACTIVE", regularPrice: "24.00", planOverridden: true, nextBillingTime: null, lastPayment: null, planId: null, raw: {} }, debugId: null }), record });
+  expect(patch).not.toHaveBeenCalled();
+  expect(record.mock.calls[0][2]).toMatchObject({ skipped: true, error: expect.stringMatching(/already.*list/i) });
+});
+
 it("leaves execution unresolved and never retries PayPal when recording an applied patch fails", async () => {
   const proposal = { id: "p", action: { type: "subscription_price_override", targets: ["I-ONE", "I-TWO"], listPrice: "24.00", newPrice: "18.00", months: 3 } } as Proposal;
   const patch = vi.fn().mockResolvedValue({ ok: true, value: { httpStatus: 204 }, debugId: null });

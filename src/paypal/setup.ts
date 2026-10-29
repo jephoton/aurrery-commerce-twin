@@ -5,13 +5,8 @@ import { recordObservation } from "@/execution/execute";
 import { paypal } from "./client";
 import { getSubscription, type SubscriptionSnapshot } from "./subscriptions";
 import type { PayPalFailure } from "./client";
-
-export const PILOT_COHORT = [
-  { label: "Pilot A: \"honestly it's just too expensive right now\"", segment: "cancel_intent", reason: "price" },
-  { label: "Pilot B: \"can't justify $24 a month anymore\"", segment: "cancel_intent", reason: "price" },
-  { label: "Pilot C: \"moving abroad next month\"", segment: "cancel_intent", reason: "other" },
-  { label: "Pilot D: loyal, 14 months", segment: "core", reason: "other" },
-] as const;
+import { PILOT_COHORT } from "./pilot-cohort";
+export { PILOT_COHORT } from "./pilot-cohort";
 
 function readFailure(id: string, error: PayPalFailure): string {
   return `PayPal read failed for ${id} (HTTP ${error.httpStatus ?? "unavailable"}; ${error.name}${error.debugId ? `; debug ${error.debugId}` : ""})`;
