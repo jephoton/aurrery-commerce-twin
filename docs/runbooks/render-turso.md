@@ -2,7 +2,7 @@
 
 <!-- Generated operational handoff. Offline preparation is not deployment acceptance. -->
 
-Use one Render **Free** Node 24 web service and one free Turso **libSQL** database. Keep deployments manual until acceptance. There is no disk, paid database, alternate provider, local-first replica or automatic fallback. `render.yaml` pins `>=24.0.0 <25.0.0`, installs development build tools with `npm ci --include=dev`, builds the pure worker before Next, starts with the assigned `PORT` (local default 3001), and checks `/api/health`. No runtime ledger, provider or PayPal access is required during build/prerender.
+Use one Render **Free** Node 24 web service and one free Turso **libSQL** database. Keep deployments manual until acceptance. There is no disk, paid database, alternate hosting/storage platform, local-first replica or automatic provider fallback. `render.yaml` pins `>=24.0.0 <25.0.0`, installs development build tools with `npm ci --include=dev`, builds the pure worker before Next, starts with the assigned `PORT` (local default 3001), and checks `/api/health`. No runtime ledger, provider or PayPal access is required during build/prerender.
 
 ## Private setup and import order
 
@@ -57,3 +57,5 @@ Output creation is exclusive: existing files are never overwritten. Only the hel
 Keep the old authority and backup immutable. Stop the app and other writers, choose the intended free empty replacement libSQL target, and privately configure its URL/token. Do not visit the app or allow webhook delivery before import. Dry-run the exact backup, apply it with `ledger:import`, compare all manifest fields and then explicitly select the recovered target for the service. Import refuses nonempty targets and cannot merge divergent histories. No unsupported platform restore command is assumed. The snapshot itself contains no instruction to approve or execute anything.
 
 An older backup may omit successful PayPal writes, genuine events, more recent approvals, claims or session revocation. Reconcile current Sandbox subscription state, provider delivery history and retained authority with the restored records before re-enabling any execution. Retain unresolved claims and reconcile approved actions as potentially stale; never replay them merely because the older snapshot says approved. Rotate administrator/session secrets after restoring an older session store. If authority cannot be established, leave execution disabled and investigate. Explicit restore and successful hash verification establish a ledger copy, not PayPal equivalence, a fresh merchant approval or replay authorization.
+
+At the current handoff, reviewed M5 code is on feat/m5-observed-loop and main remains M0–M4. Select the reviewed M5 branch when preparing deployment; do not mark M5 complete or merge solely because local acceptance passed. Explicitly configured Groq remains an alternative; the Blueprint selects Gemini.
