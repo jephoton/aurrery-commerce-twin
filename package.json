@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "npm run build:workers && next dev --port 3001",
     "build": "npm run build:workers && next build",
-    "start": "next start --port 3001",
+    "start": "node --import=tsx --conditions=react-server scripts/start.ts",
     "lint": "eslint",
     "test": "npm run build:workers && vitest run",
     "build:workers": "node scripts/build-workers.mjs",
@@ -19,9 +19,11 @@
     "ledger:import": "tsx --conditions=react-server scripts/import-ledger.ts",
     "agent:check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/check-agent.ts"
   },
+  "engines": { "node": ">=24.0.0 <25.0.0" },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.137.0",
     "@libsql/client": "^0.18.0",
+    "@next/env": "16.4.2",
     "@paypal/paypal-server-sdk": "^2.5.0",
     "ag-grid-community": "^36.2.0",
     "ag-grid-react": "^36.2.0",

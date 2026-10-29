@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: aurrery
+    runtime: node
+    plan: free
+    numInstances: 1
+    autoDeployTrigger: "off"
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: ">=24.0.0 <25.0.0"
+      - key: HOSTED_DEMO
+        value: "true"
+      - key: LEDGER_BACKEND
+        value: turso
+      - key: AI_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: HOSTED_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false

@@ -11,7 +11,7 @@ export function hostedConfig(env: Record<string, string | undefined> = process.e
   if (env.RENDER !== "true" && flag !== "true") return { hosted: false };
   if (env.LEDGER_BACKEND !== undefined && env.LEDGER_BACKEND !== "sqlite" && env.LEDGER_BACKEND !== "turso") throw new Error("Invalid hosted configuration");
   const url = env.APP_URL ?? (env.RENDER === "true" ? env.RENDER_EXTERNAL_URL : undefined);
-  if (!url || !env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < 32 || !env.HOSTED_SECRET || env.HOSTED_SECRET.length < 32) throw new Error("Invalid hosted configuration");
+  if (!url || !env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.trim().length < 32 || !env.HOSTED_SECRET || env.HOSTED_SECRET.trim().length < 32 || env.ADMIN_PASSWORD === env.HOSTED_SECRET) throw new Error("Invalid hosted configuration");
   let parsed: URL;
   try { parsed = new URL(url); } catch { throw new Error("Invalid hosted configuration"); }
   if (parsed.protocol !== "https:" || parsed.origin !== url || parsed.username || parsed.password) throw new Error("Invalid hosted configuration");
