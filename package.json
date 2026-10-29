@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "npm run build:workers && vitest run",
     "build:workers": "node scripts/build-workers.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "paypal:setup": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/paypal-setup.ts setup",
     "paypal:sync": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/paypal-setup.ts sync",
     "twin:inspect": "tsx scripts/inspect-twin.ts",
