@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-29. **M0–M4 are published on main. M5 Tasks 1–2 and Storage Tasks A, B1, B2 and B3 passed independent spec and quality reviews. The user selected Render Free + Turso. M5 Task 3 sandbox webhook ingestion passed independent spec and quality reviews; genuine delivery acceptance remains pending. Task 4 measured outcomes and current-run evidence passed independent spec and quality reviews. Task 5's revert slice passed independent spec and quality reviews; admin reset passed independent spec and quality reviews. Task 6 deployment preparation is next. Hosted deployment and live Turso acceptance remain pending. No M5 live approval, execution or PayPal mutation has occurred.**_
+_Last material update: 2026-10-29. **M0–M4 are published on main. M5 Tasks 1–5 and Storage Tasks A, B1, B2 and B3 passed independent spec and quality reviews. The user selected Render Free + Turso. Task 6 offline deployment/readiness/start and authoritative export/recovery preparation is implemented; final reviews, parent production build/browser checks, deployment persistence and genuine signed webhook acceptance remain pending. M5 remains incomplete. No M5 live approval, execution or PayPal mutation has occurred.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -11,7 +11,17 @@ _Last material update: 2026-10-29. **M0–M4 are published on main. M5 Tasks 1�
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
-## M5 Task 5: restricted administrator reset (implementation; reviews pending)
+## M5 Task 6: offline deployment and recovery preparation
+
+<!-- Generated handoff: local implementation; no deployment/live acceptance claim. -->
+
+`render.yaml` defines one Free Node 24 service (`>=24.0.0 <25.0.0`), no disk/database purchase, manual deployment, worker-before-Next build with dev tools, assigned PORT/default 3001 start and `/api/health`. Runtime startup validates Turso/no local path, independent administrator secrets, selected provider/model/key/pacing and PayPal Sandbox keys with generic errors. Trusted Render origin fallback and local manual mode are preserved. The Blueprint selects Gemini; explicit Groq configuration remains supported without automatic fallback. Webhook ID is configured only after the real service URL is registered. Health is request-time only, generic/no-store and storage-backed with no provider calls or business/audit/quota/session rows. A global coalesced probe, two-second cache and 3.5-second response deadline retain underlying ownership after early responses.
+
+`ledger:export` creates a private verified SQLite backup of all authoritative remote tables from one checked primary write transaction without source initialization/migration/row changes, or a read-only online backup of an explicit local SQLite source including committed WAL. It reuses canonical schema/record/snapshot/manifest validation and publishes only after a read-only import dry-run. Existing outputs are refused; flags are checked before network; logs contain safe counts/hashes rather than paths/rows/tokens. All action variants/statuses, claims, events, episodes, cache, sessions, quotas, pilot order and sequence values are retained. No public export route, automatic retry or fresh approval is introduced. Recovery is explicit into an empty target and requires PayPal reconciliation before any older approved action can be considered again.
+
+See [deployment/recovery runbook](runbooks/render-turso.md) and [decision 0007](decisions/0007-authoritative-ledger-export.md) for private setup/import order, administrator login/rotation, uncertain executions and free sleep/cold starts. Final offline verification passed **777 tests across 80 files**, typecheck, zero-warning lint and diff checks. A 231-file tracked/nonignored hygiene scan found no personal absolute paths or credential-shaped literals. Tests use temporary fixtures; actual ledger/private settings, cloud services, production build and browser remain parent-owned. Next: independent offline reviews and parent local production/browser acceptance, then privately configured free deployment/import/persistence and genuine signed event acceptance. Do not mark M5 complete or start M6/M7 on this preparation alone.
+
+## M5 Task 5: restricted administrator reset (implementation/reviews complete)
 
 <!-- Generated handoff: M5 Task 5 reset slice. -->
 

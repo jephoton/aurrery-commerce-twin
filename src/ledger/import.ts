@@ -12,7 +12,7 @@ import { LEDGER_SCHEMA } from "./db";
 import { authoritativeWrite } from "./operations";
 import { hashAction, PriceOverrideActionSchema, RevertActionSchema, ResetActionSchema, type ProposalAction } from "./proposals";
 
-const TABLES = [
+export const TABLES = [
   ["sandbox_subscribers", "rowid"], ["proposals", "id"], ["executions", "id"], ["active_target_claims", "target_id"],
   ["observations", "id"], ["paypal_webhook_events", "event_id"], ["discount_episodes", "execution_id"], ["kv", "key"], ["audit_events", "id"],
   ["feedback_prediction_cache", "cache_key"], ["hosted_sessions", "token_hash"], ["hosted_limits", "bucket_key"],
@@ -21,10 +21,10 @@ const TABLES = [
 type TableName = typeof TABLES[number][0];
 const OPTIONAL = new Set<TableName>(["active_target_claims", "discount_episodes", "paypal_webhook_events", "feedback_prediction_cache", "hosted_sessions", "hosted_limits"]);
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-type TableSnapshot = { table: TableName; columns: string[]; rows: LedgerRow[]; count: number; sha256: string };
+export type TableSnapshot = { table: TableName; columns: string[]; rows: LedgerRow[]; count: number; sha256: string };
 export type ImportManifest = { schemaSha256: string; tables: { table: TableName; count: number; sha256: string }[]; totalRows: number };
 
-function rowHash(rows: LedgerRow[], columns: string[]): string {
+export function rowHash(rows: LedgerRow[], columns: string[]): string {
   const digest = createHash("sha256");
   digest.update("[");
   rows.forEach((row, index) => {
@@ -62,7 +62,7 @@ function validateSource(db: DatabaseSync): TableSnapshot[] {
     return snapshots;
   } finally { template.close(); }
 }
-function validateRecords(tables: TableSnapshot[]): void {
+export function validateRecords(tables: TableSnapshot[]): void {
   const of = (table: TableName) => tables.find((entry) => entry.table === table)!.rows;
   for (const row of of("sandbox_subscribers")) {
     if (!/^I-[A-Z0-9]+$/.test(String(row.subscription_id)) || !String(row.label).trim() ||
@@ -152,7 +152,7 @@ async function targetFingerprint(tx: LedgerExecutor, table: TableName, order: st
   return { count: seen, sha256: digest.update("]").digest("hex") };
 }
 /** CREATE IF NOT EXISTS leaves weakened pre-existing tables intact; compare actual definitions on the write handle. */
-async function assertCanonicalTargetSchema(tx: LedgerExecutor): Promise<void> {
+export async function assertCanonicalTargetSchema(tx: LedgerExecutor): Promise<void> {
   const template = new DatabaseSync(":memory:");
   template.exec(LEDGER_SCHEMA);
   const schemaSql = "SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name";
@@ -192,7 +192,7 @@ async function assertEmpty(tx: LedgerExecutor): Promise<void> {
     if (Number(count[0]?.n ?? 0) !== 0) throw new Error("Target ledger is not empty");
   }
 }
-async function applySnapshot(target: LedgerConnection, tables: TableSnapshot[], beforeChunk?: (table: TableName, index: number) => void): Promise<void> {
+export async function applySnapshot(target: LedgerConnection, tables: TableSnapshot[], beforeChunk?: (table: TableName, index: number) => void): Promise<void> {
   await authoritativeWrite(target, async (tx) => {
     await assertEmpty(tx);
     await assertCanonicalTargetSchema(tx);

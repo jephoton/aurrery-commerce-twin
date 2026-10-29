@@ -17,7 +17,7 @@ Simulated numbers are always labelled *simulated*; values read back from PayPal 
 
 ## Quick start
 
-Requires Node.js 24+.
+Requires Node.js 24 (`>=24.0.0 <25.0.0`).
 
 ```bash
 npm install
@@ -27,7 +27,7 @@ npm run dev                  # http://localhost:3001
 
 The twin and simulations work without credentials. To execute through PayPal:
 
-Local development and `npm start` use port **3001**, leaving port 3000 available for other apps. Before creating a new pilot cohort, set `APP_URL` to the address where Aurrery runs; the example and setup fallback use `http://localhost:3001`. PayPal stores the return URL when each subscription is created. Changing local configuration does not rewrite existing approval links. A legacy link may still return to port 3000; open Aurrery on port 3001 afterward and use `paypal:sync` to check approval. The redirect alone is not proof of approval.
+Local development uses port **3001**; `npm start` uses `PORT` when assigned and otherwise **3001**, leaving port 3000 available for other apps. Before creating a new pilot cohort, set `APP_URL` to the address where Aurrery runs; the example and setup fallback use `http://localhost:3001`. PayPal stores the return URL when each subscription is created. Changing local configuration does not rewrite existing approval links. A legacy link may still return to port 3000; open Aurrery on port 3001 afterward and use `paypal:sync` to check approval. The redirect alone is not proof of approval.
 
 1. Create a Sandbox REST app at developer.paypal.com and put its client ID and secret in `.env.local`.
 2. Run `npm run paypal:setup`. This creates the catalog product, a $24/month plan and four pilot subscriptions, and prints an approval link for each.
@@ -42,6 +42,10 @@ An explicitly approved replacement is a distinct creation intent. After adopting
 For a legacy cohort created with the old port-3000 default, preserve `APP_URL=http://localhost:3000` for recovery rather than silently changing its original request body. New cohorts should use port 3001.
 
 ## Development
+
+The prepared [Render Free + Turso deployment and recovery runbook](docs/runbooks/render-turso.md) covers private runtime settings, existing-pilot import, administrator access and authoritative backups. `render.yaml` defines one free Node 24 service with manual deployment and no disk. Hosted state lives in Turso libSQL; Render's local filesystem is temporary. Free services sleep after 15 idle minutes and can take about a minute to wake. Deployment and genuine signed Sandbox webhook acceptance remain pending.
+
+`GET /api/health` returns generic, uncached readiness after checking configuration, the worker bundle and authoritative storage. It makes no model or PayPal requests. Builds require no runtime secrets or ledger access. `npm start` validates hosted runtime settings before starting Next; local manual mode still works without integration credentials.
 
 ```bash
 npm test             # simulation, calibration and approval state-machine tests
