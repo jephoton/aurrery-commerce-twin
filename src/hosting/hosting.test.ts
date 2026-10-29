@@ -29,8 +29,9 @@ describe("hosted configuration", () => {
     expect(hostedConfig({ ...env, RENDER_EXTERNAL_URL: "https://other.example" })).toMatchObject({ hosted: true, origin: env.APP_URL });
   });
   it("retains a durable absolute local SQLite path for explicit non-Render hosted mode", () => {
-    const local = { RENDER: "false", HOSTED_DEMO: "true", APP_URL: "https://example.test", ADMIN_PASSWORD: password, HOSTED_SECRET: secret, LEDGER_PATH: "C:/ledger.sqlite" };
+    const local = { RENDER: "false", HOSTED_DEMO: "true", APP_URL: "https://example.test", ADMIN_PASSWORD: password, HOSTED_SECRET: secret, LEDGER_PATH: join(tmpdir(), "aurrery-hosted-test", "ledger.sqlite") };
     expect(hostedConfig(local).hosted).toBe(true);
+    expect(() => hostedConfig({ ...local, LEDGER_PATH: "relative/ledger.sqlite" })).toThrow();
     expect(() => hostedConfig({ ...local, LEDGER_PATH: ":memory:" })).toThrow();
     expect(() => hostedConfig({ ...local, LEDGER_PATH: undefined })).toThrow();
     expect(() => hostedConfig({ ...local, LEDGER_BACKEND: "unknown" })).toThrow();

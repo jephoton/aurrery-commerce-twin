@@ -583,3 +583,7 @@ The repair adds only those two npm-generated entries; all 583 existing package e
 <!-- Generated handoff: fresh-source typecheck prerequisite; Linux rerun pending. -->
 
 Linux CI run `40908238881` at `da7c4ba` passed `npm ci --include=dev`, then failed typecheck because `src/app/layout.tsx` uses Next's generated global `LayoutProps`. Existing local `.next` types had masked that fresh-checkout prerequisite. `npm run typecheck` now runs `next typegen && tsc --noEmit`, following the bundled Next 16 CLI guide while preserving the typed layout. A tracked-source-only temporary copy, with no generated types or private environment/data, reproduced TS2304 before the change and passed the amended command afterward using a junction to existing dependencies without dependency writes. The running app and working `.next`/dependencies were untouched. This is Windows fresh-source typecheck evidence; the actual Linux rerun remains pending, and M5's hosted acceptance gates remain open.
+
+### Linux test fixture portability (2026-10-30)
+
+Linux CI run `40909327368` passed install, typecheck and lint, then passed 776/777 tests. `hosting.test.ts` used `C:/ledger.sqlite`, which is not absolute on Linux; `hostedConfig` correctly enforces native absolute paths and remains unchanged. The fixture now uses an absolute `join(tmpdir(), ...)` path and explicitly asserts relative paths are rejected. Focused verification and the parent-owned Linux rerun are pending; hosted M5 acceptance remains incomplete.
