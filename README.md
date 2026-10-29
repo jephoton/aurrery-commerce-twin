@@ -45,6 +45,8 @@ For a legacy cohort created with the old port-3000 default, preserve `APP_URL=ht
 
 The prepared [Render Free + Turso deployment and recovery runbook](docs/runbooks/render-turso.md) covers private runtime settings, existing-pilot import, administrator access and authoritative backups. `render.yaml` defines one free Node 24 service with manual deployment and no disk. Hosted state lives in Turso libSQL; Render's local filesystem is temporary. Free services sleep after 15 idle minutes and can take about a minute to wake. Deployment and genuine signed Sandbox webhook acceptance remain pending.
 
+GitHub Actions runs the Linux CI workflow on pushes, pull requests and manual dispatch. It installs from the lockfile, typechecks, lints without warnings, runs the serial test suite and builds without runtime credentials. The successful local checks do not replace the pending hosted M5 acceptance.
+
 `GET /api/health` returns generic, uncached readiness after checking configuration, the worker bundle and authoritative storage. It makes no model or PayPal requests. Builds require no runtime secrets or ledger access. `npm start` validates hosted runtime settings before starting Next; local manual mode still works without integration credentials.
 
 ```bash

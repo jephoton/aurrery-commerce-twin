@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+          package-manager-cache: false
+      - name: Install dependencies
+        run: npm ci --include=dev
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint -- --max-warnings=0
+      - name: Run tests
+        run: npm test -- --maxWorkers=1 --no-file-parallelism
+      - name: Build without runtime credentials
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          HOSTED_DEMO: 'true'
+          LEDGER_BACKEND: turso
+          TURSO_DATABASE_URL: invalid-build-only
+          TURSO_AUTH_TOKEN: ''
+          ADMIN_PASSWORD: ''
+          HOSTED_SECRET: ''
