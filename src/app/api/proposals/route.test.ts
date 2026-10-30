@@ -41,6 +41,14 @@ describe("proposal worker boundary", () => {
       expect(await listProposals()).toHaveLength(0);
     } finally { spy.mockRestore(); }
   });
+  it("recomputes the prediction with the server simulation budget", async () => {
+    vi.stubEnv("SIMULATION_RUNS", "150");
+    const spy = vi.spyOn(workerClient, "runComparison").mockImplementation(async (twin, strategies) => compareStrategies(twin, strategies, { runs: 10, horizonMonths: 1, seed: 42 }));
+    try {
+      await POST(new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ objective: "Save", strategy }) }));
+      expect(spy).toHaveBeenCalledWith(expect.anything(), [strategy], { runs: 150 }, expect.anything());
+    } finally { spy.mockRestore(); vi.unstubAllEnvs(); }
+  });
   it("rejects an oversized body", async () => {
     const request = new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ objective: "x".repeat(70_000), strategy }) });
     expect((await POST(request)).status).toBe(413);

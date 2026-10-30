@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { currentMerchant } from "@/merchant";
 import { compareStrategies } from "@/twin/simulate";
 import type { Strategy } from "@/twin/interventions";
@@ -10,6 +10,15 @@ const body = { strategies: [strategy], options: { runs: 100, horizonMonths: 2, s
 const request = (value: string, signal?: AbortSignal) => new Request("http://localhost/api/simulate", { method: "POST", body: value, signal });
 
 describe("manual simulation route", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("uses the server simulation budget by default and caps larger requests", async () => {
+    vi.stubEnv("SIMULATION_RUNS", "150");
+    for (const options of [{ horizonMonths: 1 }, { runs: 5000, horizonMonths: 1 }]) {
+      const response = await POST(request(JSON.stringify({ strategies: [strategy], options })));
+      expect(response.status).toBe(200);
+      expect((await response.json()).options.runs).toBe(150);
+    }
+  });
   it("returns the exact seeded worker comparison", async () => {
     const response = await POST(request(JSON.stringify(body)));
     expect(response.status).toBe(200);

@@ -60,7 +60,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; starterStrategies: Strategy[] }) {
+export function Lab({ summary, starterStrategies, simulationRuns }: { summary: MerchantSummary; starterStrategies: Strategy[]; simulationRuns: number }) {
   const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
   const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress, observedSnapshot }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
@@ -193,9 +193,9 @@ export function Lab({ summary, starterStrategies }: { summary: MerchantSummary; 
             disabled={busy !== null}
             className="min-h-10 rounded-lg border border-border px-4 py-2 font-medium text-foreground hover:border-brand-accent disabled:opacity-50"
           >
-            {busy === "simulate" ? "Simulating 1,000 futures…" : "Simulate strategies"}
+            {busy === "simulate" ? `Simulating ${simulationRuns.toLocaleString("en-US")} futures…` : "Simulate strategies"}
           </button>
-          <span className="text-sm text-muted">{starterStrategies.length} candidates · 1,000 futures each · 12-month horizon</span>
+          <span className="text-sm text-muted">{starterStrategies.length} candidates · {simulationRuns.toLocaleString("en-US")} futures each · 12-month horizon</span>
         </div>
         <AgentPanel objective={objective} disabled={busy !== null} onStart={startAgent} onEvent={agentEvent} onFinish={finishAgent} />
       </section>

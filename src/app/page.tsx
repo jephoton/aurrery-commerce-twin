@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { betaMean } from "@/twin/calibrate";
 import { SEGMENTS } from "@/twin/types";
+import { simulationRuns } from "@/hosting/simulation-budget";
 
 export default function Home() {
   return <Suspense fallback={<main className="p-6" aria-busy="true">Loading merchant evidence…</main>}><ObservedHome /></Suspense>;
@@ -39,5 +40,5 @@ async function ObservedHome() {
     parameterChanges: changes,
   };
 
-  return <Lab summary={summary} starterStrategies={STARTER_STRATEGIES} />;
+  return <Lab summary={summary} starterStrategies={STARTER_STRATEGIES} simulationRuns={simulationRuns()} />;
 }

@@ -132,6 +132,10 @@ describe("agent tool boundary", () => {
     expect(ctx.state.comparison).toBeUndefined();
     expect(await listProposals()).toEqual([]);
   });
+  it("simulates with the hosted budget from its environment", async () => {
+    const ctx = await setup({ env: { SIMULATION_RUNS: "150" } }); await ready(ctx);
+    expect(ctx.state.comparison?.options).toEqual({ runs: 150, seed: 20261113, horizonMonths: 1 });
+  });
   it("invalidates cumulative comparisons and stress on rules changes", async () => {
     const ctx = await setup(); await ready(ctx);
     await ctx.dispatch("stress_test", { strategyId: "save" });

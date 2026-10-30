@@ -6,7 +6,8 @@ it("allows local manual mode and validates hosted Gemini/PayPal before any netwo
   expect(() => deploymentConfiguration({})).not.toThrow();
   expect(() => deploymentConfiguration(env)).not.toThrow();
   expect(() => deploymentConfiguration({ ...env, AI_PROVIDER: "groq", GROQ_MODEL: "openai/gpt-oss-120b", GROQ_API_KEY: "private" })).not.toThrow();
-  for (const patch of [{ ADMIN_PASSWORD: env.HOSTED_SECRET }, { ADMIN_PASSWORD: " ".repeat(40) }, { GEMINI_API_KEY: " " }, { GEMINI_MODEL: "bad model" }, { AI_PROVIDER: "groq" }, { PAYPAL_CLIENT_SECRET: " " }, { GEMINI_AGENT_RPM: "16" }, { LEDGER_PATH: "/tmp/ledger" }]) {
+  expect(() => deploymentConfiguration({ ...env, SIMULATION_RUNS: "300" })).not.toThrow();
+  for (const patch of [{ ADMIN_PASSWORD: env.HOSTED_SECRET }, { ADMIN_PASSWORD: " ".repeat(40) }, { GEMINI_API_KEY: " " }, { GEMINI_MODEL: "bad model" }, { AI_PROVIDER: "groq" }, { PAYPAL_CLIENT_SECRET: " " }, { GEMINI_AGENT_RPM: "16" }, { LEDGER_PATH: "/tmp/ledger" }, { SIMULATION_RUNS: "99" }]) {
     expect(() => deploymentConfiguration({ ...env, ...patch })).toThrow("Invalid hosted configuration");
   }
 });

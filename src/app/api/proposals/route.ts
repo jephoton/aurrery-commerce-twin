@@ -7,6 +7,7 @@ import { StrategySchema } from "@/twin/interventions";
 import { runComparison, WorkerTaskError } from "@/twin/worker-client";
 import { errorResponse, readBoundedJson } from "../_lib/http";
 import { admitHostedRequest } from "@/hosting/guard";
+import { simulationRuns } from "@/hosting/simulation-budget";
 
 const BodySchema = z.object({
   objective: z.string().max(1000).nullable().default(null),
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   try {
     const body = BodySchema.parse(await readBoundedJson(request));
     const { twin } = await observedMerchant();
-    const comparison = await runComparison(twin, [body.strategy], {}, { signal: request.signal });
+    const comparison = await runComparison(twin, [body.strategy], { runs: simulationRuns() }, { signal: request.signal });
     if (request.signal.aborted) throw new WorkerTaskError("ABORTED");
     const result = comparison.strategies.find((s) => s.strategy.id === body.strategy.id)!;
     const proposal = await createProposal({ objective: body.objective, strategy: body.strategy, result, listPrice: twin.params.listPrice });

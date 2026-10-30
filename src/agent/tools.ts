@@ -16,6 +16,7 @@ import { runComparison, runStress, WorkerTaskError } from "@/twin/worker-client"
 import { SEGMENTS, type MerchantTwin } from "@/twin/types";
 import { DEFAULT_DECISION_RULES, DecisionRulesSchema, type AgentEvent, type ClassificationFailure, type ClassificationSummary, type DecisionRules, type ToolResult } from "./contracts";
 import { selectedProvider } from "./model";
+import { simulationRuns } from "@/hosting/simulation-budget";
 
 // Existing simulator schemas preserve manual API compatibility. Tighten recursively at the tool boundary.
 const intervention = z.discriminatedUnion("kind", [
@@ -91,7 +92,8 @@ export function createToolContext(options: ToolContextOptions = {}) {
     if (!result) throw new ToolFailure("PREREQUISITE", "Simulate this strategy in the current context first.");
     return result;
   }
-  const simulationOptions = () => ({ runs: 1000, seed: 20261113, horizonMonths: state.rules.horizonMonths });
+  const runs = simulationRuns(options.env ?? process.env);
+  const simulationOptions = () => ({ runs, seed: 20261113, horizonMonths: state.rules.horizonMonths });
   function assumptions() {
     const p = state.twin.params;
     return [

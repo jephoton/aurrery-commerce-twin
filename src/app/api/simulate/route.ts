@@ -5,6 +5,7 @@ import { StrategySchema } from "@/twin/interventions";
 import { runComparison } from "@/twin/worker-client";
 import { errorResponse, readBoundedJson } from "../_lib/http";
 import { admitHostedRequest } from "@/hosting/guard";
+import { cappedSimulationRuns } from "@/hosting/simulation-budget";
 
 const BodySchema = z.object({
   strategies: z.array(StrategySchema).min(1).max(8),
@@ -24,7 +25,8 @@ export async function POST(request: Request) {
     const body = BodySchema.parse(await readBoundedJson(request));
     const merchant = await observedMerchant();
     const observedSnapshot = toObservedSnapshot(merchant);
-    const comparison = await runComparison(merchant.twin, body.strategies, body.options, { signal: request.signal });
+    const options = { ...body.options, runs: cappedSimulationRuns(body.options?.runs) };
+    const comparison = await runComparison(merchant.twin, body.strategies, options, { signal: request.signal });
     return Response.json({ ...comparison, observedSnapshot });
   } catch (e) {
     return errorResponse(e);
