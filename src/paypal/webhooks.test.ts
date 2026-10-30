@@ -1,4 +1,7 @@
-import { expect, it, vi } from "vitest";
+import { DatabaseSync } from "node:sqlite";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { createLocalConnection, initializeLedgerSchema } from "@/ledger/connection";
+import { ingestVerifiedWebhook, InvalidWebhookEvent } from "@/ledger/webhooks";
 import { createWebhookPost, verifySandboxWebhook, type WebhookHeaders } from "./webhooks";
 
 const headers = {
@@ -8,6 +11,83 @@ const headers = {
 };
 const event = { id: "WH-SYNTHETIC", event_type: "BILLING.SUBSCRIPTION.ACTIVATED", create_time: "2026-10-26T00:00:00Z", resource: { id: "I-PILOT", payer: { email_address: "private@example.test" } } };
 const request = (body: string, overrides: Record<string, string> = {}) => new Request("https://example.test/api/paypal/webhook", { method: "POST", headers: { ...headers, ...overrides }, body });
+
+beforeEach(() => { vi.spyOn(console, "info").mockImplementation(() => {}); });
+afterEach(() => { vi.restoreAllMocks(); });
+
+it("logs only fixed result lines after verified ingestion commits, including genuine ledger duplicates", async () => {
+  const db = new DatabaseSync(":memory:");
+  const connection = createLocalConnection(db);
+  try {
+    const logCountsAtCommit: number[] = [];
+    await initializeLedgerSchema(connection);
+    await connection.execute("INSERT INTO sandbox_subscribers (subscription_id,label,segment,reason,created_at) VALUES (?,?,?,?,?)",
+      ["I-PILOT", "Pilot", "core", "price", "2026-10-27T00:00:00.000Z"]);
+    const post = createWebhookPost({ webhookId: "WH-CONFIGURED", token: async () => "synthetic-token", admit: async () => null,
+      fetch: async () => new Response('{"verification_status":"SUCCESS"}'),
+      ingest: async (payload, receivedAt) => {
+        const result = await ingestVerifiedWebhook(connection, payload, receivedAt);
+        // The handler must not log before ingestion has completed its transaction.
+        logCountsAtCommit.push(vi.mocked(console.info).mock.calls.length);
+        return result;
+      } });
+    for (const [payload, result] of [[event, "observed"], [event, "duplicate"], [{ ...event, id: "WH-IGNORED", event_type: "UNSUPPORTED.EVENT" }, "ignored"]] as const) {
+      const response = await post(request(JSON.stringify(payload)));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ result });
+    }
+    expect(console.info).toHaveBeenNthCalledWith(1, "paypal.webhook result=observed");
+    expect(console.info).toHaveBeenNthCalledWith(2, "paypal.webhook result=duplicate");
+    expect(console.info).toHaveBeenNthCalledWith(3, "paypal.webhook result=ignored");
+    expect(console.info).toHaveBeenCalledTimes(3);
+    expect(logCountsAtCommit).toEqual([0, 1, 2]);
+    expect(await connection.query("SELECT COUNT(*) AS n FROM observations")).toEqual([{ n: 1 }]);
+  } finally { db.close(); }
+});
+
+it.each(["FAILURE", "success", "SUCCESS ", null])("does not log an ingestion result for verification status %j", async (verification_status) => {
+  const ingest = vi.fn(async () => "observed");
+  const post = createWebhookPost({ webhookId: "WH-CONFIGURED", token: async () => "synthetic-token", admit: async () => null, ingest,
+    fetch: async () => new Response(JSON.stringify({ verification_status })) });
+  expect((await post(request(JSON.stringify(event)))).status).toBe(verification_status === "FAILURE" ? 403 : 503);
+  expect(ingest).not.toHaveBeenCalled();
+  expect(console.info).not.toHaveBeenCalled();
+});
+
+it.each([new InvalidWebhookEvent(), new Error("private storage failure")])("does not log an ingestion result when ingestion fails with %s", async (error) => {
+  const post = createWebhookPost({ webhookId: "WH-CONFIGURED", token: async () => "synthetic-token", admit: async () => null,
+    fetch: async () => new Response('{"verification_status":"SUCCESS"}'), ingest: async () => { throw error; } });
+  expect((await post(request(JSON.stringify(event)))).status).toBe(error instanceof InvalidWebhookEvent ? 400 : 503);
+  expect(console.info).not.toHaveBeenCalled();
+});
+
+it.each(["observed\nprivate@example.test", "toString", { result: "observed", private: "private@example.test" }, null])("suppresses unknown injected result %j without changing its response", async (result) => {
+  const post = createWebhookPost({ webhookId: "WH-CONFIGURED", token: async () => "synthetic-token", admit: async () => null,
+    fetch: async () => new Response('{"verification_status":"SUCCESS"}'), ingest: async () => result });
+  const response = await post(request(JSON.stringify(event)));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ result });
+  expect(console.info).not.toHaveBeenCalled();
+});
+
+it("preserves the committed ingestion and HTTP200 acknowledgement when result logging throws", async () => {
+  const db = new DatabaseSync(":memory:");
+  const connection = createLocalConnection(db);
+  try {
+    await initializeLedgerSchema(connection);
+    vi.mocked(console.info).mockImplementation(() => { throw new Error("private log sink failure"); });
+    const post = createWebhookPost({ webhookId: "WH-CONFIGURED", token: async () => "synthetic-token", admit: async () => null,
+      fetch: async () => new Response('{"verification_status":"SUCCESS"}'),
+      ingest: (payload, receivedAt) => ingestVerifiedWebhook(connection, payload, receivedAt) });
+    for (const result of ["ignored", "duplicate"]) {
+      const response = await post(request(JSON.stringify(event)));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ result });
+    }
+    expect(console.info).toHaveBeenCalledTimes(2);
+    expect(await connection.query("SELECT COUNT(*) AS n FROM paypal_webhook_events")).toEqual([{ n: 1 }]);
+  } finally { db.close(); }
+});
 
 it("rejects missing signature headers before token or verification HTTP", async () => {
   const token = vi.fn(async () => "synthetic-token");

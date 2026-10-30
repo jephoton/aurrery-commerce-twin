@@ -160,6 +160,10 @@ export function createWebhookPost(deps: Dependencies = {}) {
     if (!verified) return Response.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
     try {
       const result = await (deps.ingest ?? (async (event, receivedAt) => ingestVerifiedWebhook(await runtimeLedgerConnection(), event, receivedAt)))(original, new Date().toISOString());
+      if (result === "observed" || result === "ignored" || result === "duplicate") {
+        try { console.info(`paypal.webhook result=${result}`); }
+        catch { /* Operational evidence must not change a committed ingestion's acknowledgement. */ }
+      }
       return Response.json({ result }, { status: 200 });
     } catch (error) {
       if (error instanceof InvalidWebhookEvent) return Response.json({ error: "INVALID_WEBHOOK" }, { status: 400 });
