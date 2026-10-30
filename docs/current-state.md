@@ -11,9 +11,11 @@ _Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
-## Priority cleanup: disposable Sandbox webhook probe
+## Completed cleanup: disposable Sandbox webhook probe
 
 <!-- Generated operational obligation. User explicitly authorized creation and cancellation of this one test. -->
+
+**Resolved: `I-4UFG7A89M5YV` is CANCELLED, verified by a fresh PayPal GET at 2026-10-30T05:31:07Z.** The watcher stopped without confirming cancellation. A fresh operator GET found ACTIVE; an explicitly authorized direct cancellation then returned successfully and a separate GET confirmed CANCELLED. Do not report this as automatic-watcher success. The cancelled test registration was removed with exact ID/label/creation-time guards and an audit row, after checking it had no proposal, execution or target claim and that its genuine cancellation event was observed. Historical event/observation facts remain; the authoritative registry is back to the original four pilots. Private cancellation and registry-cleanup proofs are retained under ignored `data/`. Genuine payment, activation and cancellation events were verified/observed. The activation resend is accepted (202) but repeated delivery/deduplication acceptance remains pending. No discount episodes or posterior parameter changes resulted. The original instructions below are historical recovery context, not an outstanding active-subscription task.
 
 The user approved one separate $24/month Sandbox-only test subscription for genuine webhook verification and specifically required cancellation afterward. **Disposable ID: `I-4UFG7A89M5YV`. Cancel this exact subscription and verify a fresh PayPal GET reports `CANCELLED`; do not treat a cancellation POST acknowledgement alone as completion.** Pilots A–D are excluded by a hardcoded denylist and must remain unchanged. No additional permission is needed to cancel this authorized disposable test.
 
