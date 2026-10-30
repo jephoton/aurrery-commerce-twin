@@ -9,7 +9,11 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
 - **Blocker: hosted manual comparison fails.** On https://aurrery.onrender.com, **Simulate strategies** returned "Simulation exceeded its time limit." twice: once after a cold wake and once warm.
   - **Cause:** 5 strategies × 1,000 futures takes ~2.7s locally, but Render Free gives about 0.1 CPU, which exceeds the fixed 30-second worker deadline (`src/twin/worker-client.ts`).
   - M5 hosted acceptance never covered this path; only agent runs were checked, and the first of those also timed out.
-  - **Fix before any further hosted acceptance:** use a smaller hosted run count (for example 300 futures), cache the deterministic starter comparison per evidence state, or both. Then re-verify in a browser.
+  - **Fix implemented** on branch `fix/hosted-simulation-budget` (`93d233a`): `src/hosting/simulation-budget.ts`.
+    - Every server comparison (manual route, proposal recompute, agent tools) uses 1,000 futures locally and **400 when hosted** (`RENDER`/`HOSTED_DEMO`), with a validated `SIMULATION_RUNS` override checked at startup.
+    - Client requests are capped at the budget, and the UI shows the actual count.
+    - Measured hosted timings before the fix: 100 futures took 7.3s and 200 took 9.8s, so 400 is expected at about 15s.
+    - Local checks pass: 808 tests, typecheck, lint and build. **Not yet merged to `main` or deployed;** re-verify in a browser after deploying.
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
 
