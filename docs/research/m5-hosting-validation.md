@@ -4,6 +4,14 @@
 
 ## Live hosting checkpoint (2026-10-30)
 
+### Final duplicate-delivery acceptance: passed
+
+The small result-evidence task in `docs/superpowers/plans/2026-10-30-m5-webhook-result-evidence.md` added only fixed allowlisted result logging after successful signature verification and awaited ingestion, with logging failure isolated from HTTP acknowledgement. It passed RED/GREEN privacy/failure tests, separate spec/quality reviews, parent **793/793 tests**, typecheck and lint, then [Linux CI 41040945106](https://github.com/jephoton/aurrery-commerce-twin/actions/runs/41040945106) including the credential-free production build at `4da3c6e`. Render deployment `dep-dbi72e7lk1mc73ffjnf0` became live in 1m41s.
+
+After warming the deployed service, one controlled documented resend of the already observed genuine cancellation event was accepted at 10:30:27 UTC. Render instance `58kfv` logged **`paypal.webhook result=duplicate` at 10:30:32 UTC**. The reviewed code can emit this line only after PayPal postback verification returns exact SUCCESS and ingestion returns duplicate after its transaction. Before/after consistent manifests match every business-table count/hash; expiring hosting session/quota tables are excluded because their legitimate admission/expiry changes are unrelated to idempotent event ingestion. Exactly three original event rows and three webhook observations remain, one each ACTIVE/CANCELLED/PAYMENT_COMPLETED. There are no discount episodes, qualified subscriber-months or measured posterior changes.
+
+This closes the duplicate gate that the earlier HTTP202-only attempts did not establish. PayPal Developer sign-in was stuck; no bypass, simulator or fabricated signature was used. No additional subscription was created. Fresh final PayPal reads confirm the disposable probe CANCELLED and all four pilots still ACTIVE at $24. Independent final spec and quality reviews now pass without conditions. Detailed private proof/screenshot paths are indexed in current-state. All implementation/live gates pass; final merge/publication is in progress.
+
 ### Natural idle sleep/wake and final audits
 
 After natural inactivity, an external request started at 06:14:18.849 UTC and returned health 200 ready at 06:14:53.623 UTC (**34.771 seconds**). Render's application logs show a new instance running npm start at 06:14:31 UTC and ready at 06:14:40, with the existing deployment unchanged; this is a natural wake rather than another configuration redeploy. Warm health afterward took **29 ms**. The preexisting administrator session and eight proposals survived. Full consistent authoritative snapshots before/after wake each held **575 rows across 13 tables**, with every ordered table hash/count identical. No quota, webhook, session or business record was reset to manufacture that match. Private proofs and screenshot are indexed in current-state.

@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://aurrery.onrender.com on Render Free/Singapore with authoritative Turso storage. Linux CI passes 781 tests, typecheck, lint and build. Hosted authentication/origin checks, session and proposal persistence across redeploy, and a complete Gemini proposal run pass. Genuine signed PayPal events pass; natural sleep/wake passes; actual duplicate-delivery/deduplication remains pending; M5 is incomplete and unmerged. Eight proposals are proposed, with zero executions, episodes or target claims. No pilot approval, reset or price mutation occurred.**_
+_Last material update: 2026-10-30. **All M5 implementation and live acceptance gates pass: Free Render/Turso deployment, hosted Gemini flow, protected approvals, redeploy and natural sleep/wake persistence, genuine signed webhooks and actual duplicate delivery. Linux CI and parent verification pass 793 tests, typecheck, lint and build; final spec and quality reviews pass. Final merge/publication into main is in progress. The disposable probe is verified CANCELLED; Pilots A–D remain unchanged. No price proposal was approved or executed.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -10,6 +10,18 @@ _Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://
 3. `docs/superpowers/specs/2026-10-26-m5-observed-loop-design.md`, `docs/superpowers/plans/2026-10-26-m5-observed-loop.md`, `docs/decisions/0006-free-render-and-turso.md` and `docs/superpowers/plans/2026-10-27-m5-free-storage.md`: current M5 scope and the accepted free-hosting revision. The M4 UI design/plan dated 2026-10-25 are completed historical references; visual iteration resumes in M8.
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
+
+## M5 final acceptance passed; publication in progress
+
+<!-- Generated final acceptance record; supersedes earlier pending checkpoints below. -->
+
+All M5 implementation and live acceptance gates now pass. The reviewed result-only webhook log is deployed at `4da3c6e` on Render deployment `dep-dbi72e7lk1mc73ffjnf0`; [Linux CI 41040945106](https://github.com/jephoton/aurrery-commerce-twin/actions/runs/41040945106) passes **793 tests/80 files**, typecheck, lint and a production build without runtime credentials. Parent full tests/typecheck and focused lint also pass. Independent final spec and quality reviews passed after examining the real duplicate evidence. This change only logs allowlisted result words after successful signature verification and committed ingestion, with no identifiers, payload, secrets or customer data; a logging failure cannot change acknowledgement behavior.
+
+PayPal's public API accepted a controlled resend of the existing genuine cancellation event, after verifying the app had exactly one expected webhook. Five seconds later, at **2026-10-30T10:30:32Z**, the deployed instance `58kfv` logged `paypal.webhook result=duplicate`. Every business-table count/hash remained unchanged across consistent snapshots; only naturally expiring hosting sessions/quotas are excluded from that comparison. The original three events still have one webhook observation each (ACTIVE, CANCELLED, PAYMENT_COMPLETED), with **zero discount episodes, qualified subscriber-months or posterior changes**. Private proof is `data/m5-final-duplicate-proof.json`, with screenshot `data/m5-verified-duplicate-log.png`. Earlier HTTP202 responses alone were not accepted as delivery evidence. No new subscription or simulator was used to finish this gate.
+
+Natural sleep/wake proof remains valid: 34.771-second cold readiness, 29-ms warm health, surviving administrator session/eight proposals, and all 575 rows/13 table count-hashes unchanged at that checkpoint. The first hosted agent run's worker TIMEOUT and later TOKEN_LIMIT remain documented limitations; a second run completed the full seven-tool Gemini flow. No worker deadline, token budget, approval rule or prior was relaxed.
+
+Fresh PayPal SDK reads still show the original four pilots ACTIVE at $24 and the disposable test `I-4UFG7A89M5YV` CANCELLED; private final status proof is `data/m5-final-sandbox-status.json`. Its temporary registry entry was removed after cancellation with history/audit retained. Eight proposals remain proposed, with zero price executions or unresolved claims. Final publication into main is the only remaining step. M6/M7 are not started; M7 remains required and may precede optional M6, and visual iteration remains M8.
 
 ## Completed cleanup: disposable Sandbox webhook probe
 
