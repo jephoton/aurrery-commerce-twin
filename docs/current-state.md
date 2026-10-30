@@ -11,6 +11,16 @@ _Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
+## Priority cleanup: disposable Sandbox webhook probe
+
+<!-- Generated operational obligation. User explicitly authorized creation and cancellation of this one test. -->
+
+The user approved one separate $24/month Sandbox-only test subscription for genuine webhook verification and specifically required cancellation afterward. **Disposable ID: `I-4UFG7A89M5YV`. Cancel this exact subscription and verify a fresh PayPal GET reports `CANCELLED`; do not treat a cancellation POST acknowledgement alone as completion.** Pilots A–D are excluded by a hardcoded denylist and must remain unchanged. No additional permission is needed to cancel this authorized disposable test.
+
+It was created/read back as APPROVAL_PENDING and registered only in authoritative Turso as `core`/`other` with label `Disposable M5 webhook test (cancel after verification)`, so it is outside price-driven cancel-intent targeting. The full billing plan was verified to contain only one USD24 monthly REGULAR cycle, no trial/additional cycles, tiers, setup fees or taxes; no shipping is requested. Its durable private identity/creation intent and approval URL are in ignored `data/m5-disposable-webhook-probe.json`; never commit that file or approval token. The safety-reviewed operator script is `data/m5-disposable-webhook-probe.ts`: `prepare` refuses an existing intent; `status` checks ID/custom ID/plan; `cancel` rechecks identity, refuses every fixed pilot ID and requires GET-confirmed CANCELLED. Use `node --env-file=.env.local --import=tsx --conditions=react-server data/m5-disposable-webhook-probe.ts status` / `cancel` without printing credentials or raw provider responses.
+
+A bounded cancellation watcher was started via `node data/m5-probe-cleanup-watch.mjs` (terminal session 27615). It polls only this disposable ID, cancels immediately on ACTIVE/APPROVED/SUSPENDED, then GET-verifies CANCELLED; it does not wait for webhook acceptance before cleanup. It reconciles an uncertain cancellation by GET without automatic write replay. Its 30-minute approval window begins at the timestamp in ignored `data/m5-probe-cleanup-watch.json`; check the actual process/proof, never assume it remains running after app restart or expiry. If expired or interrupted, inspect the saved exact ID and finish cancellation manually. The user has the approval link and a pending approval-status question. Do not create another probe or end the test as complete while this one is active/uncertain. After cancellation, finish genuine event and resend/dedup checks against retained history; preserve the cleanup proof. M5 stays incomplete until those acceptance gates pass.
+
 ## Hosted M5 acceptance (2026-10-30)
 
 <!-- Generated operational handoff. Live deployment is not milestone completion. -->
