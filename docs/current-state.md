@@ -36,7 +36,12 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
         - annual plan: each subscriber must approve in PayPal.
       - If nothing executable qualifies, it shows the top value for context and says nothing is recommended.
       - After M7 the annual plan becomes executable and will headline automatically.
-      - Local checks: 815 tests, typecheck, lint and build. Not yet merged or deployed.
+      - Local checks: 815 tests, typecheck, lint and build. CI run 41071706396 passed on `main` (`4faee8b`).
+      - **Deployed and verified live (2026-10-30):** Render deploy `dep-dbiakdvlk1mc73fol56g`.
+        - The hosted **Simulate strategies** run finished in 17s.
+        - The headline reads "Recommended now · Price-driven cancel save" (median +$147, 38.5% chance worse, $576 discount cost).
+        - "Bigger simulated levers" lists the price rise (+$61,792) and the annual plan (+$10,268) with their reasons.
+        - Clicking the price-rise lever switches to "Manual scenario" with its simulate-only reason and no "Recommended now" label.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
