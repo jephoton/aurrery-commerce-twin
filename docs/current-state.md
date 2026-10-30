@@ -29,7 +29,15 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
       | Price cut to $22 | −$56,681 | 100% |
 
       These are consistent with the 1,000-future local results.
-    - **New visible story issue:** after a manual comparison, the headline auto-selects "Raise list price to $27", which is simulate-only. Address it with the narrative fix (M7 or M8).
+    - **New visible story issue:** after a manual comparison, the headline auto-selected "Raise list price to $27", which is simulate-only.
+      - **Fixed** on `fix/headline-executable-recommendation` (`adbba9d`, `src/components/headline.ts`). The headline now picks the best **executable** strategy within the decision rules (chance worse ≤ `maxProbWorse`, mean discount cost ≤ `discountBudget`; defaults 0.5 and $1,000) and labels it "Recommended now".
+      - Higher-value simulate-only strategies are listed beneath it as "Bigger simulated levers", each with a reason:
+        - price change: affects every subscriber, and price sensitivity is assumed, so test on a small group;
+        - annual plan: each subscriber must approve in PayPal.
+      - If nothing executable qualifies, it shows the top value for context and says nothing is recommended.
+      - After M7 the annual plan becomes executable and will headline automatically.
+      - Local checks: 815 tests, typecheck, lint and build. Not yet merged or deployed.
+- **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
 
