@@ -13,7 +13,23 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
     - Every server comparison (manual route, proposal recompute, agent tools) uses 1,000 futures locally and **400 when hosted** (`RENDER`/`HOSTED_DEMO`), with a validated `SIMULATION_RUNS` override checked at startup.
     - Client requests are capped at the budget, and the UI shows the actual count.
     - Measured hosted timings before the fix: 100 futures took 7.3s and 200 took 9.8s, so 400 is expected at about 15s.
-    - Local checks pass: 808 tests, typecheck, lint and build. **Not yet merged to `main` or deployed;** re-verify in a browser after deploying.
+    - Local checks pass: 808 tests, typecheck, lint and build. Linux CI run 41062726348 passed on `main`.
+    - **Deployed and verified live (2026-10-30):** fast-forwarded to `main` (`1c57d4a`) and deployed manually on Render as `dep-dbia96oae00c73bleso0`.
+      - The page shows "5 candidates · 400 futures each".
+      - A direct 400-future hosted comparison returned 200 in 17.5s.
+      - The browser **Simulate strategies** run completed with no timeout, showing all 6 grid rows.
+    - Hosted 400-future medians vs baseline:
+
+      | Strategy | Median Δ value | Chance worse |
+      | --- | --- | --- |
+      | Price rise to $27 | +$61,792 | 0.3% |
+      | Annual plan | +$10,268 | 0.0% |
+      | Save offer | +$147 | 38.5% |
+      | Broad at-risk discount | −$1,283 | 73.8% |
+      | Price cut to $22 | −$56,681 | 100% |
+
+      These are consistent with the 1,000-future local results.
+    - **New visible story issue:** after a manual comparison, the headline auto-selects "Raise list price to $27", which is simulate-only. Address it with the narrative fix (M7 or M8).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
 
