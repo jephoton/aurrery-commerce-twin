@@ -9,9 +9,25 @@ import { createLibsqlConnection, createLocalConnection, initializeLedgerSchema }
 import { LEDGER_SCHEMA } from "./db";
 import { createProposalRepository, hashAction, PriceOverrideActionSchema, RevertActionSchema } from "./proposals";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
-import { importLedger } from "./import";
+import { assertCanonicalTargetSchema, importLedger } from "./import";
 import { recordTarget } from "@/execution/execute";
 import { PILOT_COHORT } from "@/paypal/pilot-cohort";
+
+it.each([false, true])("checks constraint enforcement through SQL introspection when direct PRAGMA is unavailable (disabled=%s)", async (disabled) => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(LEDGER_SCHEMA);
+    if (disabled) db.exec("PRAGMA ignore_check_constraints=ON");
+    const target = createLocalConnection(db);
+    const query = target.query.bind(target);
+    vi.spyOn(target, "query").mockImplementation((sql, args) => {
+      if (sql === "PRAGMA ignore_check_constraints") throw new Error("SQL not allowed statement");
+      return query(sql, args);
+    });
+    if (disabled) await expect(assertCanonicalTargetSchema(target)).rejects.toThrow("Target ledger schema is incompatible");
+    else await expect(assertCanonicalTargetSchema(target)).resolves.toBeUndefined();
+  } finally { db.close(); }
+});
 
 async function resetSource(path: string, status: "proposed" | "approved" | "executing" = "proposed") {
   const source = new DatabaseSync(path);

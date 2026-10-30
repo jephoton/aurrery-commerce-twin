@@ -159,7 +159,9 @@ export async function assertCanonicalTargetSchema(tx: LedgerExecutor): Promise<v
   const fields = (rows: LedgerRow[], names: string[]) => rows.map((row) => names.map((name) => row[name]));
   const localRows = (sql: string) => template.prepare(sql).all() as LedgerRow[];
   try {
-    const checkMode = await tx.query("PRAGMA ignore_check_constraints");
+    // Turso's SQL gateway disallows the direct PRAGMA; its read-only table
+    // function exposes the same connection setting without weakening this check.
+    const checkMode = await tx.query("SELECT ignore_check_constraints FROM pragma_ignore_check_constraints");
     if (checkMode.length !== 1 || Number(checkMode[0].ignore_check_constraints) !== 0) throw new Error("Target ledger schema is incompatible");
     if (JSON.stringify(fields(await tx.query(schemaSql), ["type", "name", "tbl_name", "sql"])) !==
       JSON.stringify(fields(localRows(schemaSql), ["type", "name", "tbl_name", "sql"]))) throw new Error("Target ledger schema is incompatible");

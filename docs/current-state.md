@@ -11,6 +11,16 @@ _Last material update: 2026-10-30. **M0–M4 are on main. Reviewed M5 local impl
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
+## Live Turso transfer (2026-10-30)
+
+<!-- Generated operational handoff; supersedes the remote-setup-pending summary above. -->
+
+The user configured the empty remote database privately. Live integration exposed three defects: the regional AWS hostname was rejected by the old validator; the gateway rejects direct `PRAGMA ignore_check_constraints`; and HTTP transactions silently ignored parameters passed separately from SQL. The adapter now uses the shared statement-object API, the validator accepts AWS routing labels beneath `turso.io` while retaining exact-host transport restrictions, and schema validation reads the same enforcement setting through its SQL table function. Each regression failed before its fix and received independent review. Failed imports and rollback-only diagnostics left zero remote records before the successful import.
+
+The final import and authoritative remote export preserve all **545 rows across 13 tables**, with every table count/hash, pilot order and sequence state matching. Raw schema hashes intentionally differ: the legacy local subscriber table added `reason` through ALTER TABLE and the cache table used different DDL formatting; the remote target passes the canonical schema guard. Private backups and manifests remain under ignored `data/`; `data/m5-turso-transfer-proof.json` records the comparison. Do not rerun import against this nonempty target. Local configuration still selects SQLite; adding remote credentials does not switch it. The server was stopped during transfer. If local writes resume before Render cutover, reconcile or explicitly transfer a new snapshot into an empty target rather than silently merging divergent ledgers.
+
+Verification: **781/781 tests across 80 files** passed with `npx vitest run --maxWorkers=4`, along with typecheck, focused four-file lint and production build. An earlier unbounded run alongside typecheck hit local five-second test timeouts (771 passed, 10 failed); the bounded run passed all cases. The previous Linux CI covered the earlier 777-test revision; updated CI remains pending. No PayPal mutation or model request occurred. Next: free Render deployment on the M5 branch, hosted persistence/auth checks and genuine signed webhook verification. M5 remains incomplete.
+
 ## M5 Task 6: offline deployment and recovery preparation
 
 <!-- Generated handoff: local implementation; no deployment/live acceptance claim. -->

@@ -98,7 +98,7 @@ async function safe<T>(work: () => Promise<T>): Promise<T> {
 
 function remoteExecutor(target: Client | Transaction): LedgerExecutor {
   const executor: LedgerExecutor = {
-    execute: (sql, args = []) => safe(async () => remoteResult(await target.execute(sql, args as InValue[]))),
+    execute: (sql, args = []) => safe(async () => remoteResult(await target.execute({ sql, args: args as InValue[] }))),
     query: async (sql, args) => (await executor.execute(sql, args)).rows,
     executeMultiple: (sql) => safe(() => target.executeMultiple(sql)),
   };
@@ -159,7 +159,7 @@ export function validateTursoUrl(raw: string): string {
   let parsed: URL;
   try { parsed = new URL(raw); } catch { throw new Error("Invalid ledger configuration"); }
   if (!(["https:", "libsql:"].includes(parsed.protocol)) ||
-    !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.turso\.io$/.test(parsed.hostname) ||
+    !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.aws-[a-z0-9]+(?:-[a-z0-9]+)*)?\.turso\.io$/.test(parsed.hostname) ||
     parsed.username || parsed.password || parsed.port || !["", "/"].includes(parsed.pathname) || parsed.search || parsed.hash) {
     throw new Error("Invalid ledger configuration");
   }

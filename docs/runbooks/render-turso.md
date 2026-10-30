@@ -25,6 +25,10 @@ node --import=tsx --conditions=react-server scripts/import-signal-cache.ts data/
 
 The artifact is private local input; never relabel Groq predictions as Gemini, use a replay fixture as fresh evidence, or import into an uncertain target. This explicit cache operation writes only validated accepted cache rows; it is not a backup/restore or provider acceptance check.
 
+### Legacy source schema fingerprints
+
+Compare every imported table's ordered row count/hash and sequence state. A validated legacy local source can have a different raw schema fingerprint from the canonical remote target because of historical ALTER TABLE column order or CREATE TABLE formatting. Keep both manifests and explain the DDL difference; do not skip canonical target validation or accept a row/hash mismatch. The live transfer is recorded in `docs/current-state.md`; its target is now nonempty and must not be imported again.
+
 ## Administrator access and uncertain executions
 
 Use the dashboard's **Administrator access** password form over the configured HTTPS origin. Sessions last two hours in Secure, HttpOnly, SameSite=Strict `__Host-aurrery-admin` cookies. The authoritative ledger stores only hashes/fingerprints. **Sign out** revokes the session. Rotate `ADMIN_PASSWORD` privately and restart/redeploy to invalidate sessions bound to its old fingerprint; rotate `HOSTED_SECRET` to change session/admission HMAC authority. Never share cookies or paste passwords into a CLI argument. All visitors still share the conservative client admission bucket; arbitrary forwarded headers cannot increase allowance (effective hosted agent capacity is three total runs/hour, also bounded by global/day and provider limits).

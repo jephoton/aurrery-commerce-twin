@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { createClient } from "@libsql/client";
+import type { Client } from "@libsql/client";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import {
   createLibsqlConnection,
@@ -10,7 +11,38 @@ import {
   createRuntimeLedgerConnection,
   createTursoFetch,
   initializeLedgerSchema,
+  validateTursoUrl,
 } from "./connection";
+
+it("passes parameter bindings as one statement to HTTP transactions", async () => {
+  const execute = vi.fn(async () => ({ rows: [], rowsAffected: 1 }));
+  const transaction = { execute, commit: vi.fn(), rollback: vi.fn(), close: vi.fn() };
+  const client = { transaction: vi.fn(async () => transaction) } as unknown as Client;
+  const connection = createLibsqlConnection(client);
+  await connection.transaction(async tx => {
+    await tx.execute("INSERT INTO kv (key,value) VALUES (?,?)", ["bound-key", "bound-value"]);
+    await tx.query("SELECT value FROM kv WHERE key=?", ["bound-key"]);
+  });
+  expect(execute.mock.calls).toEqual([
+    [{ sql: "INSERT INTO kv (key,value) VALUES (?,?)", args: ["bound-key", "bound-value"] }],
+    [{ sql: "SELECT value FROM kv WHERE key=?", args: ["bound-key"] }],
+  ]);
+  expect(transaction.commit).toHaveBeenCalledOnce();
+});
+
+it("accepts regional Turso hosts while rejecting lookalike domains and extra URL components", () => {
+  for (const url of ["libsql://demo.aws-ap-southeast-1.turso.io", "https://demo.aws-ap-southeast-1.turso.io"]) {
+    expect(validateTursoUrl(url)).toBe(url);
+  }
+  for (const url of [
+    "https://demo.aws-ap-southeast-1.turso.io.evil.example",
+    "https://demo.aws-ap-southeast-1.turso.io@evil.example",
+    "https://demo.aws-ap-southeast-1.turso.io?tls=0",
+    "https://demo.aws-ap-southeast-1.turso.io:444",
+    "https://demo.aws-ap-southeast-1.turso.io/path",
+    "http://demo.aws-ap-southeast-1.turso.io",
+  ]) expect(() => validateTursoUrl(url)).toThrow("Invalid ledger configuration");
+});
 
 const dirs: string[] = [];
 const tempPath = () => {
