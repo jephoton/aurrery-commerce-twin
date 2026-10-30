@@ -13,6 +13,8 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
 
 ## M5 complete and published
 
+Final publication verification: Render deployment `dep-dbi76vks728c73chod30` is Live from main commit `316aa6d`; [main CI 41042128472](https://github.com/jephoton/aurrery-commerce-twin/actions/runs/41042128472) passed all 793 tests, typecheck, lint and build. Final external readiness is 200, anonymous approval access remains blocked, and all eight proposals remain available. `data/m5-main-publication-proof.json` records the safe metadata. Later documentation-only commits need no extra manual deploy: application code is unchanged from reviewed/tested `4da3c6e`. The working checkout is main; retain the feature branch as historical reference, not the active deployment source.
+
 <!-- Generated final acceptance record; supersedes earlier pending checkpoints below. -->
 
 All M5 implementation and live acceptance gates now pass. The reviewed result-only webhook log is deployed at `4da3c6e` on Render deployment `dep-dbi72e7lk1mc73ffjnf0`; [Linux CI 41040945106](https://github.com/jephoton/aurrery-commerce-twin/actions/runs/41040945106) passes **793 tests/80 files**, typecheck, lint and a production build without runtime credentials. Parent full tests/typecheck and focused lint also pass. Independent final spec and quality reviews passed after examining the real duplicate evidence. This change only logs allowlisted result words after successful signature verification and committed ingestion, with no identifiers, payload, secrets or customer data; a logging failure cannot change acknowledgement behavior.
