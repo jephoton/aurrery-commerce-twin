@@ -21,6 +21,10 @@ The final import and authoritative remote export preserve all **545 rows across 
 
 Verification: **781/781 tests across 80 files** passed with `npx vitest run --maxWorkers=4`, along with typecheck, focused four-file lint and production build. An earlier unbounded run alongside typecheck hit local five-second test timeouts (771 passed, 10 failed); the bounded run passed all cases. The previous Linux CI covered the earlier 777-test revision; updated CI remains pending. No PayPal mutation or model request occurred. Next: free Render deployment on the M5 branch, hosted persistence/auth checks and genuine signed webhook verification. M5 remains incomplete.
 
+### Render form prepared; private import pending
+
+Updated [Linux CI run 41006013605](https://github.com/jephoton/aurrery-commerce-twin/actions/runs/41006013605) passed at `30abb90`, including all 781 tests, typecheck, lint and production build. This supersedes the updated-CI-pending note above. The user signed into Render. Its new web-service form is prepared for `aurrery`, branch `feat/m5-observed-loop`, Singapore, Free ($0/month), `npm ci --include=dev && npm run build`, `npm start`, `/api/health` and auto-deploy Off. No service has been created or deployed. The Add from .env modal is open for user entry. Ignored `data/render-runtime.env` contains only selected runtime settings, existing Turso/Gemini/PayPal credentials and newly generated independent administrator secrets; never display, commit or include it in screenshots. The user must import that private file into Render, then the agent can verify masked configuration before deployment. Local production server is running again on port 3001 using SQLite; no local writes should be treated as already present in the imported remote snapshot. Render origin fallback remains intended; do not import the local `.env.local` wholesale or set its local backend/path/callback origin remotely.
+
 ## M5 Task 6: offline deployment and recovery preparation
 
 <!-- Generated handoff: local implementation; no deployment/live acceptance claim. -->
