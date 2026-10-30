@@ -4,6 +4,8 @@
 
 Built for the PayPal AI Hackathon (2026).
 
+**[Open the hosted demo](https://aurrery.onrender.com/).** Visitors can explore the synthetic merchant and run bounded investigations; merchant approval and execution require administrator sign-in. The Free service sleeps when idle: the measured cold wake took about 35 seconds, with persistent ledger and session data intact. PayPal operations use Sandbox accounts and simulated money.
+
 ## The loop
 
 1. **Twin from data.** Segment churn, payment-failure churn, acquisition and segment transitions are Beta/normal posteriors estimated from 18 months of subscriber history. Parameters history can't identify (price sensitivity, discount effect, annual uptake) are explicit priors, labelled as assumptions.

@@ -4,6 +4,12 @@
 
 ## Live hosting checkpoint (2026-10-30)
 
+### Natural idle sleep/wake and final audits
+
+After natural inactivity, an external request started at 06:14:18.849 UTC and returned health 200 ready at 06:14:53.623 UTC (**34.771 seconds**). Render's application logs show a new instance running npm start at 06:14:31 UTC and ready at 06:14:40, with the existing deployment unchanged; this is a natural wake rather than another configuration redeploy. Warm health afterward took **29 ms**. The preexisting administrator session and eight proposals survived. Full consistent authoritative snapshots before/after wake each held **575 rows across 13 tables**, with every ordered table hash/count identical. No quota, webhook, session or business record was reset to manufacture that match. Private proofs and screenshot are indexed in current-state.
+
+Final independent spec and quality audits found no actionable code blocker, conditional on genuine duplicate delivery acceptance. The parent freshly reran 781/781 tests and typecheck; a 232-file tracked scan found no actual runtime-secret values or named user-specific paths. The replay privacy test's generic path-detection regex is intentional. The sole external gate still awaiting proof is a genuine duplicate delivery; final publication remains pending. No second disposable subscription is needed.
+
 ### Disposable probe cancellation and genuine signed events
 
 The user explicitly authorized one separate Sandbox $24/month probe with mandatory cancellation, then completed its human checkout. Its identity was `I-4UFG7A89M5YV`; the creation intent, custom ID, fixed Sandbox host, original-pilot denylist, complete no-extra-fee billing shape, registration and cancellation script received safety review before creation. The cancellation watcher stopped without confirming cleanup. A fresh GET found ACTIVE; direct authorized cancellation and a separate GET then confirmed **CANCELLED** at 05:31:07Z. A later independent SDK read confirmed CANCELLED again and all four original pilots still ACTIVE at $24. The probe's exact core/other registry entry was removed after checking its identity, zero proposal/execution/claim references and observed cancellation; an audit entry and all historical facts were retained. No original pilot or proposal was approved, reset or executed.

@@ -19,7 +19,7 @@
 
 ## Deployment readiness and authoritative recovery (M5 Task 6)
 
-The M5 feature branch is deployed at `https://aurrery.onrender.com` on one Render Free Node service in Singapore, with Turso as the authoritative hosted ledger and local SQLite retained for development. Hosted session/proposal persistence across a configuration redeploy and the real Gemini proposal flow have been verified. Genuine signed event/deduplication and natural idle sleep/wake acceptance remain pending; see `docs/current-state.md`. Free compute can hit the unchanged 30-second worker deadline: the first hosted run recovered its simulation but exhausted its token budget; the second completed. No paid resources, automatic retries of PayPal actions or relaxed worker limits were introduced.
+The M5 feature branch is deployed at `https://aurrery.onrender.com` on one Render Free Node service in Singapore, with Turso as the authoritative hosted ledger and local SQLite retained for development. Hosted session/proposal persistence across a configuration redeploy and the real Gemini proposal flow have been verified. Genuine signed events and natural idle sleep/wake now pass; actual duplicate-delivery acceptance remains pending; see `docs/current-state.md`. Free compute can hit the unchanged 30-second worker deadline: the first hosted run recovered its simulation but exhausted its token budget; the second completed. No paid resources, automatic retries of PayPal actions or relaxed worker limits were introduced.
 
 <!-- Generated handoff: offline deployment preparation; external acceptance remains pending. -->
 

@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://aurrery.onrender.com on Render Free/Singapore with authoritative Turso storage. Linux CI passes 781 tests, typecheck, lint and build. Hosted authentication/origin checks, session and proposal persistence across redeploy, and a complete Gemini proposal run pass. Genuine signed PayPal events pass; actual duplicate-delivery/deduplication and natural sleep/wake acceptance remain pending; M5 is incomplete and unmerged. Eight proposals are proposed, with zero executions, episodes or target claims. No pilot approval, reset or price mutation occurred.**_
+_Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://aurrery.onrender.com on Render Free/Singapore with authoritative Turso storage. Linux CI passes 781 tests, typecheck, lint and build. Hosted authentication/origin checks, session and proposal persistence across redeploy, and a complete Gemini proposal run pass. Genuine signed PayPal events pass; natural sleep/wake passes; actual duplicate-delivery/deduplication remains pending; M5 is incomplete and unmerged. Eight proposals are proposed, with zero executions, episodes or target claims. No pilot approval, reset or price mutation occurred.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -12,6 +12,12 @@ _Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://
 5. `docs/architecture.md`: modules and the model.
 
 ## Completed cleanup: disposable Sandbox webhook probe
+
+### Final acceptance checkpoint
+
+Natural idle sleep/wake now passes. At 06:14 UTC a single external health request took **34.771 seconds** and returned 200 ready; Render application logs show a fresh process starting at 06:14:31 UTC, with no new deploy. The subsequent warm health check took **29 ms**. The original administrator cookie remained valid, all eight proposals remained present, and consistent authoritative exports before/after wake matched **all 575 rows and ordered hashes across 13 tables**, with no mismatched table. Private proofs are `data/m5-idle-wake-request-proof.json`, `data/m5-sleep-wake-persistence-proof.json` and `data/m5-render-wake-log.png`. Do not repeat a long idle wait merely because older sections still say sleep/wake pending.
+
+Final independent spec and quality audits found no actionable code blocker, conditional on actual duplicate webhook delivery. The parent freshly reran **781 tests/80 files**, typecheck and the tracked-file hygiene scan (232 files; no actual runtime secret or named personal path found). A regex in the replay privacy test contains a generic path prefix, not a user-specific path. Final zero-warning lint passed. The remaining external gate is a resend that truly reaches the verified handler without an extra event/observation or posterior effect. The earlier HTTP202 alone did not establish delivery. PayPal Developer browser sign-in expired and its fresh reopened Chrome tab is awaiting the user's sign-in; no new checkout is needed. The first commit date is 2026-10-21T22:51:35+08:00 (`32ad539`). Do not merge until the duplicate gate passes; the user requested finishing M5 including the normal final review/publication sequence.
 
 <!-- Generated operational obligation. User explicitly authorized creation and cancellation of this one test. -->
 
