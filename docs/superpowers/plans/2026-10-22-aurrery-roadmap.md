@@ -96,6 +96,7 @@ If time is short, cut M6 (CSV import). M7 (annual-plan execution) became part of
 
 ## M8: Submission
 - Iterate on the product UI as requested, preserving the simulation, evidence and explicit approval behavior.
+  - **Theme (Jethro, 2026-10-30):** make the visual theme more intentional and obviously stylised. Today it reads as "some sort of theme" (dark navy and gold) but not a distinctive identity. Lean into the orrery and gold concept, for example orbital and brass-instrument motifs, a deliberate type pairing and stronger signature components, across the headline card, grid and charts.
 - Public GitHub repo and visible MIT license are already complete; retain them through final publication.
 - README with a hosted URL and local setup; Devpost text, including the tools-used explanation.
 - Video script, then record (under 3:00), upload to YouTube as public.
