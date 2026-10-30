@@ -19,6 +19,8 @@ import { MerchantOverview } from "./MerchantOverview";
 import { AdminAccess } from "./AdminAccess";
 import { RecoveryPanel } from "./RecoveryPanel";
 import { canReviewAccess, type AccessState } from "./admin-access";
+import { DEFAULT_DECISION_RULES } from "@/agent/contracts";
+import { chooseHeadline } from "./headline";
 
 export interface MerchantSummary {
   name: string;
@@ -96,6 +98,8 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
   };
 
   const selected = comparison?.strategies.find((s) => s.strategy.id === selectedId) ?? null;
+  const headline = comparison ? chooseHeadline(comparison, (comparisonSource === "agent" ? rules : null) ?? DEFAULT_DECISION_RULES) : null;
+  const isHeadlinePick = !!headline && headline.selectedId === selectedId;
   const baseline = comparison?.strategies.find((s) => s.strategy.id === comparison.baselineId) ?? null;
   const rows = useMemo(() => (comparison ? toRows(comparison.strategies, comparison.baselineId) : []), [comparison]);
 
@@ -167,7 +171,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
       {error && <div role="alert" className="mb-4 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">{error}</div>}
       <AdminAccess state={access} onChange={(value) => { setAccess(value); setConfirmed(false); }} />
 
-      <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} />
+      <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} recommended={isHeadlinePick && headline.recommended} noQualifyingAction={isHeadlinePick && !headline.recommended} biggerLevers={isHeadlinePick ? headline.biggerLevers : []} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
 
       <section className="mb-6 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="objective-title">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">

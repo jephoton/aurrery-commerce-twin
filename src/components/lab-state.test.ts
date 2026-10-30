@@ -1,3 +1,4 @@
+import type { ComparisonResult } from "@/twin/simulate";
 import { expect, it } from "vitest";
 import { dashboardReducer, emptyDashboard } from "./lab-state";
 import { compareStrategies } from "@/twin/simulate";
@@ -117,4 +118,14 @@ it("keeps explicit decision rules through refreshed classification and the next 
   const compared = dashboardReducer(classified, { type: "event", event: { type: "comparison", comparison } });
   expect(classified).toMatchObject({ rules: rulesEvent.rules, evidence: classificationEvent, comparison: null, stress: null });
   expect(compared).toMatchObject({ rules: rulesEvent.rules, comparison, comparisonSource: "agent", stress: null });
+});
+
+it("headlines the best executable strategy after a manual comparison, not a higher simulate-only one", () => {
+  const strategies = [
+    { strategy: { id: "baseline", name: "Do nothing", intervention: { kind: "baseline" } }, vsBaseline: { totalValue: { p50: 0 } }, probValueBelowBaseline: 0, metrics: { discountCost: { mean: 0 } } },
+    { strategy: { id: "rise", name: "Raise", intervention: { kind: "list_price_change", newPrice: 27 } }, vsBaseline: { totalValue: { p50: 60_000 } }, probValueBelowBaseline: .003, metrics: { discountCost: { mean: 0 } } },
+    { strategy: { id: "save", name: "Save", intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3, campaignMonths: 6 } }, vsBaseline: { totalValue: { p50: 150 } }, probValueBelowBaseline: .39, metrics: { discountCost: { mean: 570 } } },
+  ];
+  const manual = { baselineId: "baseline", strategies } as unknown as ComparisonResult;
+  expect(dashboardReducer(emptyDashboard, { type: "comparison", comparison: manual, source: "manual" }).selectedId).toBe("save");
 });

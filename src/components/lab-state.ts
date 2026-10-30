@@ -1,4 +1,5 @@
-import type { AgentEvent, DecisionRules } from "@/agent/contracts";
+import { DEFAULT_DECISION_RULES, type AgentEvent, type DecisionRules } from "@/agent/contracts";
+import { chooseHeadline } from "./headline";
 import type { ExecutionReport } from "@/execution/execute";
 import type { Proposal } from "@/ledger/proposals";
 import type { ComparisonResult } from "@/twin/simulate";
@@ -41,8 +42,8 @@ export function dashboardReducer(state: DashboardState, action: Action): Dashboa
     case "proposal-updated": return state.proposal?.id === action.proposal.id ? { ...state, ...clearReview, proposal: action.proposal, proposalSource: state.proposalSource } : state;
     case "report": return { ...state, confirmed: false, report: action.report, proposal: action.report.proposal, proposalSource: state.proposal?.id === action.report.proposal.id ? state.proposalSource : null };
     case "comparison": {
-      const best = [...action.comparison.strategies].filter(s => s.strategy.id !== action.comparison.baselineId).sort((a, b) => b.vsBaseline.totalValue.p50 - a.vsBaseline.totalValue.p50)[0];
-      return { ...state, ...clearReview, comparison: action.comparison, comparisonSource: action.source, selectedId: best?.strategy.id ?? null, rules: action.source === "agent" ? state.rules : null, stress: null, observedSnapshot: action.source === "manual" ? action.observedSnapshot ?? null : state.observedSnapshot, evidence: action.source === "manual" ? null : state.evidence };
+      const { selectedId } = chooseHeadline(action.comparison, (action.source === "agent" ? state.rules : null) ?? DEFAULT_DECISION_RULES);
+      return { ...state, ...clearReview, comparison: action.comparison, comparisonSource: action.source, selectedId, rules: action.source === "agent" ? state.rules : null, stress: null, observedSnapshot: action.source === "manual" ? action.observedSnapshot ?? null : state.observedSnapshot, evidence: action.source === "manual" ? null : state.evidence };
     }
     case "event": {
       const event = action.event;

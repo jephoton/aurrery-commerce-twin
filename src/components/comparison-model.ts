@@ -1,5 +1,6 @@
 import type { StrategyResult } from "@/twin/simulate";
 import type { Intervention } from "@/twin/interventions";
+import { isExecutable } from "./headline";
 
 export type Family = "Retention" | "Annual" | "Pricing" | "Baseline";
 
@@ -43,7 +44,7 @@ export function comparisonRows(results: StrategyResult[], baselineId: string): {
     endingActiveP50: r.metrics.endingActive.p50,
     deltaEndingActive: r.vsBaseline.endingActive.mean,
     discountCost: r.metrics.discountCost.mean,
-    executable: r.strategy.intervention.kind === "targeted_discount",
+    executable: isExecutable(r),
     paypalAction: r.paypalAction,
   }));
   const baselines = rows.filter((row) => row.family === "Baseline" || row.isBaseline);

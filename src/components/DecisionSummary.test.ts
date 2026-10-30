@@ -77,3 +77,21 @@ it("keeps simulate-only and adverse stress tied to the displayed strategy", () =
   expect(render({ ...baseProps, selected: simulateOnly, stress })).not.toContain("Adverse stress");
   expect(render({ ...baseProps, stress })).toContain("Adverse stress");
 });
+
+it("labels the headline pick as recommended and lists bigger simulate-only levers with reasons", () => {
+  const rise = { ...selected, strategy: { id: "rise", name: "Raise list price to $27", intervention: { kind: "list_price_change" as const, newPrice: 27 } }, vsBaseline: { ...selected.vsBaseline, totalValue: { ...selected.vsBaseline.totalValue, p50: 61_792 } } };
+  const html = render({ ...baseProps, recommended: true, biggerLevers: [rise] });
+  expect(html).toContain("Recommended now");
+  expect(html).toContain("Bigger simulated levers");
+  expect(html).toContain("Raise list price to $27");
+  expect(html).toContain("+$61,792");
+  expect(html).toMatch(/every subscriber/);
+});
+
+it("explains why a selected simulate-only strategy is not executable", () => {
+  const rise = { ...selected, strategy: { id: "rise", name: "Raise list price to $27", intervention: { kind: "list_price_change" as const, newPrice: 27 } } };
+  const html = render({ ...baseProps, selected: rise });
+  expect(html).toContain("Simulate only");
+  expect(html).toMatch(/every subscriber/);
+  expect(html).not.toContain("Recommended now");
+});
