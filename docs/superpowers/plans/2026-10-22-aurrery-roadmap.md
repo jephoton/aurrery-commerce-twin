@@ -97,6 +97,12 @@ If time is short, cut M6 (CSV import). M7 (annual-plan execution) became part of
 ## M8: Submission
 - Iterate on the product UI as requested, preserving the simulation, evidence and explicit approval behavior.
   - **Theme (Jethro, 2026-10-30):** make the visual theme more intentional and obviously stylised. Today it reads as "some sort of theme" (dark navy and gold) but not a distinctive identity. Lean into the orrery and gold concept, for example orbital and brass-instrument motifs, a deliberate type pairing and stronger signature components, across the headline card, grid and charts.
+  - **Visual reference (Jethro):** a celestial star-chart / planisphere look. The image Jethro shared is not stored in the repo; ask Jethro for it, or save it under `docs/design/`.
+    - **Ground:** a deep cobalt-blue field.
+    - **Rings:** thin white concentric rings, with radial lines of dotted stars converging on a central circle.
+    - **Stars:** scattered stars, including small four-point sparkles.
+    - **Frame:** the edges are framed with white line-engraving illustrations (roses, trees, clouds) in an etched, cyanotype-like style.
+    - **Fit:** constellations and star charts suit the orrery theme, since an orrery models the heavens. Candidate uses: a star-field and engraved-ring backdrop, constellation-style connections in the merchant "subscribers in orbit" view, etched-line illustration accents, and a blue-and-white palette, possibly keeping gold as the accent.
 - Public GitHub repo and visible MIT license are already complete; retain them through final publication.
 - README with a hosted URL and local setup; Devpost text, including the tools-used explanation.
 - Video script, then record (under 3:00), upload to YouTube as public.
