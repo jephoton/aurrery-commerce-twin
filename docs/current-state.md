@@ -42,6 +42,15 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
         - The headline reads "Recommended now · Price-driven cancel save" (median +$147, 38.5% chance worse, $576 discount cost).
         - "Bigger simulated levers" lists the price rise (+$61,792) and the annual plan (+$10,268) with their reasons.
         - Clicking the price-rise lever switches to "Manual scenario" with its simulate-only reason and no "Recommended now" label.
+- **M7 brainstorming in progress (2026-10-31):**
+  - **PayPal constraint (from the official spec):** `revise` plan switches must stay within the same product (`PLAN_PRODUCT_NOT_COMPATIBLE`) and the same currency. Changing billing frequency isn't listed as a rejection reason. So create the annual plan under the existing Ridgeline product, and verify the monthly→annual switch with a live sandbox check first.
+  - **Decided — scope:** execute, track and learn.
+    - **Execute:** merchant approval creates the annual plan and requests revise approval links.
+    - **Track:** each subscriber shows as pending, switched (verified by PayPal read-back) or expired.
+    - **Learn:** resolved offers update `annualUptake` per segment as a Beta update (accepted = success, expired or declined = failure, pending ignored). The update is labelled observed, with a sandbox caveat.
+  - **Decided — links:** admin-only, inside a display-only draft customer message with a copy button. Visitors see status only.
+  - **Facts:** the starter annual strategy targets core and price-sensitive subscribers, which in the sandbox means Pilot D only. The current webhook isn't subscribed to subscription UPDATED events, so detection uses read-back.
+  - **Still open:** link expiry handling, the proposal and ledger states for pending customer consent, the approaches and the design sections, then the spec and plan.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:

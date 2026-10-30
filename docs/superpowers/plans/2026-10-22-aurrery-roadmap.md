@@ -102,6 +102,7 @@ If time is short, cut M6 (CSV import). M7 (annual-plan execution) became part of
     - **Rings:** thin white concentric rings, with radial lines of dotted stars converging on a central circle.
     - **Stars:** scattered stars, including small four-point sparkles.
     - **Frame:** the edges are framed with white line-engraving illustrations (roses, trees, clouds) in an etched, cyanotype-like style.
+    - **Keep gold (Jethro):** don't drop the current gold; fold it in deliberately. For example: gold as the "brass instrument" accent for orrery rings, the primary action and the recommended headline, with cobalt and white engraving as the ground and line work, so gold reads as precious highlights against the star chart rather than a competing base colour.
     - **Fit:** constellations and star charts suit the orrery theme, since an orrery models the heavens. Candidate uses: a star-field and engraved-ring backdrop, constellation-style connections in the merchant "subscribers in orbit" view, etched-line illustration accents, and a blue-and-white palette, possibly keeping gold as the accent.
 - Public GitHub repo and visible MIT license are already complete; retain them through final publication.
 - README with a hosted URL and local setup; Devpost text, including the tools-used explanation.
