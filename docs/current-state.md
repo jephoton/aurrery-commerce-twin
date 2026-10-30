@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://aurrery.onrender.com on Render Free/Singapore with authoritative Turso storage. Linux CI passes 781 tests, typecheck, lint and build. Hosted authentication/origin checks, session and proposal persistence across redeploy, and a complete Gemini proposal run pass. Genuine signed PayPal event/deduplication and natural sleep/wake acceptance remain pending; M5 is incomplete and unmerged. Eight proposals are proposed, with zero executions, episodes or target claims. No pilot approval, reset or price mutation occurred.**_
+_Last material update: 2026-10-30. **M0–M4 are on main. M5 is live at https://aurrery.onrender.com on Render Free/Singapore with authoritative Turso storage. Linux CI passes 781 tests, typecheck, lint and build. Hosted authentication/origin checks, session and proposal persistence across redeploy, and a complete Gemini proposal run pass. Genuine signed PayPal events pass; actual duplicate-delivery/deduplication and natural sleep/wake acceptance remain pending; M5 is incomplete and unmerged. Eight proposals are proposed, with zero executions, episodes or target claims. No pilot approval, reset or price mutation occurred.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
