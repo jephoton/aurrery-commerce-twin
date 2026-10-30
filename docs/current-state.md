@@ -4,6 +4,30 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
+## Independent review, 2026-10-30 (read first; overrides the "all gates pass" summary above)
+
+- **Blocker: hosted manual comparison fails.** On https://aurrery.onrender.com, **Simulate strategies** returned "Simulation exceeded its time limit." twice: once after a cold wake and once warm.
+  - **Cause:** 5 strategies × 1,000 futures takes ~2.7s locally, but Render Free gives about 0.1 CPU, which exceeds the fixed 30-second worker deadline (`src/twin/worker-client.ts`).
+  - M5 hosted acceptance never covered this path; only agent runs were checked, and the first of those also timed out.
+  - **Fix before any further hosted acceptance:** use a smaller hosted run count (for example 300 futures), cache the deterministic starter comparison per evidence state, or both. Then re-verify in a browser.
+- **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
+- **Story: the executable hero is the weakest result.** Local inspection matches the docs:
+
+  | Strategy | Median value | Chance worse | Under stress |
+  | --- | --- | --- | --- |
+  | Save offer | +$105 | 0.42 | −$91 |
+  | Annual plan | +$10,357 | — | +$5,006 |
+  | Price rise to $27 | +$62,695 | — | +$28,669 |
+
+  The only executable action today is the one the twin's own stress test makes negative, so M7 (annual-plan execution) is critical to the two-part payoff. The narrative must also explain why the robust price-rise result is not the recommendation, for example with a price test.
+- **Docs hygiene:**
+  - This file is an append-only log (641 lines) with superseded "pending" sections; it needs a concise rewrite.
+  - Decision status lines are stale (0004, 0005, 0006, 0007), and two decisions share number 0007.
+  - The README is internal and stale ("M3 is not yet complete", "reviews pending") and needs a judge-facing rewrite in M8.
+  - The GitHub homepage URL and topics are empty.
+- **Tests:** locally 792 of 793 pass. `src/ledger/import.test.ts` "dry runs from a consistent WAL snapshot" times out at 5s under four parallel workers (flaky under load). CI is green. Typecheck and lint pass.
+- **Verified sound:** the agent has no execute or approve tool; approval routes are admin-gated with exact-hash binding; webhook signatures are verified through PayPal's endpoint; `main` CI is green; the repo is public with an MIT license detected.
+
 **Read in this order:**
 1. `docs/superpowers/specs/2026-10-22-aurrery-design.md`: the design, including §3a, the story revision.
 2. `docs/superpowers/plans/2026-10-22-aurrery-roadmap.md`: milestones in order.
