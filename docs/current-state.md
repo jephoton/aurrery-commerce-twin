@@ -88,7 +88,12 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
       - **Statuses:** pending, switched, expired, invalid. Timestamps must be strict ISO instants.
       - **Learning outcomes:** accepted, declined or unresolved. **Declined needs a confirming read at least 6 hours after the deadline** that shows a known non-annual plan, so a late approval is never miscounted.
       - `needsRead` keeps reading pending, expired-but-unconfirmed and invalid offers.
-    - **Next:** Task 6 (uptake learning from accepted versus confirmed declines), then the Phase 2 plan.
+    - **Task 6 done and reviewed** (`260f877`, `050637a`, `34d0dd3`): `updateAnnualUptake` in `src/twin/calibrate.ts`.
+      - Beta(α + accepted, β + confirmed declined) per segment, on a copy of the twin. Duplicate segments and non-integer counts are rejected.
+      - Provenance key `segments.<segment>.annualUptake` (the key the stress test reads), with a note that names the segment.
+      - Not yet wired into the observed-merchant path; the Phase 2 scope lists the snapshot cap and evidence-panel traps found in review.
+    - **Phase 1 complete** on local branch `feat/m7-annual-plan` (not pushed). 885 tests pass, typecheck and lint clean.
+    - **Next:** final Phase 1 review, then the Phase 2 plan.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
