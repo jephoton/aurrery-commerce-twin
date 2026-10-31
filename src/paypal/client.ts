@@ -1,5 +1,5 @@
 import "server-only";
-import { ApiError, Client, Environment, SubscriptionsController } from "@paypal/paypal-server-sdk";
+import { ApiError, Client, Environment, ResponseValidationError, SubscriptionsController } from "@paypal/paypal-server-sdk";
 
 // PayPal access is sandbox-only by construction: there is no code path to the live environment.
 
@@ -33,10 +33,23 @@ export interface PayPalFailure {
   message: string;
   debugId: string | null;
   details: unknown;
+  /** PayPal may have acted; reconcile by reading back, never retry blindly. */
+  ambiguous?: true;
 }
 
 /** Normalise SDK and network errors into something we can store and show verbatim. */
 export function toFailure(error: unknown): PayPalFailure {
+  if (error instanceof ResponseValidationError) {
+    // The SDK message can embed the response JSON (approval links), so it is never copied.
+    return {
+      httpStatus: typeof error.statusCode === "number" ? error.statusCode : null,
+      name: "RESPONSE_VALIDATION_ERROR",
+      message: "PayPal returned a response that did not match the expected schema.",
+      debugId: error.headers?.["paypal-debug-id"] ?? null,
+      details: null,
+      ambiguous: true,
+    };
+  }
   if (error instanceof ApiError) {
     const body = typeof error.body === "string" ? safeJson(error.body) : error.result;
     const b = (body ?? {}) as { name?: string; message?: string; debug_id?: string; details?: unknown };
