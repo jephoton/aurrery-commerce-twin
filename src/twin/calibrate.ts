@@ -136,9 +136,9 @@ export function updateAnnualUptake(twin: MerchantTwin, outcomes: AnnualOfferOutc
     const before = params.segments[segment].annualUptake;
     const after = { alpha: before.alpha + accepted, beta: before.beta + declined };
     const parameter = `segments.${segment}.annualUptake`;
-    const evidence = `${accepted} accepted of ${accepted + declined} resolved annual offer(s); ${declined} confirmed decline(s)`;
+    const evidence = `${accepted} accepted, ${declined} confirmed declined (${accepted + declined} resolved annual offer(s))`;
     params = { ...params, segments: { ...params.segments, [segment]: { ...params.segments[segment], annualUptake: after } } };
-    provenance = { ...provenance, [parameter]: { source: "observed", note: `Prior assumption updated with ${evidence} (sandbox demonstration).`, evidenceCount: accepted + declined } };
+    provenance = { ...provenance, [parameter]: { source: "observed", note: `${params.segments[segment].label} uptake prior updated with ${evidence} (sandbox demonstration).`, evidenceCount: accepted + declined } };
     changes.push({ parameter, before: { mean: betaMean(before), sd: betaSd(before) }, after: { mean: betaMean(after), sd: betaSd(after) }, evidence });
   }
   return { twin: { ...twin, params, provenance }, changes };

@@ -25,8 +25,14 @@ describe("annual uptake learning", () => {
     const { twin: updated, changes } = updateAnnualUptake(twin, [{ segment: "core", accepted: 1, declined: 1 }]);
     expect(updated.params.segments.core.annualUptake).toEqual({ alpha: before.alpha + 1, beta: before.beta + 1 });
     expect(updated.provenance["segments.core.annualUptake"]).toMatchObject({ source: "observed", evidenceCount: 2 });
-    expect(updated.provenance["segments.core.annualUptake"].note).toContain("1 accepted of 2 resolved");
-    expect(changes).toEqual([expect.objectContaining({ parameter: "segments.core.annualUptake", evidence: "1 accepted of 2 resolved annual offer(s); 1 confirmed decline(s)" })]);
+    const note = updated.provenance["segments.core.annualUptake"].note;
+    expect(note).toContain(twin.params.segments.core.label);
+    expect(note).toContain("uptake prior updated");
+    expect(note).toContain("1 accepted, 1 confirmed declined (2 resolved annual offer(s))");
+    expect(changes).toEqual([expect.objectContaining({ parameter: "segments.core.annualUptake" })]);
+    expect(changes[0].evidence).toContain("1 accepted");
+    expect(changes[0].evidence).toContain("1 confirmed declined");
+    expect(changes[0].evidence).toContain("2 resolved annual offer(s)");
     expect(changes[0].before.mean).toBeCloseTo(betaMean(before));
   });
   it("leaves other segments and the canonical twin untouched, and ignores empty counts", () => {
@@ -48,7 +54,8 @@ describe("annual uptake learning", () => {
     expect(shifted.some((line) => line.includes(updated.params.segments.core.label))).toBe(false);
   });
   it("rejects negative or non-integer counts", () => {
-    expect(() => updateAnnualUptake(twin, [{ segment: "core", accepted: -1, declined: 0 }])).toThrow(RangeError);
-    expect(() => updateAnnualUptake(twin, [{ segment: "core", accepted: 0.5, declined: 0 }])).toThrow(RangeError);
+    const message = "Offer counts must be non-negative integers.";
+    expect(() => updateAnnualUptake(twin, [{ segment: "core", accepted: -1, declined: 0 }])).toThrow(new RangeError(message));
+    expect(() => updateAnnualUptake(twin, [{ segment: "core", accepted: 0.5, declined: 0 }])).toThrow(new RangeError(message));
   });
 });
