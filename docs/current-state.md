@@ -93,7 +93,9 @@ _Last material update: 2026-10-31. **M7 Phase 1 is complete on local branch `fea
       - Provenance key `segments.<segment>.annualUptake` (the key the stress test reads), with a note that names the segment.
       - Not yet wired into the observed-merchant path; the Phase 2 scope lists the snapshot cap and evidence-panel traps found in review.
     - **Phase 1 complete** on local branch `feat/m7-annual-plan` (not pushed). 885 tests pass, typecheck and lint clean.
-    - **Next:** final Phase 1 review, then the Phase 2 plan.
+    - **Final Phase 1 review passed** (doc corrections in `03f136e`: untested link lifetime, `revise` at most once, reads continue after a confirmed decline).
+    - **Phase 2 plan written:** `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md` (`f4acbea`), 23 tasks; Tasks 22 (Pilot E setup, one buyer approval) and 23 (live acceptance, push/merge/deploy) are human-gated.
+    - **Next:** Jethro reviews the Phase 2 plan and its open questions (stuck `executing` proposals, backup before Turso setup, Pilot E label, report rows showing errors first), then execute.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
