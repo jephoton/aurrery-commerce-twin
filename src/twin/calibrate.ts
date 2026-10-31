@@ -118,3 +118,27 @@ export function updateDiscountEffect(
   }
   return { twin: { ...twin, params, provenance }, changes };
 }
+
+export interface AnnualOfferOutcome { segment: SegmentId; accepted: number; declined: number }
+
+/**
+ * Annual-plan uptake per segment: Beta(prior α + accepted, prior β + confirmed declines). Only
+ * resolved offers count; pending, awaiting-final-check and invalid offers are excluded by the caller.
+ */
+export function updateAnnualUptake(twin: MerchantTwin, outcomes: AnnualOfferOutcome[]): { twin: MerchantTwin; changes: ParameterChange[] } {
+  let params = twin.params;
+  let provenance = twin.provenance;
+  const changes: ParameterChange[] = [];
+  for (const { segment, accepted, declined } of outcomes) {
+    if (![accepted, declined].every((n) => Number.isInteger(n) && n >= 0)) throw new RangeError("Offer counts must be non-negative integers.");
+    if (accepted + declined === 0) continue;
+    const before = params.segments[segment].annualUptake;
+    const after = { alpha: before.alpha + accepted, beta: before.beta + declined };
+    const parameter = `annualUptake.${segment}`;
+    const evidence = `${accepted} accepted of ${accepted + declined} resolved annual offer(s); ${declined} confirmed decline(s)`;
+    params = { ...params, segments: { ...params.segments, [segment]: { ...params.segments[segment], annualUptake: after } } };
+    provenance = { ...provenance, [parameter]: { source: "observed", note: `Prior assumption updated with ${evidence} (sandbox demonstration).`, evidenceCount: accepted + declined } };
+    changes.push({ parameter, before: { mean: betaMean(before), sd: betaSd(before) }, after: { mean: betaMean(after), sd: betaSd(after) }, evidence });
+  }
+  return { twin: { ...twin, params, provenance }, changes };
+}
