@@ -56,7 +56,12 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
     - **Discount budget:** applies to retention discounts only, so the annual plan headlines.
     - **Pilots:** Pilot E (core) is added; D and E both receive offers and only E is approved.
     - **First task:** a live sandbox check of monthly→yearly `revise`.
-  - **Next:** Jethro reviews the spec, then the implementation plan.
+  - **Spec approved by Jethro.** Phase 1 plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan.md` (`c591179`).
+    - **Task 1:** plan and revise adapter.
+    - **Task 2:** live check script.
+    - **Task 3:** the check itself, which needs Jethro (a disposable subscription and two buyer approvals) and is the go/no-go gate.
+    - **Tasks 4–6:** offer payload, offer status, and uptake learning.
+    - Phase 2 (integration) gets its own plan after Task 3 reports.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
