@@ -18,7 +18,8 @@ Monthly → yearly `revise` with the new `plan_id` returned **HTTP 200** (debug 
 
 ### Approval link
 - **Shape:** host `www.sandbox.paypal.com`, path `/webapps/billing/subscriptions/update`, one query parameter `ba_token` (tokens are not recorded here).
-- **No expiry information:** neither the response nor the link carries an expiry. So **the merchant's offer window is the only expiry**; `offerExpiry` receives no PayPal expiry.
+- **No expiry information:** neither the response nor the link carries an expiry, so the merchant's offer window is the only expiry Aurrery can enforce; `offerExpiry` receives no PayPal expiry.
+- **Real token lifetime is untested:** both links were approved within about six minutes. A `ba_token` may stop working before a multi-day window closes, and PayPal does not stop it working when the window closes either. The UI says "offer window closed", never that the link is dead, and the demo approves Pilot E's link soon after it is issued.
 - **Other links:** `rel` values `edit`, `self`, `cancel`, `suspend` and `capture`.
 
 ### Repeated `revise`
@@ -45,7 +46,7 @@ The **initial** subscription approval took about five minutes to register as ACT
 
 Proceed with M7 Phase 2 as designed (Approach A), with these amendments to the spec:
 1. Compare every PayPal price by cents.
-2. Offers expire only by the merchant window; PayPal gives no link expiry.
+2. Offers expire only by the merchant window; PayPal gives no link expiry. Reads continue after the window, so a late switch is still recorded and wins over an expiry or decline.
 3. `revise` is called at most once per target per approved offer. Ambiguous or uncertain outcomes leave the proposal executing for reconciliation by read-back, with no retry.
 4. Approval detection keeps the existing rule (ACTIVE and `plan_id` equals the annual plan). The UI says the yearly price is charged from the subscriber's next renewal date.
 5. The executor classifies definitive failures with `execute.ts`'s existing definitive-4xx list as the single rule. `PayPalFailure.ambiguous` is extra information, not the decider.

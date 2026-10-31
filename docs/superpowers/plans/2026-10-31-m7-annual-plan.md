@@ -699,7 +699,16 @@ Each item maps to a section of the spec. The detailed tasks depend on Task 3's f
    - **From the Task 6 review:** `ObservedSnapshot.changes` is capped at `.max(2)` (`src/merchant/observed-snapshot.ts`), sized for the two discount reasons. Keep annual changes in their own field (or raise the cap) or snapshots throw.
    - `EvidencePanel` puts every change under the discount block, and `observed.ts` adds the discount `OUTCOME_LIMITATION` to every changed note. Annual changes need their own "Annual offers" block and their own limitation text.
    - Reword the group `annualUptake` assumption note in `src/merchant/demo.ts` ("no annual plan has been tried") so it doesn't contradict observed per-segment rows.
-   - Task 6 as built uses `accepted`/`declined` and the key `segments.<segment>.annualUptake`; the Task 6 code sample above predates the spec amendments.
+   - **All Phase 1 code samples above predate review amendments; the committed code is the source of truth** (e.g. Task 1's `reviseToPlan` takes an object, Task 5 counts confirmed declines, Task 6 uses `accepted`/`declined` and `segments.<segment>.annualUptake`).
+   - **From the final Phase 1 review:**
+     - Treat a subscription with an unresolved annual offer as ineligible for another one (a second `revise` mints a new token; claims don't cover offers whose proposal finished).
+     - At execution also re-check: the live `paypal.plan_id` setting equals the action's `monthlyPlanId`; the monthly plan's product equals `productId`; `reviseToPlan`'s returned `planId`, when present, equals the annual plan.
+     - HTTP 200 with `MISSING_APPROVAL_LINK` or `RESPONSE_VALIDATION_ERROR` means PayPal minted a token Aurrery doesn't have; read-back can't recover it. Leave the target unresolved for the operator and document the next step.
+     - Every successful status GET appends a read for each offer on that subscription (not only `needsRead`), so a late switch after a confirmed decline is recorded.
+     - Show `action.annualPrice` (not float `toFixed`) in strategy descriptions (`src/twin/interventions.ts`); show "/yr" for switched pilots in the Lab table.
+     - Price override, revert and reset refuse annual subscribers explicitly by `planId`, not only by price mismatch.
+     - Import validates offer `segment` against `SEGMENTS` and `expires_at` as a strict ISO instant.
+     - Drop or document `offerExpiry`'s unused `paypalExpiresAt`.
 5. **Routes and UI:**
    - an admin-guarded links endpoint; the public status payload carries no links;
    - an approval card for annual offers (window 1–30, consent statements);

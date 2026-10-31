@@ -27,7 +27,7 @@ Make the annual prepay plan, the twin's strategic lever, a real PayPal action. T
 | --- | --- |
 | Scope | Execute, track and learn |
 | Structure | **Approach A.** The proposal succeeds when offers are issued; a separate offer tracker follows each customer. The hardened proposal state machine is unchanged. |
-| Offer window | Per proposal, default 7 days, range 1–30, bound into the action hash. Expiry is the earlier of the window and any PayPal link expiry. |
+| Offer window | Per proposal, default 7 days, range 1–30, bound into the action hash. **Amended (decision 0008):** PayPal gives no link expiry, so the window is the only expiry; a link's real lifetime is untested. |
 | Links | Administrators only, inside a display-only draft customer message with a copy button. Visitors see status only. |
 | Discount budget | Applies to **retention discounts only** (`targeted_discount`). The annual plan's prepay discount is netted in total value and still displayed; the chance-worse rule still applies. |
 | Demo targets | Add **Pilot E** (core, other reason) to the cohort. Annual strategies target every eligible pilot in their segments, so D and E both receive offers. Only E is approved. D stays pending and then shows "awaiting final check"; it counts as declined only after its deadline plus 6 hours and a confirming read, which likely falls outside the live demo. |
@@ -60,7 +60,7 @@ A new member of the proposal action union, validated strictly and bound by SHA-2
    - Read the plan back and require ACTIVE plus the exact price and interval.
 2. **For each target:**
    - Re-check eligibility.
-   - Call `revise({ plan_id })`, with the request ID derived from the hash and the target.
+   - Call `revise({ plan_id })` **at most once** per target. **Amended (decision 0008):** `revise` takes no request ID and mints a new token on every call, so an uncertain outcome is reconciled by read-back, never retried.
    - Store the approval link and expiry in `annual_offers` in the same transaction as the execution record and audit entry.
 3. **Finish:**
    - **succeeded:** every offer was issued.
@@ -86,7 +86,7 @@ A new member of the proposal action union, validated strictly and bound by SHA-2
 - **declined:** only when `now ≥ expires_at + 6h grace` **and** a valid read observed at or after `expires_at + 6h` shows the subscription is not on the annual plan.
 - **unresolved:** pending, invalid, or expired without that confirming read (shown as "awaiting final check").
 
-**Reads:** the existing read-only PayPal status refresh (page load and "Refresh from PayPal") also GETs subscriptions whose offers are pending **or expired but not yet confirmed declined**, and appends reads. Timestamps must be ISO-8601 instants with `Z` or an offset. There is no background job. Webhooks are not required for correctness.
+**Reads:** the existing read-only PayPal status refresh (page load and "Refresh from PayPal") also GETs subscriptions whose offers are pending, invalid **or expired but not yet confirmed declined**, and appends reads. **Amended (final Phase 1 review):** every successful GET of a subscription that has offers appends a read for each of its offers, even after a confirmed decline, because a stale link can still be approved; a later switch then wins. Timestamps must be ISO-8601 instants with `Z` or an offset. There is no background job. Webhooks are not required for correctness.
 
 ## Learning
 
