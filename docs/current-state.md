@@ -50,7 +50,13 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
     - **Learn:** resolved offers update `annualUptake` per segment as a Beta update (accepted = success, expired or declined = failure, pending ignored). The update is labelled observed, with a sandbox caveat.
   - **Decided — links:** admin-only, inside a display-only draft customer message with a copy button. Visitors see status only.
   - **Facts:** the starter annual strategy targets core and price-sensitive subscribers, which in the sandbox means Pilot D only. The current webhook isn't subscribed to subscription UPDATED events, so detection uses read-back.
-  - **Still open:** link expiry handling, the proposal and ledger states for pending customer consent, the approaches and the design sections, then the spec and plan.
+  - **Design approved:** `docs/superpowers/specs/2026-10-31-m7-annual-plan-design.md` (`a53ee6b`, branch `feat/m7-annual-plan`).
+    - **Approach A:** a new `annual_plan_offer` action succeeds once offers are issued, and an `annual_offers` tracker works out pending, switched or expired from PayPal read-backs.
+    - **Offer window:** 7 days by default, chosen per proposal and bound into the hash.
+    - **Discount budget:** applies to retention discounts only, so the annual plan headlines.
+    - **Pilots:** Pilot E (core) is added; D and E both receive offers and only E is approved.
+    - **First task:** a live sandbox check of monthly→yearly `revise`.
+  - **Next:** Jethro reviews the spec, then the implementation plan.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
