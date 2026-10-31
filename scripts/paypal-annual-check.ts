@@ -20,6 +20,7 @@ import { getSetting } from "@/ledger/operations";
 import { listSandboxSubscribers } from "@/ledger/proposals";
 import { paypal, toFailure } from "@/paypal/client";
 import { createAnnualPlan, getPlan } from "@/paypal/plans";
+import { sameUsdAmount } from "@/paypal/prices";
 import { getSubscription, type SubscriptionSnapshot } from "@/paypal/subscriptions";
 
 const STATE = resolve(process.cwd(), "data", "m7-annual-check.json");
@@ -148,7 +149,8 @@ async function offer() {
     ["productId", plan.value.productId, productId],
     ["intervalUnit", plan.value.intervalUnit, "YEAR"],
     ["intervalCount", plan.value.intervalCount, 1],
-    ["price", plan.value.price, "244.80"],
+    // PayPal normalises amounts ("244.80" reads back as "244.8"), so compare by cents.
+    ["price", sameUsdAmount(plan.value.price, "244.80") ? "244.80" : plan.value.price, "244.80"],
     ["currency", plan.value.currency, "USD"],
     ["regularCycleCount", plan.value.regularCycleCount, 1],
     ["cycleCount", plan.value.cycleCount, 1],
