@@ -79,7 +79,12 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
       - The yearly charge happens at the next renewal date.
       - Prices read back normalised (`244.8`), so compare by cents.
       - The disposable subscription `I-PDK7VBGHPPRX` is CANCELLED (GET-verified). Pilots A–D were untouched.
-    - **Next:** Tasks 4–6 (payload, offer status, uptake learning), then the Phase 2 plan.
+    - **Task 4 done and reviewed** (`969c591`, `90a7f37`, LF fix): `src/ledger/annual-offer-action.ts`.
+      - A strict `annual_plan_offer` payload. Prices must be positive canonical cents with list ≤ $200, and annual must equal list × 12 × (1 − discount).
+      - Targets carry `registration { label, segment, reason, createdAt }`.
+      - `monthlyPlanId` and `listPrice` are action-level (spec amended, `4a00b47`).
+      - **For Phase 2:** have `proposals.ts` import its `RegistrationSnapshotSchema` so there is one source, and wrap the builder's plain errors in `ProposalError`.
+    - **Next:** Tasks 5–6 (offer status, uptake learning), then the Phase 2 plan.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
