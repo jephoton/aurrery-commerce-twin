@@ -696,6 +696,10 @@ Each item maps to a section of the spec. The detailed tasks depend on Task 3's f
 2. **Execution:** plan creation with a request ID derived from the action hash, plus read-back verification; per-target `revise`; storing links and expiries; terminal statuses and reconciliation for ambiguous responses. `revise` retry behaviour follows Task 3.
 3. **Tracker:** the PayPal status refresh also reads subscriptions with pending offers and appends reads; derived statuses come from Task 5.
 4. **Learning:** the observed-merchant path applies `updateAnnualUptake` from `countResolvedOffers` on a copy; the evidence panel adds an "Annual offers" line.
+   - **From the Task 6 review:** `ObservedSnapshot.changes` is capped at `.max(2)` (`src/merchant/observed-snapshot.ts`), sized for the two discount reasons. Keep annual changes in their own field (or raise the cap) or snapshots throw.
+   - `EvidencePanel` puts every change under the discount block, and `observed.ts` adds the discount `OUTCOME_LIMITATION` to every changed note. Annual changes need their own "Annual offers" block and their own limitation text.
+   - Reword the group `annualUptake` assumption note in `src/merchant/demo.ts` ("no annual plan has been tried") so it doesn't contradict observed per-segment rows.
+   - Task 6 as built uses `accepted`/`declined` and the key `segments.<segment>.annualUptake`; the Task 6 code sample above predates the spec amendments.
 5. **Routes and UI:**
    - an admin-guarded links endpoint; the public status payload carries no links;
    - an approval card for annual offers (window 1–30, consent statements);
