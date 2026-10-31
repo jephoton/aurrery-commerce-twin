@@ -96,7 +96,7 @@ Per segment, from resolved offers only:
 
 - Unresolved offers (pending, awaiting final check, invalid) are ignored.
 - The update is applied on a copy of the twin in the observed-merchant read path, next to the discount evidence.
-- Provenance key `annualUptake.<segment>` becomes `observed`, with a note such as "Core uptake prior updated with 1 accepted of 1 resolved offer (sandbox demonstration)".
+- Provenance key `segments.<segment>.annualUptake`, the existing per-segment convention that the stress test reads, becomes `observed`, with a note such as "Core uptake prior updated with 1 accepted of 1 resolved offer (sandbox demonstration)".
 - The evidence panel adds "Annual offers: accepted · declined · awaiting decision or final check" counts.
 
 ## UI and agent
