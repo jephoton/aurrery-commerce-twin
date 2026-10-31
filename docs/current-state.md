@@ -84,7 +84,11 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
       - Targets carry `registration { label, segment, reason, createdAt }`.
       - `monthlyPlanId` and `listPrice` are action-level (spec amended, `4a00b47`).
       - **For Phase 2:** have `proposals.ts` import its `RegistrationSnapshotSchema` so there is one source, and wrap the builder's plain errors in `ProposalError`.
-    - **Next:** Tasks 5–6 (offer status, uptake learning), then the Phase 2 plan.
+    - **Task 5 done and reviewed** (`15ab2e7`, `5c367e8`, `d121195`; spec amended in `e29174a` and `fe36a4f`): `src/ledger/annual-offer-status.ts`.
+      - **Statuses:** pending, switched, expired, invalid. Timestamps must be strict ISO instants.
+      - **Learning outcomes:** accepted, declined or unresolved. **Declined needs a confirming read at least 6 hours after the deadline** that shows a known non-annual plan, so a late approval is never miscounted.
+      - `needsRead` keeps reading pending, expired-but-unconfirmed and invalid offers.
+    - **Next:** Task 6 (uptake learning from accepted versus confirmed declines), then the Phase 2 plan.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
