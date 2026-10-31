@@ -42,7 +42,8 @@ A new member of the proposal action union, validated strictly and bound by SHA-2
 - `annualPrice`: list × 12 × (1 − discountPct), as a two-decimal string
 - `discountPct`
 - `offerWindowDays` (1–30)
-- `targets[]`, each with `subscriptionId`, `segment`, `reason`, `monthlyPlanId`, `listPrice` and a registration snapshot
+- `targets[]`, each `{ subscriptionId, registration: { label, segment, reason, createdAt } }`, the same registration snapshot as the recovery actions use
+- **Amended 2026-10-31 (Task 4 review):** `monthlyPlanId` and `listPrice` sit at action level, not per target, because eligibility requires every target to be on the one registered monthly plan at list price. Phase 2's per-target re-check compares each subscription's live `plan_id` and its price, by cents, against these action-level values.
 
 **Eligibility, at build time and again just before each `revise` call:**
 - registered pilot in one of the strategy's segments;
