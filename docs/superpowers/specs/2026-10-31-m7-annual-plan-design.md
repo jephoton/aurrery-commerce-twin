@@ -77,18 +77,24 @@ A new member of the proposal action union, validated strictly and bound by SHA-2
 
 **Status is derived, never stored as truth:**
 - **switched:** any recorded read shows ACTIVE on `annual_plan_id`, even after expiry.
-- **expired:** `now ≥ expires_at` with no switched read.
+- **expired:** `now ≥ expires_at` with no switched read. This is a UI state, not evidence.
+- **invalid:** the stored deadline can't be parsed. It is shown to admins and excluded from learning.
 - **pending:** otherwise.
 
-**Reads:** the existing read-only PayPal status refresh (page load and "Refresh from PayPal") also GETs subscriptions with pending offers and appends reads. There is no background job. Webhooks are not required for correctness.
+**Learning outcome (amended 2026-10-31, Task 5 review):** "expired" is not the same as "declined". Reads happen only on page loads, and PayPal can take minutes to show an approval, so a customer who approved near the deadline would otherwise be counted as a decline.
+- **accepted:** switched.
+- **declined:** only when `now ≥ expires_at + 6h grace` **and** a valid read observed at or after `expires_at + 6h` shows the subscription is not on the annual plan.
+- **unresolved:** pending, invalid, or expired without that confirming read (shown as "awaiting final check").
+
+**Reads:** the existing read-only PayPal status refresh (page load and "Refresh from PayPal") also GETs subscriptions whose offers are pending **or expired but not yet confirmed declined**, and appends reads. Timestamps must be ISO-8601 instants with `Z` or an offset. There is no background job. Webhooks are not required for correctness.
 
 ## Learning
 
 Per segment, from resolved offers only:
 
-`annualUptake[segment]` = Beta(α₀ + switched, β₀ + expired)
+`annualUptake[segment]` = Beta(α₀ + accepted, β₀ + declined)
 
-- Pending offers are ignored.
+- Unresolved offers (pending, awaiting final check, invalid) are ignored.
 - The update is applied on a copy of the twin in the observed-merchant read path, next to the discount evidence.
 - Provenance key `annualUptake.<segment>` becomes `observed`, with a note such as "Core uptake prior updated with 1 accepted of 2 resolved offers (sandbox demonstration)".
 - The evidence panel adds "Annual offers: accepted · expired · pending" counts.
