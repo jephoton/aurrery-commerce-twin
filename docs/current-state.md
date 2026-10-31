@@ -62,6 +62,11 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
     - **Task 3:** the check itself, which needs Jethro (a disposable subscription and two buyer approvals) and is the go/no-go gate.
     - **Tasks 4–6:** offer payload, offer status, and uptake learning.
     - Phase 2 (integration) gets its own plan after Task 3 reports.
+    - **Task 1 done and reviewed** (`b43abb5`, `d5c6784`, `a9d7359`): `src/paypal/plans.ts`.
+      - `createAnnualPlan`, `getPlan` and `reviseToPlan({ subscriptionId, planId, returnUrl })`.
+      - Snapshots carry currency and cycle shape, so execution can verify the plan.
+      - `PayPalFailure.ambiguous` flags 2xx responses that can't be used (no approval link, no plan id, a non-PayPal link, a schema mismatch) and network, ≥500, 409 and 429 failures.
+      - **For Phase 2:** the executor must keep `execute.ts`'s definitive-4xx list as the single rule, not the flag alone; 408 is a mismatch between them. `revise` has no request ID, so record retry behaviour in 0008.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
