@@ -112,7 +112,12 @@ async function reviseOnce(id: string, planId: string, attempt: number): Promise<
 }
 
 const tokenOf = (href: string) => {
-  try { return new URL(href).searchParams.get("token") ?? href; } catch { return href; }
+  try {
+    const url = new URL(href);
+    return url.searchParams.get("ba_token") ?? url.searchParams.get("token") ?? href;
+  } catch {
+    return href;
+  }
 };
 
 async function offer() {
