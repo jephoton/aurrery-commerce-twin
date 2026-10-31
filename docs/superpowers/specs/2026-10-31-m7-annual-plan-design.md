@@ -30,7 +30,7 @@ Make the annual prepay plan, the twin's strategic lever, a real PayPal action. T
 | Offer window | Per proposal, default 7 days, range 1–30, bound into the action hash. Expiry is the earlier of the window and any PayPal link expiry. |
 | Links | Administrators only, inside a display-only draft customer message with a copy button. Visitors see status only. |
 | Discount budget | Applies to **retention discounts only** (`targeted_discount`). The annual plan's prepay discount is netted in total value and still displayed; the chance-worse rule still applies. |
-| Demo targets | Add **Pilot E** (core, other reason) to the cohort. Annual strategies target every eligible pilot in their segments, so D and E both receive offers. Only E is approved; D expires and counts as not accepted. |
+| Demo targets | Add **Pilot E** (core, other reason) to the cohort. Annual strategies target every eligible pilot in their segments, so D and E both receive offers. Only E is approved. D stays pending and then shows "awaiting final check"; it counts as declined only after its deadline plus 6 hours and a confirming read, which likely falls outside the live demo. |
 
 ## Action: `annual_plan_offer`
 
@@ -96,8 +96,8 @@ Per segment, from resolved offers only:
 
 - Unresolved offers (pending, awaiting final check, invalid) are ignored.
 - The update is applied on a copy of the twin in the observed-merchant read path, next to the discount evidence.
-- Provenance key `annualUptake.<segment>` becomes `observed`, with a note such as "Core uptake prior updated with 1 accepted of 2 resolved offers (sandbox demonstration)".
-- The evidence panel adds "Annual offers: accepted · expired · pending" counts.
+- Provenance key `annualUptake.<segment>` becomes `observed`, with a note such as "Core uptake prior updated with 1 accepted of 1 resolved offer (sandbox demonstration)".
+- The evidence panel adds "Annual offers: accepted · declined · awaiting decision or final check" counts.
 
 ## UI and agent
 
