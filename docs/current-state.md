@@ -67,6 +67,12 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
       - Snapshots carry currency and cycle shape, so execution can verify the plan.
       - `PayPalFailure.ambiguous` flags 2xx responses that can't be used (no approval link, no plan id, a non-PayPal link, a schema mismatch) and network, ≥500, 409 and 429 failures.
       - **For Phase 2:** the executor must keep `execute.ts`'s definitive-4xx list as the single rule, not the flag alone; 408 is a mismatch between them. `revise` has no request ID, so record retry behaviour in 0008.
+    - **Task 2 done and reviewed** (`9c622ba`, `3638125`, `013b4a3`): `npm run paypal:annual-check -- prepare|offer|status|cancel`.
+      - It works only on one disposable subscription (`customId` "m7-annual-check", never a registered pilot).
+      - `offer` verifies the yearly plan before any `revise`, stops after a failed first `revise`, and prints the raw responses plus `sameLink`/`sameToken` (`ba_token`).
+      - `cancel` always GET-verifies.
+      - Re-running `prepare` after `cancel` may return the same cancelled subscription (fixed request ID), so run the check once.
+    - **Waiting on Jethro: Task 3,** the live check (two sandbox buyer approvals), then decision record 0008.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
