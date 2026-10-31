@@ -72,7 +72,14 @@ _Last material update: 2026-10-30. **M0–M5 are complete, merged and published 
       - `offer` verifies the yearly plan before any `revise`, stops after a failed first `revise`, and prints the raw responses plus `sameLink`/`sameToken` (`ba_token`).
       - `cancel` always GET-verifies.
       - Re-running `prepare` after `cancel` may return the same cancelled subscription (fixed request ID), so run the check once.
-    - **Waiting on Jethro: Task 3,** the live check (two sandbox buyer approvals), then decision record 0008.
+    - **Task 3 done: live check passed, GO** (decision `docs/decisions/0008-annual-plan-offers.md`).
+      - PayPal accepted the monthly→yearly `revise` (HTTP 200). The switch is visible on read-back right after approval, with status still ACTIVE.
+      - Each `revise` returns a fresh `ba_token`, and an older token stops working, so call `revise` at most once per offer.
+      - No link expiry is given, so the offer window is the only expiry.
+      - The yearly charge happens at the next renewal date.
+      - Prices read back normalised (`244.8`), so compare by cents.
+      - The disposable subscription `I-PDK7VBGHPPRX` is CANCELLED (GET-verified). Pilots A–D were untouched.
+    - **Next:** Tasks 4–6 (payload, offer status, uptake learning), then the Phase 2 plan.
 - **Next UI pass (M8):** Jethro wants a more intentional, stylised theme (recorded in the roadmap's M8 section).
 - **Judge experience: cold start.** The first visit shows Render's "waking up" page for about 35–50s. Keep the service warm during judging, or warn in the README and video.
 - **Story: the executable hero is the weakest result.** Local inspection matches the docs:
