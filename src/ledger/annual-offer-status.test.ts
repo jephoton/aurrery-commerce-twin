@@ -127,6 +127,10 @@ describe("offerOutcome and needsRead", () => {
     expect(offerOutcome(offer, [monthly("2026-11-08T03:00:00Z")], new Date("2026-11-08T05:00:00Z"))).toBe("unresolved");
     expect(offerOutcome(offer, [monthly(afterGrace)], new Date("2026-11-08T05:59:59.999Z"))).toBe("unresolved");
   });
+  it("does not treat a post-grace read with a null planId as a decline", () => {
+    expect(offerOutcome(offer, [read(afterGrace, "ACTIVE", null)], new Date("2026-11-20T00:00:00Z"))).toBe("unresolved");
+    expect(needsRead(offer, [read(afterGrace, "ACTIVE", null)], new Date("2026-11-20T00:00:00Z"))).toBe(true);
+  });
   it("ignores unparseable reads as confirmation", () => {
     expect(offerOutcome(offer, [monthly("2026-11-09T00:00:00")], new Date("2026-11-20T00:00:00Z"))).toBe("unresolved");
   });
@@ -137,7 +141,7 @@ describe("offerOutcome and needsRead", () => {
     const now = new Date("2026-11-20T00:00:00Z");
     expect(needsRead(offer, [], new Date("2026-11-03T00:00:00Z"))).toBe(true); // pending
     expect(needsRead(offer, [read("2026-11-03T00:00:00Z", "ACTIVE", "P-ANNUAL")], now)).toBe(false); // switched
-    expect(needsRead(corrupt, [], now)).toBe(false); // invalid
+    expect(needsRead(corrupt, [], now)).toBe(true); // invalid: a real switch can still be observed
     expect(needsRead(offer, [], now)).toBe(true); // expired, unconfirmed
     expect(needsRead(offer, [monthly("2026-11-08T01:00:00Z")], now)).toBe(true); // expired, pre-grace read only
     expect(needsRead(offer, [monthly(afterGrace)], now)).toBe(false); // declined

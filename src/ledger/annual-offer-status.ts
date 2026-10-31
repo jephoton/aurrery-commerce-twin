@@ -45,7 +45,7 @@ export function offerStatus(offer: OfferFacts, reads: OfferRead[], now: Date): {
 /**
  * Learning outcome. Declined only when the grace period after the deadline has elapsed AND a valid
  * read taken at or after that point shows the subscription is not on the annual plan (any status,
- * including CANCELLED). Anything else that has not switched is unresolved.
+ * including CANCELLED) but with a known plan: an empty read never counts. Anything else that has not switched is unresolved.
  */
 export function offerOutcome(offer: OfferFacts, reads: OfferRead[], now: Date): OfferOutcome {
   const { status } = offerStatus(offer, reads, now);
@@ -55,15 +55,15 @@ export function offerOutcome(offer: OfferFacts, reads: OfferRead[], now: Date): 
   if (now.getTime() < confirmFrom) return "unresolved";
   const confirmed = reads.some((r) => {
     const at = parseIsoInstant(r.observedAt);
-    return at !== null && at >= confirmFrom && r.planId !== offer.annualPlanId;
+    return at !== null && at >= confirmFrom && r.planId !== null && r.planId !== offer.annualPlanId;
   });
   return confirmed ? "declined" : "unresolved";
 }
 
-/** True while PayPal should still be read: pending, or expired without a confirmed outcome. */
+/** True while PayPal should still be read: pending, invalid (a real switch still wins), or expired and unconfirmed. */
 export function needsRead(offer: OfferFacts, reads: OfferRead[], now: Date): boolean {
   const { status } = offerStatus(offer, reads, now);
-  if (status === "pending") return true;
+  if (status === "pending" || status === "invalid") return true;
   return status === "expired" && offerOutcome(offer, reads, now) === "unresolved";
 }
 
