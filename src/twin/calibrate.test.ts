@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDemoTwin } from "@/merchant/demo";
+import { stressTest } from "./stress";
 import { betaMean, updateAnnualUptake, updateDiscountEffect, type DiscountOutcomeObservation } from "./calibrate";
 
 it("skips aggregate any-reason outcomes while retaining assessed per-pilot evidence", () => {
@@ -23,17 +24,28 @@ describe("annual uptake learning", () => {
     const before = twin.params.segments.core.annualUptake;
     const { twin: updated, changes } = updateAnnualUptake(twin, [{ segment: "core", accepted: 1, declined: 1 }]);
     expect(updated.params.segments.core.annualUptake).toEqual({ alpha: before.alpha + 1, beta: before.beta + 1 });
-    expect(updated.provenance["annualUptake.core"]).toMatchObject({ source: "observed", evidenceCount: 2 });
-    expect(updated.provenance["annualUptake.core"].note).toContain("1 accepted of 2 resolved");
-    expect(changes).toEqual([expect.objectContaining({ parameter: "annualUptake.core", evidence: "1 accepted of 2 resolved annual offer(s); 1 confirmed decline(s)" })]);
+    expect(updated.provenance["segments.core.annualUptake"]).toMatchObject({ source: "observed", evidenceCount: 2 });
+    expect(updated.provenance["segments.core.annualUptake"].note).toContain("1 accepted of 2 resolved");
+    expect(changes).toEqual([expect.objectContaining({ parameter: "segments.core.annualUptake", evidence: "1 accepted of 2 resolved annual offer(s); 1 confirmed decline(s)" })]);
     expect(changes[0].before.mean).toBeCloseTo(betaMean(before));
   });
   it("leaves other segments and the canonical twin untouched, and ignores empty counts", () => {
     const original = structuredClone(twin);
     const { twin: updated, changes } = updateAnnualUptake(twin, [{ segment: "core", accepted: 1, declined: 0 }, { segment: "new", accepted: 0, declined: 0 }]);
     expect(updated.params.segments.new).toEqual(twin.params.segments.new);
-    expect(changes.map((c) => c.parameter)).toEqual(["annualUptake.core"]);
+    expect(changes.map((c) => c.parameter)).toEqual(["segments.core.annualUptake"]);
     expect(twin).toEqual(original);
+  });
+  it("rejects a segment that appears more than once", () => {
+    expect(() => updateAnnualUptake(twin, [{ segment: "core", accepted: 1, declined: 0 }, { segment: "core", accepted: 0, declined: 1 }])).toThrow(new RangeError("Each segment may appear once."));
+  });
+  it("is treated as observed, not as an assumption, by the annual-plan stress shift", () => {
+    const { twin: updated } = updateAnnualUptake(twin, [{ segment: "core", accepted: 1, declined: 1 }]);
+    const strategy = { id: "annual", name: "Annual", intervention: { kind: "annual_plan" as const, discountPct: 15, segments: ["core" as const, "price_sensitive" as const] } };
+    const { stressedParams, shifted } = stressTest(updated, strategy, { runs: 2, horizonMonths: 2, seed: 1 });
+    expect(stressedParams.segments.core.annualUptake).toEqual(updated.params.segments.core.annualUptake);
+    expect(stressedParams.segments.price_sensitive.annualUptake).not.toEqual(updated.params.segments.price_sensitive.annualUptake);
+    expect(shifted.some((line) => line.includes(updated.params.segments.core.label))).toBe(false);
   });
   it("rejects negative or non-integer counts", () => {
     expect(() => updateAnnualUptake(twin, [{ segment: "core", accepted: -1, declined: 0 }])).toThrow(RangeError);

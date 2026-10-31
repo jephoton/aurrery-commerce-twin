@@ -129,12 +129,13 @@ export function updateAnnualUptake(twin: MerchantTwin, outcomes: AnnualOfferOutc
   let params = twin.params;
   let provenance = twin.provenance;
   const changes: ParameterChange[] = [];
+  if (new Set(outcomes.map((o) => o.segment)).size !== outcomes.length) throw new RangeError("Each segment may appear once.");
   for (const { segment, accepted, declined } of outcomes) {
     if (![accepted, declined].every((n) => Number.isInteger(n) && n >= 0)) throw new RangeError("Offer counts must be non-negative integers.");
     if (accepted + declined === 0) continue;
     const before = params.segments[segment].annualUptake;
     const after = { alpha: before.alpha + accepted, beta: before.beta + declined };
-    const parameter = `annualUptake.${segment}`;
+    const parameter = `segments.${segment}.annualUptake`;
     const evidence = `${accepted} accepted of ${accepted + declined} resolved annual offer(s); ${declined} confirmed decline(s)`;
     params = { ...params, segments: { ...params.segments, [segment]: { ...params.segments[segment], annualUptake: after } } };
     provenance = { ...provenance, [parameter]: { source: "observed", note: `Prior assumption updated with ${evidence} (sandbox demonstration).`, evidenceCount: accepted + declined } };
