@@ -11,8 +11,21 @@ describe("toFailure", () => {
     expect(toFailure(e)).toEqual({ httpStatus: 422, name: "PLAN_PRODUCT_NOT_COMPATIBLE", message: "nope", debugId: "dbg-body", details: [{ issue: "X" }] });
   });
 
-  it("does not mark definitive API errors or network errors as ambiguous", () => {
-    expect(toFailure(new Error("socket hang up"))).not.toHaveProperty("ambiguous");
+  const apiError = (statusCode: number) =>
+    new ApiError({ request, response: { statusCode, headers: {}, body: JSON.stringify({ name: "X", message: "m" }) } } as never, "api error");
+
+  it("marks a network or client error as ambiguous because the request may have reached PayPal", () => {
+    expect(toFailure(new Error("socket hang up"))).toMatchObject({ httpStatus: null, name: "NETWORK_OR_CLIENT_ERROR", ambiguous: true });
+  });
+
+  it.each([500, 502, 503, 409, 429])("marks an HTTP %i ApiError as ambiguous", (status) => {
+    expect(toFailure(apiError(status))).toMatchObject({ httpStatus: status, ambiguous: true });
+  });
+
+  it.each([400, 401, 403, 404, 422])("leaves a definitive HTTP %i ApiError unflagged", (status) => {
+    const f = toFailure(apiError(status));
+    expect(f.httpStatus).toBe(status);
+    expect(f).not.toHaveProperty("ambiguous");
   });
 
   it("maps a ResponseValidationError to an ambiguous failure that never echoes the response", () => {

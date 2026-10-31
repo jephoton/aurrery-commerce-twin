@@ -33,7 +33,10 @@ export interface PayPalFailure {
   message: string;
   debugId: string | null;
   details: unknown;
-  /** PayPal may have acted; reconcile by reading back, never retry blindly. */
+  /**
+   * PayPal may have acted (no usable response, a server error, conflict or rate limit). Reconcile
+   * by reading back; never retry blindly. Absence means the failure was a definitive client error.
+   */
   ambiguous?: true;
 }
 
@@ -53,15 +56,17 @@ export function toFailure(error: unknown): PayPalFailure {
   if (error instanceof ApiError) {
     const body = typeof error.body === "string" ? safeJson(error.body) : error.result;
     const b = (body ?? {}) as { name?: string; message?: string; debug_id?: string; details?: unknown };
-    return {
+    const failure: PayPalFailure = {
       httpStatus: error.statusCode,
       name: b.name ?? "PAYPAL_API_ERROR",
       message: b.message ?? error.message,
       debugId: b.debug_id ?? error.headers?.["paypal-debug-id"] ?? null,
       details: b.details ?? body,
     };
+    if (error.statusCode >= 500 || error.statusCode === 409 || error.statusCode === 429) failure.ambiguous = true;
+    return failure;
   }
-  return { httpStatus: null, name: "NETWORK_OR_CLIENT_ERROR", message: error instanceof Error ? error.message : String(error), debugId: null, details: null };
+  return { httpStatus: null, name: "NETWORK_OR_CLIENT_ERROR", message: error instanceof Error ? error.message : String(error), debugId: null, details: null, ambiguous: true };
 }
 
 function safeJson(s: string): unknown {
