@@ -136,7 +136,11 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `annualPlanMismatch` names the first field of a read-back yearly plan that differs from the approved offer (plan id, status, product, currency, price, interval, billing cycles).
   - Follow-up: `offerView` now builds the public view from explicit fields, so an extra key such as an approval link cannot leak.
   - Verification: 905 tests pass, typecheck and lint clean.
-  - **Next:** Task 3, draft customer message (pure).
+- **Task 3 done (draft customer message).**
+  - New pure `draftAnnualOfferMessage` builds the text an administrator copies and sends by hand: exact yearly price, the discount against twelve monthly payments, "nothing changes unless you agree in PayPal", the yearly price charged from the next renewal date, and the window close date in UTC.
+  - It never claims the link stops working (decision 0008) and rejects an unparseable deadline with a `RangeError`. The text carries the secret approval link, so it is display-only and never logged.
+  - Verification: 909 tests pass, typecheck and lint clean.
+  - **Next:** Task 4, shared approval-link check and the revise HTTP status.
 
 ## M5 complete and published
 
