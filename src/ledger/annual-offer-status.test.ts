@@ -6,6 +6,7 @@ import {
   offerExpiry,
   offerOutcome,
   offerStatus,
+  offerView,
   parseIsoInstant,
 } from "./annual-offer-status";
 
@@ -80,11 +81,10 @@ describe("annual offer status", () => {
 });
 
 describe("offerExpiry", () => {
-  it("expires at the earlier of the offer window and the PayPal link expiry", () => {
+  it("expires exactly one merchant offer window after the offer (PayPal gives no link expiry)", () => {
     expect(offerExpiry("2026-11-01T00:00:00.000Z", 7)).toBe("2026-11-08T00:00:00.000Z");
-    expect(offerExpiry("2026-11-01T00:00:00.000Z", 7, "2026-11-01T03:00:00.000Z")).toBe("2026-11-01T03:00:00.000Z");
-    expect(offerExpiry("2026-11-01T00:00:00.000Z", 7, "2026-12-01T00:00:00.000Z")).toBe("2026-11-08T00:00:00.000Z");
-    expect(offerExpiry("2026-11-01T00:00:00.000Z", 7, null)).toBe("2026-11-08T00:00:00.000Z");
+    expect(offerExpiry("2026-11-01T08:00:00+08:00", 1)).toBe("2026-11-02T00:00:00.000Z");
+    expect(offerExpiry.length).toBe(2);
   });
   it("rejects invalid inputs with a clear RangeError per cause", () => {
     expect(() => offerExpiry("garbage", 7)).toThrow(/offeredAt/);
@@ -92,10 +92,18 @@ describe("offerExpiry", () => {
     for (const days of [0, 31, 1.5, Number.NaN]) {
       expect(() => offerExpiry("2026-11-01T00:00:00.000Z", days)).toThrow(/windowDays/);
     }
-    expect(() => offerExpiry("2026-11-01T00:00:00.000Z", 7, "garbage")).toThrow(/paypalExpiresAt/);
-    expect(() => offerExpiry("2026-11-01T00:00:00.000Z", 7, "")).toThrow(/paypalExpiresAt/);
-    expect(() => offerExpiry("2026-11-01T00:00:00.000Z", 7, "2026-10-31T00:00:00.000Z")).toThrow(/paypalExpiresAt/);
-    expect(() => offerExpiry("2026-11-01T00:00:00.000Z", 7, "2026-11-01T00:00:00.000Z")).toThrow(RangeError);
+  });
+});
+
+describe("offerView", () => {
+  const record = { id: 1, proposalId: "prop_x", subscriptionId: "I-E", segment: "core" as const, annualPlanId: "P-ANNUAL", offeredAt: "2026-11-01T00:00:00.000Z", expiresAt: "2026-11-08T00:00:00.000Z" };
+  it("derives status, outcome and read need from reads without storing them", () => {
+    expect(offerView(record, [], new Date("2026-11-02T00:00:00Z")))
+      .toEqual({ ...record, status: "pending", outcome: "unresolved", resolvedAt: null, needsRead: true });
+    expect(offerView(record, [read("2026-11-01T00:05:00Z", "ACTIVE", "P-ANNUAL")], new Date("2026-11-02T00:00:00Z")))
+      .toEqual({ ...record, status: "switched", outcome: "accepted", resolvedAt: "2026-11-01T00:05:00Z", needsRead: false });
+    expect(offerView(record, [read("2026-11-08T07:00:00Z", "ACTIVE", "P-MONTHLY")], new Date("2026-11-08T08:00:00Z")))
+      .toEqual({ ...record, status: "expired", outcome: "declined", resolvedAt: "2026-11-08T00:00:00.000Z", needsRead: false });
   });
 });
 

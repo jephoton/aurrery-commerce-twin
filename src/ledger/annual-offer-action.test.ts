@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Strategy } from "@/twin/interventions";
-import { AnnualOfferActionSchema, annualPriceCents, buildAnnualOfferAction } from "./annual-offer-action";
+import { AnnualOfferActionSchema, annualPriceCents, annualPriceFor, buildAnnualOfferAction } from "./annual-offer-action";
 
 const annual: Strategy = { id: "annual-15", name: "Annual", intervention: { kind: "annual_plan", discountPct: 15, segments: ["core", "price_sensitive"] } };
 const CREATED = "2026-10-22T00:00:00.000Z";
@@ -73,5 +73,14 @@ describe("annual offer action", () => {
       { ...valid, currency: "EUR" },
       { ...valid, extra: true },
     ]) expect(AnnualOfferActionSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe("annualPriceFor", () => {
+  it("formats the exact cents-based annual price", () => {
+    expect(annualPriceFor(24, 15)).toBe("244.80");
+    expect(annualPriceFor(19.99, 12.5)).toBe("209.90");
+    expect(annualPriceFor(9.99, 5)).toBe("113.89");
+    expect(annualPriceFor(Number.NaN, 5)).toBeNull();
   });
 });

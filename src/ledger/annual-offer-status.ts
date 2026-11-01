@@ -67,21 +67,29 @@ export function needsRead(offer: OfferFacts, reads: OfferRead[], now: Date): boo
   return status === "expired" && offerOutcome(offer, reads, now) === "unresolved";
 }
 
-/** The earlier of the merchant's offer window and any expiry PayPal attaches to the approval link. */
-export function offerExpiry(offeredAt: string, windowDays: number, paypalExpiresAt?: string | null): string {
+/** The merchant's offer window is the only expiry: PayPal attaches none to a revise approval link (decision 0008). */
+export function offerExpiry(offeredAt: string, windowDays: number): string {
   const offeredMs = parseIsoInstant(offeredAt);
   if (offeredMs === null) throw new RangeError("Invalid offeredAt: expected an ISO-8601 instant with Z or an offset");
   if (!Number.isInteger(windowDays) || windowDays < 1 || windowDays > 30) {
     throw new RangeError("Invalid windowDays: expected an integer from 1 to 30");
   }
-  let expiry = offeredMs + windowDays * 86_400_000;
-  if (paypalExpiresAt !== undefined && paypalExpiresAt !== null) {
-    const paypalMs = parseIsoInstant(paypalExpiresAt);
-    if (paypalMs === null) throw new RangeError("Invalid paypalExpiresAt: expected an ISO-8601 instant with Z or an offset");
-    if (paypalMs <= offeredMs) throw new RangeError("Invalid paypalExpiresAt: must be after offeredAt");
-    expiry = Math.min(expiry, paypalMs);
-  }
-  return new Date(expiry).toISOString();
+  return new Date(offeredMs + windowDays * 86_400_000).toISOString();
+}
+
+/** One stored offer, without its approval link. */
+export interface OfferRecord {
+  id: number; proposalId: string; subscriptionId: string; segment: SegmentId;
+  annualPlanId: string; offeredAt: string; expiresAt: string;
+}
+/** Everything a visitor may see about an offer: facts plus derived status. Never the approval link. */
+export interface AnnualOfferView extends OfferRecord {
+  status: OfferStatus; outcome: OfferOutcome; resolvedAt: string | null; needsRead: boolean;
+}
+
+export function offerView(offer: OfferRecord, reads: OfferRead[], now: Date): AnnualOfferView {
+  const { status, resolvedAt } = offerStatus(offer, reads, now);
+  return { ...offer, status, resolvedAt, outcome: offerOutcome(offer, reads, now), needsRead: needsRead(offer, reads, now) };
 }
 
 /** Segments with no offers are omitted; consumers treat a missing segment as all zeros. */

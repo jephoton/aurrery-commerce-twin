@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { annualPriceFor } from "@/ledger/annual-offer-action";
 import { SEGMENTS } from "./types";
 
 // Interventions the twin can simulate. Bounds are commercial guardrails enforced server-side,
@@ -72,6 +73,6 @@ export function describeIntervention(intervention: Intervention, listPrice: numb
     case "list_price_change":
       return `Change the list price from $${listPrice.toFixed(2)} to $${intervention.newPrice.toFixed(2)}/mo for all subscribers.`;
     case "annual_plan":
-      return `Offer ${intervention.segments.join(", ").replaceAll("_", " ")} subscribers an annual prepay plan at ${intervention.discountPct}% off ($${(listPrice * 12 * (1 - intervention.discountPct / 100)).toFixed(2)}/yr).`;
+      return `Offer ${intervention.segments.join(", ").replaceAll("_", " ")} subscribers an annual prepay plan at ${intervention.discountPct}% off ($${annualPriceFor(listPrice, intervention.discountPct) ?? "—"}/yr).`;
   }
 }

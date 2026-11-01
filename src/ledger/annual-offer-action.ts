@@ -30,6 +30,12 @@ export function annualPriceCents(listPrice: string, discountPct: number): number
 
 const money = (cents: number) => `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
 
+/** The exact annual price string an offer for this list price would carry, or null for an invalid price. */
+export function annualPriceFor(listPrice: number, discountPct: number): string | null {
+  const cents = annualPriceCents(listPrice.toFixed(2), discountPct);
+  return cents === null ? null : money(cents);
+}
+
 export const AnnualOfferActionSchema = z.object({
   type: z.literal("annual_plan_offer"),
   productId: z.string().regex(/^PROD-[A-Z0-9]+$/),
