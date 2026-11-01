@@ -174,7 +174,14 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `createAnnualOfferProposal` re-checks the monthly-plan setting, open offers and claims in one transaction and stores the exact hashed payload with its forecast. A window outside whole days 1 to 30 or a changed plan is `INVALID_STATE`, no remaining target is `NO_TARGETS`, and a payload that cannot be built (for example an out-of-range list price) is `NOT_EXECUTABLE`, so routes return a clean 4xx.
   - `POST /api/proposals` accepts `offerWindowDays` (integer 1 to 30, annual strategies only) and validates it before any simulation; the window is bound into the hash. A route test approves an annual proposal created there through the existing hash-bound approve route. The agent still calls `createProposal` until its later task.
   - Verification: 1032 tests pass, typecheck and lint clean.
-  - **Next:** Task 10, strict export and import of annual offers.
+- **Task 10 done (strict export and import of annual offers).**
+  - `ledger:export` keeps approval links in the private backup (decision 4); both CLIs still print only table counts and hashes, and a test checks the import CLI output and the manifest carry no link or token. An export restores with identical row hashes.
+  - `validateRecords` (`src/ledger/import.ts`, shared by import and export) now parses annual proposals strictly with `AnnualOfferActionSchema`, checks their hash, requires a forecast, a strategy whose discount and segments match the payload, an approval and no scheduled revert.
+  - Each offer must reference an executing, succeeded or partially failed annual proposal and one of its targets with the same segment, a `P-` plan ID, a link that passes `isPayPalApprovalUrl`, strict ISO `offered_at`, and `expires_at` exactly the approved window later. Its revise execution must match (same proposal, target and time, `ok = 1`, `verified = 0`, outcome offer facts equal). Reads need an existing offer, strict ISO `observed_at`, a status and a `P-` or null plan ID. An `ok` annual execution must have its offer and a refused one none.
+  - Any approval link, its `ba_token` value, or a `ba_token` / `ba%5ftoken` marker in any other cell of any table refuses the ledger (import and export). Ledgers without the annual tables still import.
+  - New shared offline fixture `src/test/annual-offer-fixture.ts` (`seedAnnualOffer`, `fixtureLink`, fake `BA-FIXTURE` links) for Tasks 10, 12, 13 and 14.
+  - Verification: 1059 tests pass, typecheck and lint clean.
+  - **Next:** Task 11, price changes and reset refuse annual subscribers by plan.
 
 ## M5 complete and published
 
