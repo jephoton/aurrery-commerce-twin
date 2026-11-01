@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { AgentEvent } from "@/agent/contracts";
 import type { ExecutionReport } from "@/execution/execute";
-import { outcomeStatusText } from "@/execution/outcomes";
 import type { Proposal } from "@/ledger/proposals";
 import type { Strategy } from "@/twin/interventions";
 import { ObservedSnapshotSchema, type AnnualEvidence, type ObservedComparison } from "@/merchant/observed-snapshot";
@@ -21,7 +20,10 @@ import { AdminAccess } from "./AdminAccess";
 import { RecoveryPanel } from "./RecoveryPanel";
 import { canReviewAccess, type AccessState } from "./admin-access";
 import { DEFAULT_DECISION_RULES } from "@/agent/contracts";
-import { chooseHeadline } from "./headline";
+import { chooseHeadline, isExecutableIntervention } from "./headline";
+import { AnnualOfferCard } from "./AnnualOfferCard";
+import { clampOfferWindowDays, DEFAULT_OFFER_WINDOW_DAYS, outcomeCells, proposalBody } from "./annual-offers-view";
+import { reportSummary } from "./RecoveryPanel";
 
 export interface MerchantSummary {
   name: string;
@@ -70,6 +72,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
   const [liveAnnual, setLiveAnnual] = useState<LiveAnnual | null>(null);
   const [access, setAccess] = useState<AccessState | null>(null);
+  const [offerWindowDays, setOfferWindowDays] = useState(DEFAULT_OFFER_WINDOW_DAYS);
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const setConfirmed = (value: boolean) => dispatch({ type: "confirmed", value });
@@ -120,7 +123,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
     try {
       const { proposal } = await api<{ proposal: Proposal }>("/api/proposals", {
         method: "POST",
-        body: JSON.stringify({ objective, strategy: selected.strategy }),
+        body: JSON.stringify(proposalBody(objective, selected.strategy, offerWindowDays)),
       });
       dispatch({ type: "proposal", proposal });
     } catch (e) {
@@ -158,7 +161,8 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
     finally { setBusy(null); }
   };
 
-  const executable = selected?.strategy.intervention.kind === "targeted_discount";
+  const executable = !!selected && isExecutableIntervention(selected.strategy.intervention);
+  const annualReport = report?.proposal.action.type === "annual_plan_offer";
 
   return (
     <main className="mx-auto w-full min-w-0 max-w-[1440px] px-4 pb-12 pt-5 sm:px-7 lg:px-10">
@@ -259,6 +263,15 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
             <>
               <p className="mb-3 text-muted">Prepare the exact PayPal action for review. Nothing is sent to PayPal until you approve it.</p>
               {comparisonSource === "agent" && <p className="mb-3 text-sm text-muted">Manual preparation uses canonical twin estimates and registered pilots. The agent&apos;s classified pilot filter applies only to its own proposal.</p>}
+              {selected.strategy.intervention.kind === "annual_plan" && (
+                <label className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+                  Offer window (days, 1–30)
+                  <input type="number" min={1} max={30} step={1} value={offerWindowDays} disabled={busy !== null}
+                    onChange={(e) => setOfferWindowDays(clampOfferWindowDays(e.target.value))}
+                    className="min-h-10 w-20 rounded-lg border border-border bg-background px-3" />
+                  <span className="text-muted">Bound into the approved payload. Each customer decides in PayPal within this window.</span>
+                </label>
+              )}
               <button
                 onClick={propose}
                 disabled={busy !== null}
@@ -286,8 +299,9 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
         <section className="mb-6 min-w-0 rounded-2xl border border-observed/40 bg-surface p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold">PayPal execution: {report.proposal.status.replace("_", " ")}</h2>
-            <span className="source-badge text-observed">Observed from PayPal Sandbox read-back</span>
+            <span className="source-badge text-observed">{annualReport ? "Observed from PayPal Sandbox responses" : "Observed from PayPal Sandbox read-back"}</span>
           </div>
+          {annualReport && <p className="mb-3 text-sm">{reportSummary(report)}</p>}
           <div className="max-w-full overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm">
             <thead className="text-muted">
               <tr>
@@ -300,16 +314,19 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
               </tr>
             </thead>
             <tbody>
-              {report.outcomes.map((o) => (
-                <tr key={o.subscriptionId} className="border-t border-border">
-                  <td className="max-w-48 break-all py-2 font-mono">{o.subscriptionId}</td>
-                  <td>{o.httpStatus ?? "—"}</td>
-                  <td>{o.observed?.regularPrice ? `$${o.observed.regularPrice}` : "—"}</td>
-                  <td>{outcomeStatusText(o)}</td>
-                  <td className={o.verified ? "text-positive" : "text-negative"}>{o.verified ? "yes" : "no"}</td>
-                  <td className="max-w-48 break-all font-mono text-xs">{o.debugId ?? "—"}</td>
-                </tr>
-              ))}
+              {report.outcomes.map((o) => {
+                const cells = outcomeCells(o, annualReport);
+                return (
+                  <tr key={o.subscriptionId} className="border-t border-border">
+                    <td className="max-w-48 break-all py-2 font-mono">{o.subscriptionId}</td>
+                    <td>{o.httpStatus ?? "—"}</td>
+                    <td>{cells.price}</td>
+                    <td className="break-words">{cells.status}</td>
+                    <td className={cells.tone === "positive" ? "text-positive" : cells.tone === "negative" ? "text-negative" : "text-muted"}>{cells.verified}</td>
+                    <td className="max-w-48 break-all font-mono text-xs">{o.debugId ?? "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table></div>
         </section>
@@ -382,6 +399,7 @@ function ProposalCard({
   onReject: () => void;
 }) {
   const a = proposal.action;
+  if (a.type === "annual_plan_offer") return <AnnualOfferCard proposal={proposal} action={a} confirmed={confirmed} setConfirmed={setConfirmed} busy={busy} canReview={canReview} paypalConfigured={!!paypal?.configured} onApprove={onApprove} onReject={onReject} />;
   if (a.type !== "subscription_price_override" || !proposal.prediction) return null;
   const labels = new Map(paypal?.subscriptions.map((s) => [s.subscriptionId, s.label]) ?? []);
   const d = proposal.prediction.vsBaseline.totalValue;
