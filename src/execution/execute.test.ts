@@ -251,7 +251,7 @@ it.each(["subscription_price_reset", "subscription_price_override", "subscriptio
     read: async () => ({ ok: true, value: annualSnapshot, debugId: null }), annualPlanIds: async () => new Set(["P-ANNUAL1"]) });
   expect(patch).not.toHaveBeenCalled();
   expect(report.outcomes).toHaveLength(1);
-  expect(report.outcomes[0]).toMatchObject({ subscriptionId: "I-ONE", ok: false, verified: false, error: expect.stringMatching(/annual plan by customer choice/) });
+  expect(report.outcomes[0]).toMatchObject({ subscriptionId: "I-ONE", ok: false, verified: false, refused: "annual_plan", error: expect.stringMatching(/annual plan by customer choice/) });
   expect(report.outcomes[0].skipped).toBeUndefined();
   expect(record).toHaveBeenCalledOnce();
   expect(finish).toHaveBeenCalledWith("p", "failed", null, { succeeded: 0, total: 1 });
@@ -304,4 +304,29 @@ it("refuses a reset of a switched subscriber through the wired ledger without se
     expect(report.proposal.status).toBe("failed");
     expect(await listExecutions(reset.id, connection)).toEqual([expect.objectContaining({ subscriptionId: "I-PILOTD", ok: false, error: expect.stringMatching(/annual plan by customer choice/) })]);
   } finally { vi.restoreAllMocks(); db.close(); }
+});
+
+it.each(["subscription_price_reset", "subscription_price_override", "subscription_price_revert"] as const)("refuses a target whose plan PayPal did not report once annual plans exist (%s)", async (type) => {
+  const proposal = annualTargetProposal(type);
+  const patch = vi.fn(); const finish = vi.fn(); const record = vi.fn();
+  const report = await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish, patch, record,
+    read: async () => ({ ok: true, value: { ...annualSnapshot, planId: null }, debugId: null }), annualPlanIds: async () => new Set(["P-ANNUAL1"]) });
+  expect(patch).not.toHaveBeenCalled();
+  expect(report.outcomes).toEqual([expect.objectContaining({ subscriptionId: "I-ONE", ok: false, verified: false, refused: "plan_unknown", error: expect.stringMatching(/did not report/) })]);
+  expect(report.outcomes[0].skipped).toBeUndefined();
+  expect(record).toHaveBeenCalledOnce();
+  expect(finish).toHaveBeenCalledWith("p", "failed", null, { succeeded: 0, total: 1 });
+});
+
+it("still PATCHes a target without a reported plan when no annual offer was ever made", async () => {
+  const proposal = annualTargetProposal("subscription_price_override");
+  const patch = vi.fn().mockResolvedValue({ ok: true, value: { httpStatus: 204 }, debugId: null });
+  const read = vi.fn().mockResolvedValueOnce({ ok: true, value: { ...annualSnapshot, planId: null }, debugId: null })
+    .mockResolvedValueOnce({ ok: true, value: { ...annualSnapshot, planId: null, regularPrice: "18.0" }, debugId: null });
+  const finish = vi.fn();
+  const report = await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish, patch, read, record: vi.fn(),
+    annualPlanIds: async () => new Set() });
+  expect(patch).toHaveBeenCalledWith("I-ONE", "18.00");
+  expect(report.outcomes[0].refused).toBeUndefined();
+  expect(finish).toHaveBeenCalledWith("p", "succeeded", expect.any(String), { succeeded: 1, total: 1 });
 });

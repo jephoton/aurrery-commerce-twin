@@ -14,6 +14,7 @@ type Props = { canReview: boolean; paypalConfigured: boolean; onObservedChange: 
 export const RESET_SKIP_TEXT: Record<ResetPreview["skipped"][number]["reason"], string> = {
   already_list_price: "already at list price", inactive: "inactive", unregistered: "unregistered",
   annual_plan: "switched to annual by customer choice; not reset",
+  plan_unknown: "plan not reported by PayPal; not reset",
 };
 
 /** Actions approved in the main flow; the panel only resumes or reports them, never approves them. */
@@ -29,7 +30,10 @@ export function reportSummary(report: ExecutionReport): string {
   const status = report.proposal.status.replaceAll("_", " ");
   if (report.proposal.action.type === "annual_plan_offer")
     return `Annual offer ${status}: ${report.outcomes.filter((outcome) => outcome.ok && outcome.offer).length} of ${report.outcomes.length} offer(s) issued. Each customer chooses in PayPal; a switch counts only after a later status read confirms it.`;
-  return `Recovery ${status}: ${report.outcomes.filter((outcome) => outcome.ok && outcome.verified).length} of ${report.outcomes.length} target(s) verified · ${report.outcomes.filter((outcome) => outcome.skipped).length} already at list price. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.`;
+  const annual = report.outcomes.filter((outcome) => outcome.refused === "annual_plan").length;
+  const unknownPlan = report.outcomes.filter((outcome) => outcome.refused === "plan_unknown").length;
+  const refusals = (annual ? ` · ${annual} switched to annual by customer choice` : "") + (unknownPlan ? ` · ${unknownPlan} not changed because PayPal did not report the plan` : "");
+  return `Recovery ${status}: ${report.outcomes.filter((outcome) => outcome.ok && outcome.verified).length} of ${report.outcomes.length} target(s) verified · ${report.outcomes.filter((outcome) => outcome.skipped).length} already at list price${refusals}. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.`;
 }
 
 /** Discount evidence says nothing about an annual offer, so its resumption reads none. */

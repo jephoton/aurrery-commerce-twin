@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { AgentEvent } from "@/agent/contracts";
 import type { ExecutionReport } from "@/execution/execute";
+import { outcomeStatusText } from "@/execution/outcomes";
 import type { Proposal } from "@/ledger/proposals";
 import type { Strategy } from "@/twin/interventions";
 import { ObservedSnapshotSchema, type ObservedComparison } from "@/merchant/observed-snapshot";
@@ -296,7 +297,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
                   <td className="max-w-48 break-all py-2 font-mono">{o.subscriptionId}</td>
                   <td>{o.httpStatus ?? "—"}</td>
                   <td>{o.observed?.regularPrice ? `$${o.observed.regularPrice}` : "—"}</td>
-                  <td>{o.observed?.status ?? o.error}</td>
+                  <td>{outcomeStatusText(o)}</td>
                   <td className={o.verified ? "text-positive" : "text-negative"}>{o.verified ? "yes" : "no"}</td>
                   <td className="max-w-48 break-all font-mono text-xs">{o.debugId ?? "—"}</td>
                 </tr>

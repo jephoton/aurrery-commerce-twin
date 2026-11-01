@@ -131,3 +131,15 @@ it("refuses to reset a switched pilot by the annual plan recorded in the ledger"
     expect((await connection.query("SELECT COUNT(*) AS n FROM proposals"))[0].n).toBe(before);
   } finally { db.close(); }
 });
+
+it("skips a pilot whose plan PayPal did not report once annual plans exist, and resets it when none do", async () => {
+  const read = vi.fn(async (id: string) => ({ ok: true, value: { id, status: "ACTIVE", regularPrice: "18.0", planOverridden: true, planId: null }, debugId: null } as never));
+  const deps = { list: async () => [{ subscriptionId: "I-A", ...PILOT_COHORT[0] }], registrations: async () => ({ "I-A": "2026-01-01T00:00:00.000Z" }), read, listPrice: () => 24 };
+  const refusedCreate = vi.fn();
+  const refused = await previewDemoResetWith({ ...deps, create: refusedCreate, annualPlanIds: async () => new Set(["P-ANNUAL1"]) });
+  expect(refusedCreate).not.toHaveBeenCalled();
+  expect(refused.skipped[0]).toEqual({ label: PILOT_COHORT[0].label, subscriptionId: "I-A", reason: "plan_unknown" });
+  const create = vi.fn().mockResolvedValue({ id: "reset" });
+  await previewDemoResetWith({ ...deps, create, annualPlanIds: async () => new Set() });
+  expect(create).toHaveBeenCalledWith("24.00", [expect.objectContaining({ subscriptionId: "I-A", expectedCurrentPrice: "18.0" })]);
+});

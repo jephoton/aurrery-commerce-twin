@@ -12,7 +12,7 @@ import { listAnnualPlanIds, recordAnnualOffer, recordAnnualPlan, recordAnnualTar
 import { getSetting } from "@/ledger/operations";
 import { createAnnualPlan, getPlan, reviseToPlan } from "@/paypal/plans";
 import { hostedConfig } from "@/hosting/config";
-import { ExecutionReconciliationRequired, isDefinitiveFailure, type ExecutionReport, type TargetOutcome } from "./outcomes";
+import { ExecutionReconciliationRequired, REFUSAL_TEXT, isDefinitiveFailure, type ExecutionReport, type RefusalReason, type TargetOutcome } from "./outcomes";
 import { executeAnnualOfferWith, type AnnualDependencies } from "./annual-offer";
 export { ExecutionReconciliationRequired, type ExecutionReport, type TargetOutcome } from "./outcomes";
 
@@ -107,10 +107,13 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
       if (deps.recordObservation) await deps.recordObservation(current, "paypal.execution_preread");
     } catch { throw new ExecutionReconciliationRequired(id); }
     // Refused by plan, not price: a switched subscriber's yearly price can coincide with a captured one.
-    if (current.planId !== null && annualPlans.has(current.planId)) {
-      const outcome: TargetOutcome = { subscriptionId, ok: false, httpStatus: null, debugId: null, verified: false,
+    // Once any annual plan exists, a subscription PayPal reports without a plan cannot be proven monthly.
+    const refused: RefusalReason | null = annualPlans.size > 0 && !current.planId ? "plan_unknown"
+      : current.planId && annualPlans.has(current.planId) ? "annual_plan" : null;
+    if (refused) {
+      const outcome: TargetOutcome = { subscriptionId, ok: false, refused, httpStatus: null, debugId: null, verified: false,
         observed: { status: current.status, regularPrice: current.regularPrice, planOverridden: current.planOverridden, nextBillingTime: current.nextBillingTime },
-        error: "On an annual plan by customer choice; the price was not changed." };
+        error: REFUSAL_TEXT[refused] };
       try { await deps.record(id, request, outcome, null); } catch { throw new ExecutionReconciliationRequired(id); }
       outcomes.push(outcome);
       continue;

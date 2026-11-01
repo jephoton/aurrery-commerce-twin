@@ -134,5 +134,14 @@ it("reports a resumed annual offer as offers issued, never as verified switches,
 
 it("reports an annual subscriber as a customer choice, not a reset failure", () => {
   expect(RESET_SKIP_TEXT).toEqual({ already_list_price: "already at list price", inactive: "inactive", unregistered: "unregistered",
-    annual_plan: "switched to annual by customer choice; not reset" });
+    annual_plan: "switched to annual by customer choice; not reset", plan_unknown: "plan not reported by PayPal; not reset" });
+});
+
+it("counts annual refusals by their marker, not their wording, in a recovery report", () => {
+  const outcome = { subscriptionId: "I-ONE", ok: false, httpStatus: null, debugId: null, verified: false, observed: null, error: "reworded" };
+  const proposal = { status: "failed", action: { type: "subscription_price_reset" } } as unknown as Proposal;
+  expect(reportSummary({ proposal, outcomes: [{ ...outcome, refused: "annual_plan" }, { ...outcome, subscriptionId: "I-TWO", refused: "annual_plan" }, { ...outcome, subscriptionId: "I-THREE", refused: "plan_unknown" }] }))
+    .toBe("Recovery failed: 0 of 3 target(s) verified · 0 already at list price · 2 switched to annual by customer choice · 1 not changed because PayPal did not report the plan. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.");
+  expect(reportSummary({ proposal, outcomes: [{ ...outcome, error: "On an annual plan by customer choice; the price was not changed." }] }))
+    .toBe("Recovery failed: 0 of 1 target(s) verified · 0 already at list price. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.");
 });
