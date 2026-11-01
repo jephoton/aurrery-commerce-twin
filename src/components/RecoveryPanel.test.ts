@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DiscountResumeReview, RecoveryReview, RecoveryPanel, pendingActions, reportSummary, runRecoveryAttempt } from "./RecoveryPanel";
+import { DiscountResumeReview, RecoveryReview, RecoveryPanel, discountEvidenceReader, pendingActions, reportSummary, runRecoveryAttempt } from "./RecoveryPanel";
 import type { Proposal } from "@/ledger/proposals";
 
 it.each(["proposed", "approved", "executing"] as const)("shows a reloaded %s reset with exact price/hash, unchecked confirmation and guarded execution", (status) => {
@@ -83,6 +83,18 @@ it("invalidates prior current evidence after partial execution followed by recon
     (value) => { current = value as { episodes: number } | null; })).rejects.toBe(reconcile);
   expect(status).toHaveBeenCalledOnce();
   expect(current).toBeNull();
+});
+
+it("refreshes status but never discount evidence after resuming an annual offer", async () => {
+  const read = vi.fn(async () => ({ episodes: 3 }) as never);
+  expect(discountEvidenceReader("subscription_price_override", read)).toBe(read);
+  expect(discountEvidenceReader("annual_plan_offer", read)).toBeNull();
+  const status = vi.fn(async () => true);
+  const set = vi.fn();
+  expect(await runRecoveryAttempt(async () => "report", status, discountEvidenceReader("annual_plan_offer", read), set)).toBe("report");
+  expect(status).toHaveBeenCalledOnce();
+  expect(read).not.toHaveBeenCalled();
+  expect(set.mock.calls.every(([value]) => value === null)).toBe(true);
 });
 
 it("lists only approved or executing annual offers and shows an approved one for explicit resumption", () => {

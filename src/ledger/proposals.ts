@@ -386,8 +386,11 @@ export function createProposalRepository(connection: LedgerConnection) {
           if (!action.success || hashAction(p.action) !== p.actionHash) return fail("invalid_annual_action");
           const monthly = (await tx.query("SELECT value FROM kv WHERE key='paypal.plan_id'"))[0];
           if (String(monthly?.value ?? "") !== action.data.monthlyPlanId) return fail("monthly_plan_changed");
-          // Checked on the claim's own transaction, atomically with the reservation below.
-          const open = await openOfferSubscriptionIds(tx, new Date());
+          // Checked on the claim's own transaction, atomically with the reservation below. An unreadable
+          // offer row is a ledger fault, not an execution: refuse cleanly and leave the proposal approved.
+          let open: Set<string>;
+          try { open = await openOfferSubscriptionIds(tx, new Date()); }
+          catch { throw new ProposalError("Stored annual offers are unreadable (unreadable_annual_offers); nothing was executed and the proposal stays approved. Repair the ledger, then execute again.", "INVALID_STATE"); }
           for (const target of action.data.targets) {
             const registration = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [target.subscriptionId]))[0];
             if (!registration || registration.label !== target.registration.label || registration.segment !== target.registration.segment ||

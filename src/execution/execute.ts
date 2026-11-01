@@ -170,7 +170,9 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
 /** Where PayPal returns a customer after approving or cancelling a switch: the hosted origin, or local APP_URL. */
 export function annualReturnUrl(env: Record<string, string | undefined> = process.env): string {
   const config = hostedConfig(env);
-  return `${config.hosted ? config.origin : env.APP_URL ?? "http://localhost:3001"}/?paypal=annual`;
+  const url = new URL("/?paypal=annual", config.hosted ? config.origin : env.APP_URL ?? "http://localhost:3001");
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("The annual offer return URL must use http or https.");
+  return url.toString();
 }
 
 const annualDependencies = (proposal: Proposal): AnnualDependencies => ({

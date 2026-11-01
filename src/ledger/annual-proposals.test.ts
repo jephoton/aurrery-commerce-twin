@@ -106,4 +106,15 @@ describe("annual offer proposals", () => {
     expect(await preflight(c)).toEqual([reason]);
     expect(await c.query("SELECT * FROM active_target_claims")).toEqual([]);
   }));
+
+  it("refuses the claim with a clear error and keeps the proposal approved when stored offers are unreadable", () => setup(async (c, repo) => {
+    await insertAnnual(c, ID(1), "approved");
+    await insertAnnual(c, ID(9), "succeeded");
+    await recordOpenOffer(c, ID(9), "I-PILOTE");
+    await c.execute("PRAGMA ignore_check_constraints = ON");
+    await c.execute("UPDATE annual_offers SET segment='bogus'");
+    await expect(repo.claimForExecution(ID(1))).rejects.toMatchObject({ name: "Error", code: "INVALID_STATE", message: expect.stringMatching(/unreadable_annual_offers/) });
+    expect((await repo.getProposal(ID(1))).status).toBe("approved");
+    expect(await c.query("SELECT * FROM active_target_claims")).toEqual([]);
+  }));
 });

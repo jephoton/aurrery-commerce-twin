@@ -26,9 +26,14 @@ export function reportSummary(report: ExecutionReport): string {
   return `Recovery ${status}: ${report.outcomes.filter((outcome) => outcome.ok && outcome.verified).length} of ${report.outcomes.length} target(s) verified · ${report.outcomes.filter((outcome) => outcome.skipped).length} already at list price. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.`;
 }
 
+/** Discount evidence says nothing about an annual offer, so its resumption reads none. */
+export function discountEvidenceReader(type: Proposal["action"]["type"], read: () => Promise<DiscountEvidence>): (() => Promise<DiscountEvidence>) | null {
+  return type === "annual_plan_offer" ? null : read;
+}
+
 /** An execution error can follow a successful earlier target, so refresh facts even on rejection. */
 export async function runRecoveryAttempt<T>(
-  mutate: () => Promise<T>, refreshStatus: () => Promise<boolean>, readEvidence: () => Promise<DiscountEvidence>,
+  mutate: () => Promise<T>, refreshStatus: () => Promise<boolean>, readEvidence: (() => Promise<DiscountEvidence>) | null,
   setEvidence: (value: DiscountEvidence | null) => void,
 ): Promise<T> {
   setEvidence(null);
@@ -38,7 +43,7 @@ export async function runRecoveryAttempt<T>(
   try { result = await mutate(); }
   catch (error) { failure = error; failed = true; }
   try {
-    if (await refreshStatus()) setEvidence(await readEvidence());
+    if (await refreshStatus() && readEvidence) setEvidence(await readEvidence());
     else setEvidence(null);
   } catch { setEvidence(null); }
   if (failed) throw failure;
@@ -128,7 +133,7 @@ export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange }:
           ? `/api/proposals/reset/${proposal.id}/confirm` : `/api/proposals/${proposal.id}/${resume ? "execute" : "approve"}`,
           resume || proposal.action.type === "subscription_price_reset" ? { actionHash: proposal.actionHash, confirmed: true } : { actionHash: proposal.actionHash, approvedBy: "merchant (demo)" }),
         onObservedChange,
-        async () => (await json<{ evidence: DiscountEvidence }>("/api/twin")).evidence,
+        discountEvidenceReader(proposal.action.type, async () => (await json<{ evidence: DiscountEvidence }>("/api/twin")).evidence),
         setCurrentEvidence,
       );
       setReport(result); setProposal(result.proposal);

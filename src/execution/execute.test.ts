@@ -232,4 +232,7 @@ it("returns customers to the hosted origin, or the local app URL, after an annua
   expect(annualReturnUrl({})).toBe("http://localhost:3001/?paypal=annual");
   expect(annualReturnUrl({ APP_URL: "http://localhost:4000" })).toBe("http://localhost:4000/?paypal=annual");
   expect(() => annualReturnUrl({ HOSTED_DEMO: "true" })).toThrow(/hosted configuration/);
+  expect(annualReturnUrl({ APP_URL: "http://localhost:4000/" })).toBe("http://localhost:4000/?paypal=annual");
+  expect(() => annualReturnUrl({ APP_URL: "ftp://localhost:4000" })).toThrow(/http/);
+  expect(() => annualReturnUrl({ APP_URL: "not a url" })).toThrow();
 });
