@@ -50,3 +50,42 @@ Proceed with M7 Phase 2 as designed (Approach A), with these amendments to the s
 3. `revise` is called at most once per target per approved offer. Ambiguous or uncertain outcomes leave the proposal executing for reconciliation by read-back, with no retry.
 4. Approval detection keeps the existing rule (ACTIVE and `plan_id` equals the annual plan). The UI says the yearly price is charged from the subscriber's next renewal date.
 5. The executor classifies definitive failures with `execute.ts`'s existing definitive-4xx list as the single rule. `PayPalFailure.ambiguous` is extra information, not the decider.
+
+## Phase 2 implementation decisions (as built)
+
+M7 Phase 2 (Tasks 1–20) is implemented on `feat/m7-annual-plan`. Live acceptance and deployment (Tasks 22–23) are still outstanding. Where the Phase 2 plan and the code differ, the code and the notes below are authoritative.
+
+### Locked-in decisions
+
+1. **Pre-revise failures fail the proposal.** Until the first `revise`, nothing customer-facing has happened. A changed `paypal.plan_id`, a monthly plan on another product, a refused plan creation, or an unreadable or mismatched plan read-back each finish the proposal `failed`, with one recorded outcome per target ending "no offer was made". An orphan yearly plan is harmless, and the same action hash always reuses the same `PayPal-Request-Id`.
+2. **Ambiguity follows the existing convention.** A failed subscription pre-read, a non-definitive `revise` failure (including HTTP 200 without a usable link), a mismatched returned `planId` and any storage failure leave the proposal `executing` with its claims kept and no retry (`ExecutionReconciliationRequired`). Definitive failures are exactly 400, 401, 403, 404 and 422, in the single `isDefinitiveFailure` rule extracted from `execute.ts` into `src/execution/outcomes.ts`.
+3. **Open offer.** Any offer that is not a confirmed decline (pending, awaiting final check, invalid or switched) blocks another offer to the same subscriber. The check runs when the proposal is built, in the claim, and just before `revise`.
+4. **Export includes approval links.** `ledger:export` is the authoritative private backup, at the same trust level as the hosted session fingerprints it already holds. Dropping links would change row hashes and make restored open offers unservable. The export and import CLIs print only counts and hashes. The importer refuses any ledger where a link, or a `ba_token`, appears outside `annual_offers.approval_url`.
+5. **Links are served only while the window is open.** The administrator endpoint returns drafts only for `pending` offers. After the window the UI says "offer window closed", never that a link is dead.
+6. **Execution record.** Each `revise` writes one `executions` row with operation `POST subscription revise (annual plan)` and `verified = 0`, because the switch is verified only by a later read-back. Its outcome carries `offer: { annualPlanId, expiresAt }`. `UNIQUE (proposal_id, target_id, operation)` makes a second record for the same target impossible.
+7. **Offer window.** The merchant chooses it when preparing the offer (whole days, default 7, range 1–30) and it is bound into the hash. The agent uses the default.
+8. **Snapshot compatibility.** `ObservedSnapshot.annual` is optional, so recorded agent streams that predate it stay valid. The discount `changes` cap stays `.max(2)`.
+
+### Where the build differs from the Phase 2 plan
+
+- **Failed PayPal reads refuse a proposal outright.** Preparation refuses before any subscriber read unless PayPal is configured and the registered monthly plan reads back on the registered product. Failed or thrown reads of individual pilots are skipped, never guessed.
+- **The agent passes its abort signal** (`budget.signal`) to `proposeStrategy`, so a cancelled or timed-out run stops preparation before a proposal is stored.
+- **The links endpoint rejects cross-site reads and is never cached.** `GET /api/annual-offers/links` returns `403 CROSS_SITE_REQUEST` when `Sec-Fetch-Site` is present and not `same-origin` (clients that send no header still pass the administrator guard). Every response, including the fixed 500 body, carries `Cache-Control: no-store`, and the route logs nothing.
+- **Refusals carry a `refused` marker** (`"annual_plan"` or `"plan_unknown"`) in the target outcome. Price changes, reverts and resets refuse a subscriber on a recorded yearly plan, or whose plan PayPal did not report while yearly plans exist, before any PATCH. This is a definitive per-target failure, not a reconciliation, and `previewDemoReset` skips these subscribers rather than resetting them.
+- **Status refresh returns `annualEvidence`.** `GET /api/paypal/status` appends the offer reads, then returns counts and per-segment uptake changes built from them (no links). The evidence panel prefers it over the page-load value, so no separate twin fetch is needed.
+- **Drafts are cleared on sign-out.** The offers panel keeps draft messages only in client state tied to the administrator session and the status refresh; sign-out or any failed refetch hides them at once.
+- **`offerExpiry` takes no PayPal expiry.** The merchant window is the only expiry (PayPal gives none).
+- **The price-check script verifies the plan with PayPal.** `scripts/paypal-check.ts` reads the subscriber's plan with PayPal and proceeds only when it reads back as monthly. It also refuses a subscriber on a recorded yearly plan or whose plan PayPal did not report.
+
+### Operator rules
+
+- **Unresolved target.** A `revise` result that is ambiguous, including HTTP 200 without a usable link, leaves the proposal `executing` with its claims. The target's execution record says "do not retry". See the runbook section "Annual offers: unresolved targets and links".
+- **Unstored issued offer or ambiguous revise.** An issued offer that could not be stored, or an ambiguous revise, leaves the proposal `executing` with claims kept. No tool finishes an `executing` proposal yet (true of every action type), so reconcile by hand using the runbook steps.
+- **Late approval still counts.** A stale link may still be approved at PayPal after the window closes, because PayPal does not end it. Reads continue, so a late switch is recorded and counts as accepted.
+- **Offers cannot be withdrawn.** There is no cancel or revoke for an issued offer, and a switched customer is never moved back automatically.
+
+### Rollout order for Tasks 22–23
+
+1. Take the private backup from a `main` worktree **before** running setup for Pilot E against Turso, because setup creates the new tables (`CREATE TABLE IF NOT EXISTS`).
+2. After that, `main`'s `ledger:export` refuses the hosted ledger (exact schema match) until this branch is deployed. An export refused for a stored link names the table and column.
+3. Then run Pilot E setup (one buyer approval), live acceptance, and push/merge/deploy.
