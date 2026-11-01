@@ -53,4 +53,10 @@ describe("row errors", () => {
     expect(capped).toHaveLength(MAX_REPORTED_ERRORS + 1);
     expect(capped.at(-1)).toEqual({ row: null, column: null, message: "3 more errors not shown" });
   });
+  it("leaves an already-capped list as it is, keeping the true count", () => {
+    const errors = Array.from({ length: MAX_REPORTED_ERRORS + 10 }, (_, i) => ({ row: i + 2, column: null, message: "bad" }));
+    const capped = capErrors(errors);
+    expect(capErrors(capped)).toEqual(capped);
+    expect(capErrors(capErrors(capped)).at(-1)).toEqual({ row: null, column: null, message: "10 more errors not shown" });
+  });
 });

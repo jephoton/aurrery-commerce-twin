@@ -10,8 +10,17 @@ export function formatRowError(error: RowError): string {
   return where ? `${where}: ${error.message}` : error.message;
 }
 
-/** Keeps responses and the UI bounded; the last entry says how many were left out. */
+const OMITTED = /^\d+ more errors not shown$/;
+const isCapped = (errors: RowError[]) => {
+  const last = errors[MAX_REPORTED_ERRORS];
+  return errors.length === MAX_REPORTED_ERRORS + 1 && last.row === null && last.column === null && OMITTED.test(last.message);
+};
+
+/**
+ * Keeps responses and the UI bounded; the last entry says how many were left out. Idempotent: a list it
+ * already capped is returned as it is, so layers that each cap still report the true count.
+ */
 export function capErrors(errors: RowError[]): RowError[] {
-  if (errors.length <= MAX_REPORTED_ERRORS) return errors;
+  if (errors.length <= MAX_REPORTED_ERRORS || isCapped(errors)) return errors;
   return [...errors.slice(0, MAX_REPORTED_ERRORS), { row: null, column: null, message: `${errors.length - MAX_REPORTED_ERRORS} more errors not shown` }];
 }

@@ -43,6 +43,16 @@ it("returns per-row errors for invalid rows and schema-breaking payloads", async
   expect((await post({ ...samplePayload(), extra: true })).status).toBe(400);
 });
 
+it("reports the true number of errors left out when there are more than 50", async () => {
+  const many = samplePayload();
+  for (let i = 0; i < 60; i++) many.rows[i][2] = -1;
+  const response = await post(many);
+  expect(response.status).toBe(400);
+  const { errors } = await response.json();
+  expect(errors).toHaveLength(51);
+  expect(errors[50]).toEqual({ row: null, column: null, message: "10 more errors not shown" });
+});
+
 it("rejects oversized and malformed bodies before parsing the import", async () => {
   expect((await post(JSON.stringify({ ...samplePayload(), padding: "x".repeat(70_000) }))).status).toBe(413);
   expect((await post("{")).status).toBe(400);
