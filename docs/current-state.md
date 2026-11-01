@@ -527,7 +527,7 @@ Historical M1 Task 8 verification: `npm run twin:inspect` passes Amendment 2; `n
 | --- | --- | --- |
 | M0-1 | Renamed to Aurrery; PayPal request-ID prefixes are now `aurrery-ridgeline-*` | `d4a1c81` |
 | M0-2 | Pilot sandbox subscriptions carry a segment and a reason; the ledger migrates older databases; 4-member pilot cohort | `94bf2cd` |
-| M0-3 | `npm run paypal:check` tooling (since M7 it refuses any target on a yearly plan, or with no reported plan once annual plans exist); live replace/read-back/restore verified on D, all four pilots ACTIVE | `625ca41`, `5c1673c` |
+| M0-3 | `npm run paypal:check` tooling (since M7 it refuses any target on a recorded yearly plan, with no reported plan, or whose plan PayPal does not confirm as monthly); live replace/read-back/restore verified on D, all four pilots ACTIVE | `625ca41`, `5c1673c` |
 | M1-4 | `cancel_intent` segment with escalation and de-escalation, estimated from `movedTo` history; estimators pinned by exact tests | `5fffb48`, `41f65ae` |
 | M1-5 | Leaving reasons; per-reason discount effect; price-reason targeting limited to cancel intent; per-reason Bayesian update | `da4bdc5`, `dbac210` |
 | M1-5b | Month-12 subscribers valued with their expected segment moves and the post-discount spike; fast per-run valuer | `065cae4`, `c9841d4` |
