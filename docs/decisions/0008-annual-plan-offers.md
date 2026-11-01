@@ -53,7 +53,7 @@ Proceed with M7 Phase 2 as designed (Approach A), with these amendments to the s
 
 ## Phase 2 implementation decisions (as built)
 
-M7 Phase 2 (Tasks 1–20) is implemented on `feat/m7-annual-plan`. Live acceptance and deployment (Tasks 22–23) are still outstanding. Where the Phase 2 plan and the code differ, the code and the notes below are authoritative.
+M7 Phase 2 (Tasks 1–21) is implemented on `feat/m7-annual-plan`. Live acceptance and deployment (Tasks 22–23) are still outstanding. Where the Phase 2 plan and the code differ, the code and the notes below are authoritative.
 
 ### Locked-in decisions
 
@@ -72,6 +72,7 @@ M7 Phase 2 (Tasks 1–20) is implemented on `feat/m7-annual-plan`. Live acceptan
 - **The agent passes its abort signal** (`budget.signal`) to `proposeStrategy`, so a cancelled or timed-out run stops preparation before a proposal is stored.
 - **The links endpoint rejects cross-site reads and is never cached.** `GET /api/annual-offers/links` returns `403 CROSS_SITE_REQUEST` when `Sec-Fetch-Site` is present and not `same-origin` (clients that send no header still pass the administrator guard). Every response, including the fixed 500 body, carries `Cache-Control: no-store`, and the route logs nothing.
 - **Refusals carry a `refused` marker** (`"annual_plan"` or `"plan_unknown"`) in the target outcome. Price changes, reverts and resets refuse a subscriber on a recorded yearly plan, or whose plan PayPal did not report while yearly plans exist, before any PATCH. This is a definitive per-target failure, not a reconciliation, and `previewDemoReset` skips these subscribers rather than resetting them.
+- **Open offers block price changes in the ledger.** `validateTargetForExecution` refuses a price-override, revert or reset target that has an open offer (pending, awaiting final check, invalid or switched), using `openOfferSubscriptionIds` inside its own transaction. It runs before the PayPal read and again before the PATCH, so a customer who approves a switch while a price change runs is not re-priced; the plan check on the read-back is the second guard. An unreadable offer record also refuses the target.
 - **Status refresh returns `annualEvidence`.** `GET /api/paypal/status` appends the offer reads, then returns counts and per-segment uptake changes built from them (no links). The evidence panel prefers it over the page-load value, so no separate twin fetch is needed.
 - **Drafts are cleared on sign-out.** The offers panel keeps draft messages only in client state tied to the administrator session and the status refresh; sign-out or any failed refetch hides them at once.
 - **`offerExpiry` takes no PayPal expiry.** The merchant window is the only expiry (PayPal gives none).
@@ -83,6 +84,12 @@ M7 Phase 2 (Tasks 1–20) is implemented on `feat/m7-annual-plan`. Live acceptan
 - **Unstored issued offer or ambiguous revise.** An issued offer that could not be stored, or an ambiguous revise, leaves the proposal `executing` with claims kept. No tool finishes an `executing` proposal yet (true of every action type), so reconcile by hand using the runbook steps.
 - **Late approval still counts.** A stale link may still be approved at PayPal after the window closes, because PayPal does not end it. Reads continue, so a late switch is recorded and counts as accepted.
 - **Offers cannot be withdrawn.** There is no cancel or revoke for an issued offer, and a switched customer is never moved back automatically.
+
+### Live demo rules
+
+- Refresh from PayPal sparingly: status polling is capped at 60 per hour across all clients (30 per client).
+- Never rehearse `revise` against the real Pilots D and E from a local ledger. The hosted ledger would not know about the offer, and every `revise` invalidates the previous approval link.
+- The demo runs once: a switched Pilot E is never moved back to monthly.
 
 ### Rollout order for Tasks 22–23
 

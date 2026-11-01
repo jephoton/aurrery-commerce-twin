@@ -3459,7 +3459,7 @@ npx tsx --conditions=react-server scripts/paypal-setup.ts sync
 
 Expected:
 - E is `ACTIVE`, price `24.0`, `overridden false`;
-- D is `ACTIVE`, price `24.0`, `overridden false`.
+- D is `ACTIVE`, price `24.0`. D may still show `overridden true` (`plan_overridden`) from the M0-3 price check; that is expected, and annual eligibility ignores it (same subscription, ACTIVE, on the registered monthly plan, at list price by cents).
 
 If D is not at list price on the monthly plan, it will not be offered. Note that in the acceptance record; do not reset D just to change the demo.
 

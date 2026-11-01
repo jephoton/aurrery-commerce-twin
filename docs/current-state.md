@@ -133,12 +133,14 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - Administrator-only draft messages (`GET /api/annual-offers/links`: `no-store`, cross-site reads refused, pending offers only, cleared on sign-out); "Annual offers" evidence block and panel; headline and approval card for annual offers.
   - The agent may propose an offer (no approve or execute tool, abort signal passed through).
   - Price changes, reverts, resets and `paypal:check` refuse annual subscribers; a `plan_unknown` refusal applies when PayPal omits the plan.
+  - Final-review fixes: the ledger also refuses price-override, revert and reset targets with an open annual offer (closing the race where a customer approves during a price change), and the evidence heading has its own id (`annual-evidence-title`).
   - Pilot E ("loyal, 9 months", core) is in the cohort in code; it is not yet created in the sandbox.
-- **Verification:** 1152 tests, typecheck and lint at the last full run. Known flaky: the deadline and BUSY tests in `src/agent/run.test.ts` can time out under heavy parallel load; they pass alone and on re-run.
+- **Verification:** 1155 tests, typecheck and lint at the last full run. Known flaky: the deadline and BUSY tests in `src/agent/run.test.ts` can time out under heavy parallel load; they pass alone and on re-run.
 - **Next: Task 22 (human checkpoint).** Rollout order for Tasks 22-23:
   1. Take the private backup from a `main` worktree **before** running Pilot E setup against Turso, because setup creates the new tables.
   2. After that, `main`'s `ledger:export` refuses the hosted ledger (exact schema match) until this branch is deployed. An export refused for a stored link names the table and column.
   3. Task 22: create Pilot E in the sandbox (one buyer approval). Task 23: live acceptance, then push, merge and deploy.
+- **Live demo rules:** refresh from PayPal sparingly (global poll cap 60 per hour); never rehearse `revise` against the real Pilots D and E from a local ledger; the demo runs once, because a switched Pilot E is never moved back.
 - **Known limitations:**
   - An ambiguous revise or an unstored issued offer leaves the proposal `executing` with its claims kept, and no tool finishes an `executing` proposal yet (manual reconciliation steps are in the runbook).
   - A stale link may still be approved after the window; reads continue, so a late switch counts. Offers cannot be withdrawn.
