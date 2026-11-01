@@ -149,7 +149,12 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `isDefinitiveFailure` is the only definitive-failure rule (HTTP 400, 401, 403, 404, 422; decision 0008); the executor now uses it. `execute.ts` re-exports the shared names, so existing importers are unchanged. No behaviour change.
   - Follow-up to Task 4: `isPayPalApprovalUrl` now also rejects ports, userinfo and surrounding whitespace.
   - Verification: 943 tests pass, typecheck and lint clean.
-  - **Next:** Task 6, offer tables and offer records.
+- **Task 6 done (offer tables and offer records).**
+  - The canonical schema gains `annual_offers` (one row per issued offer, the only place an approval link is stored) and the append-only `annual_offer_reads`. `CREATE TABLE IF NOT EXISTS` adds both to existing local and Turso ledgers on the next schema initialization; the importer lists both tables (optional, so older ledgers still import). Strict annual import validation is Task 10.
+  - New `src/ledger/annual-offers.ts`: `recordAnnualOffer` writes the execution (`POST subscription revise (annual plan)`, `verified = 0`), the offer and its audit entry in one transaction, and refuses a non-PayPal link, mismatched offer facts, or any link or `ba_token` in the request or outcome. `recordAnnualTarget` records a target without an offer. `appendOfferReads` appends one read per offer for each successful GET and requires a strict ISO instant.
+  - Status stays derived: `listAnnualOfferViews` (public, never a link), `listAnnualOfferLinks` (administrator only, pending offers with the approved price), `openOfferSubscriptionIds` (anything short of a confirmed decline), `listAnnualPlanIds` and `readAnnualOfferEvidence` (per-segment counts with the limitation text). Covered on real SQLite and a file-backed libSQL client.
+  - Verification: 954 tests pass, typecheck and lint clean.
+  - **Next:** Task 7, annual offer executor.
 
 ## M5 complete and published
 
