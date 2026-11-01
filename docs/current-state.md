@@ -122,6 +122,17 @@ _Last material update: 2026-10-31. **M7 Phase 1 is complete on local branch `fea
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
+## M7 Phase 2
+
+Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branch `feat/m7-annual-plan`, not pushed.
+
+- **Task 1 done (exact annual price, expiry cleanup, offer views).**
+  - `annualPriceFor` gives the cents-based yearly price, and `describeIntervention` now shows it instead of a float-rounded figure that could differ from the hashed `annualPrice`.
+  - `offerExpiry(offeredAt, windowDays)` drops the unused PayPal expiry argument; the merchant's offer window is the only expiry.
+  - New pure `offerView` derives status, outcome, resolved time and read need from recorded reads, with no approval link.
+  - Verification: 888 tests pass, typecheck and lint clean.
+  - **Next:** Task 2, live eligibility and plan read-back checks (pure).
+
 ## M5 complete and published
 
 Final publication verification: Render deployment `dep-dbi76vks728c73chod30` is Live from main commit `316aa6d`; [main CI 41042128472](https://github.com/jephoton/aurrery-commerce-twin/actions/runs/41042128472) passed all 793 tests, typecheck, lint and build. Final external readiness is 200, anonymous approval access remains blocked, and all eight proposals remain available. `data/m5-main-publication-proof.json` records the safe metadata. Later documentation-only commits need no extra manual deploy: application code is unchanged from reviewed/tested `4da3c6e`. The working checkout is main; retain the feature branch as historical reference, not the active deployment source.
