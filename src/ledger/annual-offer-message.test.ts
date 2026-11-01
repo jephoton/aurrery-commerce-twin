@@ -11,18 +11,30 @@ it("drafts a consent message with the yearly price, renewal timing, window and l
   expect(text).toContain("15% less than twelve monthly payments");
   expect(text).toContain("Nothing changes unless you agree in PayPal");
   expect(text).toContain("charged from your next renewal date");
-  expect(text).toContain("November 8, 2026 (UTC)");
+  expect(text).toContain("open until November 8, 2026, 12:00 AM UTC.");
   expect(text.endsWith(LINK)).toBe(true);
 });
 
-it("states the deadline in UTC whatever the server's time zone", () => {
-  expect(draftAnnualOfferMessage({ ...input, expiresAt: "2026-11-08T23:59:59.000Z" })).toContain("November 8, 2026 (UTC)");
+it("states the exact closing time in UTC, not just the date", () => {
+  const at = (expiresAt: string) => draftAnnualOfferMessage({ ...input, expiresAt });
+  expect(at("2026-11-08T15:14:00.000Z")).toContain("open until November 8, 2026, 3:14 PM UTC.");
+  expect(at("2026-11-08T23:59:59.000Z")).toContain("November 8, 2026, 11:59 PM UTC.");
+  expect(at("2026-11-08T12:05:00.000Z")).toContain("November 8, 2026, 12:05 PM UTC.");
+});
+
+it("converts an offset deadline to UTC", () => {
+  expect(draftAnnualOfferMessage({ ...input, expiresAt: "2026-11-08T23:30:00+08:00" })).toContain("November 8, 2026, 3:30 PM UTC.");
+});
+
+it("renders a fractional discount as given", () => {
+  expect(draftAnnualOfferMessage({ ...input, discountPct: 12.5 })).toContain("12.5% less than twelve monthly payments");
 });
 
 it("never claims the link stops working", () => {
   expect(draftAnnualOfferMessage(input)).not.toMatch(/dead|expire|stop[s]? working|no longer work/i);
 });
 
-it("refuses an unparseable deadline", () => {
-  expect(() => draftAnnualOfferMessage({ ...input, expiresAt: "soon" })).toThrow(RangeError);
-});
+it.each(["soon", "Nov 8 2026", "2026-11-08", "2026-02-30T00:00:00.000Z", "2026-11-08T25:00:00.000Z", "2026-11-08T00:00:00"])(
+  "refuses the deadline %j", (expiresAt) => {
+    expect(() => draftAnnualOfferMessage({ ...input, expiresAt })).toThrow(RangeError);
+  });
