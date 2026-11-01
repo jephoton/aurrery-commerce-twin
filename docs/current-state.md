@@ -186,7 +186,13 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `previewDemoReset` skips such a pilot with reason `annual_plan`; the recovery panel shows every skip reason through `RESET_SKIP_TEXT`, which reports it as "switched to annual by customer choice; not reset". Non-annual subscribers behave exactly as before.
   - Tests cover all three price actions, a non-annual plan still patching, an unreadable plan list, and wired ledger paths for both execute and reset preview using the shared fixture.
   - Verification: 1072 tests pass at the code commit (1077 with the concurrent Task 10 follow-up), typecheck and lint clean.
-  - **Next:** Task 12, status refresh appends offer reads; public offer views without links.
+- **Task 12 done (status refresh appends offer reads; public offer views without links).**
+  - `GET /api/paypal/status` (still `await connection()` first, hosted poll admission and quotas unchanged) appends one `annual_offer_reads` row per offer for every successful GET of a subscription that has offers, even after a confirmed decline, because a stale link can still be approved (decision 0008). `observed_at` is a strict ISO instant taken right after the GET; failed GETs record nothing.
+  - A subscriber with offers that has left the pilot registry is read only while one of its offers `needsRead`. Registered subscribers report `live.annualPlan` when PayPal shows them on an offered yearly plan.
+  - The payload gains `annualOffers` from `listAnnualOfferViews`: derived status, outcome, expiry and `needsRead` only, never an approval link (tests assert no `ba_token` or PayPal URL in the body, including when PayPal is not configured).
+  - New `src/app/api/paypal/status/route.test.ts` (6 tests, PayPal stubbed, fixture offer): two refreshes append two reads and show the switch; failed GET records nothing; confirmed decline still read when registered; unregistered open offer read; unregistered confirmed decline not read; unconfigured PayPal reads nothing.
+  - Verification: 1083 tests pass at the code commit (1090 with the concurrent Task 11 follow-up), typecheck and lint clean.
+  - **Next:** Task 13, administrator-only draft messages with approval links.
 
 ## M5 complete and published
 
