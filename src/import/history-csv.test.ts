@@ -114,4 +114,11 @@ describe("validateHistoryRows", () => {
     const broken = parsed.rows.map((r, i) => (i === 12 ? { ...r, voluntary_cancels: 9999 } : r));
     expect(validateHistoryRows(broken).map(formatRowError)).toEqual(["row 14, voluntary_cancels: voluntary + involuntary cancels + moves exceed active_start"]);
   });
+  it("rejects a history whose last month has no active subscribers", () => {
+    const empty: Counts = { active_start: 0, voluntary_cancels: 0, involuntary_cancels: 0, moved_to_core: 0, moved_to_price_sensitive: 0, moved_to_at_risk: 0, moved_to_cancel_intent: 0, new_signups: 0 };
+    const allZero = MONTHS.flatMap((m) => SEGMENTS.map((s) => row(m, s, empty)));
+    expect(messages(csv(allZero))).toEqual(["active_start: 2026-06 has no active subscribers (active_start is 0 in every segment); the twin starts from the last month"]);
+    const lastEmpty = [...rows(MONTHS.slice(0, 5)), ...SEGMENTS.map((s) => row("2026-06", s, { ...empty, new_signups: 50 }))];
+    expect(messages(csv(lastEmpty))).toEqual(["active_start: 2026-06 has no active subscribers (active_start is 0 in every segment); the twin starts from the last month"]);
+  });
 });

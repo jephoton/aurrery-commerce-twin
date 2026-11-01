@@ -50,7 +50,7 @@ export function summarizeMerchant(
     listPrice: twin.params.listPrice,
     active,
     mrr: active * twin.params.listPrice,
-    lastMonthChurnRate: churned / startActive,
+    lastMonthChurnRate: startActive > 0 ? churned / startActive : 0,
     segments: SEGMENTS.map((s) => ({ id: s, label: twin.params.segments[s].label, active: twin.initialActive[s], churn: betaMean(twin.params.segments[s].monthlyChurn) })),
     provenance: twin.provenance,
     ...extra,

@@ -127,6 +127,11 @@ export function validateHistoryRows(rows: HistoryRow[], rowNumber: (index: numbe
     const expected = nextMonth(months[i - 1]);
     if (months[i] !== expected) errors.push({ row: rowNumber(firstOfMonth.get(months[i])!), column: "month", message: `gap: ${expected} is missing before ${months[i]}` });
   }
+  const lastMonth = months[months.length - 1];
+  // The twin's starting actives come from the last month, so it needs subscribers to start from.
+  if (lastMonth !== undefined && rows.every((r) => r.month !== lastMonth || r.active_start === 0)) {
+    errors.push({ row: null, column: "active_start", message: `${lastMonth} has no active subscribers (active_start is 0 in every segment); the twin starts from the last month` });
+  }
   if (months.length < MIN_HISTORY_MONTHS) errors.push({ row: null, column: "month", message: `at least ${MIN_HISTORY_MONTHS} consecutive months are required (found ${months.length})` });
   if (months.length > MAX_HISTORY_MONTHS) errors.push({ row: null, column: "month", message: `at most ${MAX_HISTORY_MONTHS} months are allowed (found ${months.length})` });
   return errors;

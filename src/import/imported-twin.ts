@@ -44,14 +44,21 @@ export function buildImportedTwin(payload: ImportPayload): ImportedTwin {
   const counts = payload.reasonCounts;
   const feedbackRows = counts ? SEGMENTS.reduce((s, seg) => s + counts[seg].price + counts[seg].other, 0) : 0;
   const e = payload.economics;
-  const twin = buildTwinFromHistory({
-    history,
-    economics: { listPrice: e.listPrice, unitCost: e.unitCost, shippingCost: e.shippingCost, paymentFeeRate: e.paymentFeeRate, paymentFeeFixed: e.paymentFeeFixed },
-    profile: { id: IMPORTED_MERCHANT_ID, name: e.merchantName, description: "Imported from your CSV for simulation only.", planName: e.planName },
-    asOfMonth: lastMonth,
-    source: "csv",
-    ...(counts && feedbackRows > 0 ? { reasonCounts: counts } : {}),
-  });
+  let twin: MerchantTwin;
+  try {
+    twin = buildTwinFromHistory({
+      history,
+      economics: { listPrice: e.listPrice, unitCost: e.unitCost, shippingCost: e.shippingCost, paymentFeeRate: e.paymentFeeRate, paymentFeeFixed: e.paymentFeeFixed },
+      profile: { id: IMPORTED_MERCHANT_ID, name: e.merchantName, description: "Imported from your CSV for simulation only.", planName: e.planName },
+      asOfMonth: lastMonth,
+      source: "csv",
+      ...(counts && feedbackRows > 0 ? { reasonCounts: counts } : {}),
+    });
+  } catch (error) {
+    // The builder's input guards throw RangeError; report them like any other file-level error.
+    if (error instanceof RangeError) return { ok: false, errors: capErrors([{ row: null, column: null, message: error.message }]) };
+    throw error;
+  }
   return { ok: true, twin, history, reasonTargeting: feedbackRows > 0, feedbackRows, months: months.length, firstMonth, lastMonth };
 }
 

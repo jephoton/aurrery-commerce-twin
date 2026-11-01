@@ -52,3 +52,18 @@ it("recognises price-reason strategies", () => {
   expect(usesReasonTargeting({ id: "a", name: "a", intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3, campaignMonths: 0 } })).toBe(true);
   expect(usesReasonTargeting({ id: "b", name: "b", intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3, campaignMonths: 6 } })).toBe(false);
 });
+it("turns a builder RangeError into a file-level error instead of throwing", () => {
+  // Bypasses the payload schema on purpose: the builder is the backstop for malformed reason counts.
+  const built = buildImportedTwin({ ...payload(), reasonCounts: { new: zero, core: zero, price_sensitive: zero, at_risk: zero, cancel_intent: { price: 1.5, other: 0 } } });
+  expect(built.ok).toBe(false);
+  if (built.ok) return;
+  expect(built.errors).toEqual([{ row: null, column: null, message: "Reason counts for cancel_intent must be non-negative integers." }]);
+});
+it("rejects an all-zero history without building a twin", () => {
+  const empty = payload();
+  for (const t of empty.rows) for (let i = 2; i < t.length; i++) t[i] = 0;
+  const built = buildImportedTwin(empty);
+  expect(built.ok).toBe(false);
+  if (built.ok) return;
+  expect(built.errors.map(formatRowError)).toEqual(["active_start: 2026-09 has no active subscribers (active_start is 0 in every segment); the twin starts from the last month"]);
+});

@@ -25,3 +25,9 @@ it("carries imported details", () => {
   expect(summary.imported).toEqual(imported);
   expect(summary).not.toHaveProperty("observedEvidence");
 });
+it("reports a zero churn rate instead of NaN when the last month starts empty", () => {
+  const { twin, history } = buildDemoTwin();
+  const lastMonth = history.segments.at(-1)!.month;
+  const emptied = { ...history, segments: history.segments.map((r) => (r.month === lastMonth ? { ...r, activeAtStart: 0, voluntaryChurn: 0, involuntaryChurn: 0 } : r)) };
+  expect(summarizeMerchant(twin, emptied).lastMonthChurnRate).toBe(0);
+});
