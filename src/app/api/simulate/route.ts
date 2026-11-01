@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { observedMerchant } from "@/merchant/observed";
 import { toObservedSnapshot } from "@/merchant/observed-snapshot";
-import { ImportPayloadSchema } from "@/import/import-payload";
+import { ImportPayloadSchema, payloadIssues } from "@/import/import-payload";
 import { buildImportedTwin, usesReasonTargeting } from "@/import/imported-twin";
 import { StrategySchema } from "@/twin/interventions";
 import { runComparison } from "@/twin/worker-client";
@@ -18,8 +18,11 @@ const BodySchema = z.object({
       seed: z.number().int().optional(),
     })
     .optional(),
-  /** An imported merchant (M6): the twin is rebuilt from this payload for this request only. */
-  import: ImportPayloadSchema.optional(),
+  /**
+   * An imported merchant (M6): the twin is rebuilt from this payload for this request only. Parsed
+   * separately so errors name rows and columns only, never client-sent keys.
+   */
+  import: z.unknown().optional(),
 });
 
 export async function POST(request: Request) {
@@ -28,9 +31,11 @@ export async function POST(request: Request) {
   try {
     const body = BodySchema.parse(await readBoundedJson(request));
     const options = { ...body.options, runs: cappedSimulationRuns(body.options?.runs) };
-    if (body.import) {
+    if (body.import !== undefined) {
       // Simulate only: never reads Ridgeline's observed ledger evidence (discount outcomes or annual offers).
-      const built = buildImportedTwin(body.import);
+      const payload = ImportPayloadSchema.safeParse(body.import);
+      if (!payload.success) return invalidImportResponse(payloadIssues(payload.error));
+      const built = buildImportedTwin(payload.data);
       if (!built.ok) return invalidImportResponse(built.errors);
       if (!built.reasonTargeting && body.strategies.some(usesReasonTargeting)) return reasonUnavailableResponse();
       const comparison = await runComparison(built.twin, body.strategies, options, { signal: request.signal });

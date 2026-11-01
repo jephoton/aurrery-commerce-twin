@@ -114,9 +114,23 @@ describe("imported merchant simulation", () => {
     expect(reads).toEqual({ discount: 0, annual: 0 });
   });
 
-  it("rejects an import that breaks the schema", async () => {
+  it("rejects an import that breaks the schema without echoing client-sent keys", async () => {
     reset();
-    expect((await post({ strategies: [STARTER_STRATEGIES[0]], options, import: { ...samplePayload(), extra: true } })).status).toBe(400);
+    const secretKey = "customer_jane_doe_extra";
+    const sample = samplePayload();
+    for (const value of [{ ...sample, [secretKey]: true }, { ...sample, economics: { ...sample.economics, [secretKey]: 1 } }]) {
+      const response = await post({ strategies: [STARTER_STRATEGIES[0]], options, import: value });
+      expect(response.status).toBe(400);
+      const text = await response.text();
+      expect(text).not.toContain(secretKey);
+      const json = JSON.parse(text);
+      expect(json.error).toBe("INVALID_IMPORT");
+      expect(json.errors).toHaveLength(1);
+      expect(json.errors[0].message).toBe("unexpected field");
+    }
+    const nullImport = await post({ strategies: [STARTER_STRATEGIES[0]], options, import: null });
+    expect(nullImport.status).toBe(400);
+    expect((await nullImport.json()).error).toBe("INVALID_IMPORT");
     expect(reads).toEqual({ discount: 0, annual: 0 });
   });
 });
