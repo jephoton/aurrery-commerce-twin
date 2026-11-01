@@ -229,6 +229,12 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `AGENT_INSTRUCTION` drops "annual plans are simulation only" and says an annual offer needs each subscriber's approval in PayPal. Recorded Gemini and Groq replays still parse and pass; annual agent tests inject `propose` (no PayPal).
   - Verification: 1134 tests pass, typecheck and lint clean.
   - **Next:** Task 18 (done after Task 19).
+- **Task 18 done ("Annual offers" panel and yearly pilots).**
+  - New `AnnualOffersPanel` (rendered by `Lab` above the recovery panel): per-target subscriber, segment, status and window close (UTC) for everyone, plus accepted/declined/awaiting counts. Status wording never calls a link dead: "Offer window closed · declined" or "· awaiting final check". Unregistered subscribers fall back to the subscription id.
+  - Administrators also see display-only draft customer messages (read-only textarea, Copy copies the raw message) fetched on the client from `GET /api/annual-offers/links`; nothing is server-rendered, and visitors never fetch. Drafts are keyed to the status refresh and pending set, so each refetch or failure hides previous links at once, only still-pending offers show, and each draft drops when its window closes. A 401 asks the administrator to sign in again.
+  - A failed or rate-limited status read shows "Offer status unavailable" instead of hiding the panel or showing stale rows. The pilot table now shows "/yr" for subscribers on the offered annual plan (`live.annualPlan`) and "/mo" otherwise.
+  - New `annual-offers-view.test.ts` (13 tests). Verification: 1147 tests pass, typecheck and lint clean.
+  - **Next:** Task 20.
 
 ## M5 complete and published
 
