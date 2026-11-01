@@ -58,26 +58,54 @@ export function offerCounts(offers: Pick<AnnualOfferView, "outcome">[]) {
 /** One display-only draft from GET /api/annual-offers/links (administrators only). Its message carries a secret link. */
 export interface OfferDraft { id: number; subscriptionId: string; label: string | null; expiresAt: string; message: string }
 
+/** A draft whose window closed while on screen: only its name is kept, never the message or link. */
+export interface ClosedDraft { id: number; name: string }
+
 /** Drafts (or the failure) recorded against the fetch key they were requested for. */
-export interface FetchedDrafts { key: string; drafts: OfferDraft[] | null; error: string | null }
+export interface FetchedDrafts { key: string; drafts: OfferDraft[] | null; closed: ClosedDraft[]; error: string | null }
+
+/** A draft's display name: its label, then the cohort label, then the subscription id. */
+export const draftName = (draft: Pick<OfferDraft, "label" | "subscriptionId">, labels: Record<string, string>) =>
+  draft.label ?? labels[draft.subscriptionId] ?? draft.subscriptionId;
 
 /**
- * Identifies one drafts fetch: a new status refresh or a changed pending set is a new fetch. Empty means
- * fetch nothing: visitors, an unreadable status, or no pending offer (decision 5: links only while pending).
+ * Identifies one drafts fetch: a new status refresh, a changed pending set or any administrator access change
+ * (sign-in or sign-out) is a new fetch. Empty means fetch nothing: visitors, an unreadable status, or no pending
+ * offer (decision 5: links only while pending).
  */
-export function draftsFetchKey(input: { canReview: boolean; unavailable: boolean; revision: number; offers: Pick<AnnualOfferView, "id" | "status">[] }): string {
+export function draftsFetchKey(input: {
+  canReview: boolean; unavailable: boolean; revision: number; accessEpoch: number; offers: Pick<AnnualOfferView, "id" | "status">[];
+}): string {
   const pending = input.offers.filter((offer) => offer.status === "pending").map((offer) => offer.id).join(",");
-  return input.canReview && !input.unavailable && pending ? `${input.revision}:${pending}` : "";
+  return input.canReview && !input.unavailable && pending ? `${input.accessEpoch}.${input.revision}:${pending}` : "";
 }
 
+const pendingIds = (offers: Pick<AnnualOfferView, "id" | "status">[]) =>
+  new Set(offers.filter((offer) => offer.status === "pending").map((offer) => offer.id));
+
 /**
- * Drafts safe to show now: fetched for exactly the current key (so a refetch or failure hides the previous
- * links at once) and still pending in the latest status read.
+ * Drafts safe to show now: fetched for exactly the current key (so a refetch, failure or access change hides
+ * the previous links at once) and still pending in the latest status read.
  */
 export function visibleDrafts(fetched: FetchedDrafts | null, key: string, offers: Pick<AnnualOfferView, "id" | "status">[]): OfferDraft[] {
   if (!key || !fetched || fetched.key !== key || !fetched.drafts) return [];
-  const pending = new Set(offers.filter((offer) => offer.status === "pending").map((offer) => offer.id));
+  const pending = pendingIds(offers);
   return fetched.drafts.filter((draft) => pending.has(draft.id));
+}
+
+/** Drafts whose window closed on screen and whose offer the latest status read still calls pending. */
+export function closedDrafts(fetched: FetchedDrafts | null, key: string, offers: Pick<AnnualOfferView, "id" | "status">[]): ClosedDraft[] {
+  if (!key || !fetched || fetched.key !== key) return [];
+  const pending = pendingIds(offers);
+  return fetched.closed.filter((draft) => pending.has(draft.id));
+}
+
+/** Splits drafts at `nowMs`: closed ones keep only a name. `nextCloseAt` is the next open draft's window close. */
+export function pruneDrafts(drafts: OfferDraft[], closed: ClosedDraft[], nowMs: number, labels: Record<string, string>) {
+  const open = drafts.filter((draft) => Date.parse(draft.expiresAt) > nowMs);
+  const newlyClosed = drafts.filter((draft) => !open.includes(draft)).map((draft) => ({ id: draft.id, name: draftName(draft, labels) }));
+  const nextCloseAt = open.length ? Math.min(...open.map((draft) => Date.parse(draft.expiresAt))) : null;
+  return { open, closed: [...closed, ...newlyClosed], nextCloseAt };
 }
 
 /** A 401 means the administrator session ended; anything else is a fixed, link-free message. */

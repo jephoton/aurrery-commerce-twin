@@ -76,6 +76,8 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
   // Each successful status read bumps the revision (the offers panel refetches drafts); a failed or rate-limited read marks it unavailable.
   const [statusRead, setStatusRead] = useState({ revision: 0, unavailable: false });
   const [access, setAccess] = useState<AccessState | null>(null);
+  // Bumped on every sign-in or sign-out so the offers panel never shows drafts from an earlier session.
+  const [accessEpoch, setAccessEpoch] = useState(0);
   // Raw text while typing, so the field can be cleared and retyped; clamped on blur and when proposing.
   const [offerWindowInput, setOfferWindowInput] = useState(String(DEFAULT_OFFER_WINDOW_DAYS));
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
@@ -190,7 +192,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
       </header>
 
       {error && <div role="alert" className="mb-4 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">{error}</div>}
-      <AdminAccess state={access} onChange={(value) => { setAccess(value); setConfirmed(false); }} />
+      <AdminAccess state={access} onChange={(value) => { setAccess(value); setAccessEpoch((epoch) => epoch + 1); setConfirmed(false); }} />
 
       <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} recommended={isHeadlinePick && headline.recommended} noQualifyingAction={isHeadlinePick && !headline.recommended} biggerLevers={isHeadlinePick ? headline.biggerLevers : []} alsoExecutable={isHeadlinePick ? headline.alsoExecutable : []} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
 
@@ -349,6 +351,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
         canReview={canReviewAccess(access)}
         unavailable={statusRead.unavailable}
         revision={statusRead.revision}
+        accessEpoch={accessEpoch}
       />
 
       <RecoveryPanel canReview={canReviewAccess(access)} paypalConfigured={!!paypal?.configured} onObservedChange={refreshPayPal} />
@@ -386,7 +389,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
                   </td>
                   <td className="max-w-48 break-all font-mono">{s.subscriptionId}</td>
                   <td>{s.live?.status ?? s.error ?? "—"}</td>
-                  <td>{s.live ? (s.live.regularPrice ? `$${s.live.regularPrice}${s.live.annualPlan ? "/yr" : "/mo"}${s.live.planOverridden ? " (override)" : ""}` : `$${summary.listPrice.toFixed(2)}/mo (plan)`) : "—"}</td>
+                  <td>{s.live ? (s.live.regularPrice ? `$${s.live.regularPrice}${s.live.annualPlan ? "/yr" : "/mo"}${s.live.planOverridden ? " (override)" : ""}` : s.live.annualPlan ? "Annual plan" : `$${summary.listPrice.toFixed(2)}/mo (plan)`) : "—"}</td>
                   <td>{s.live?.nextBillingTime?.slice(0, 10) ?? "—"}</td>
                 </tr>
               ))}
