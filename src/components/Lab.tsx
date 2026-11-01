@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { AgentEvent } from "@/agent/contracts";
 import type { ExecutionReport } from "@/execution/execute";
 import { outcomeStatusText } from "@/execution/outcomes";
@@ -13,7 +13,7 @@ import type { ParameterChange } from "@/twin/calibrate";
 import { FanChart } from "./FanChart";
 import { ScenarioGrid, toRows } from "./ScenarioGrid";
 import { AgentPanel } from "./AgentPanel";
-import { dashboardReducer, emptyDashboard, liveAnnualFromTwin, type LiveAnnual } from "./lab-state";
+import { dashboardReducer, emptyDashboard, liveAnnualFromStatus, type LiveAnnual } from "./lab-state";
 import { DecisionSummary } from "./DecisionSummary";
 import { EvidencePanel } from "./EvidencePanel";
 import { MerchantOverview } from "./MerchantOverview";
@@ -69,7 +69,6 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
   const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress, observedSnapshot }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
   const [liveAnnual, setLiveAnnual] = useState<LiveAnnual | null>(null);
-  const annualSeq = useRef(0);
   const [access, setAccess] = useState<AccessState | null>(null);
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,9 +81,9 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
     return api<PayPalStatus>("/api/paypal/status")
       .then((status) => {
         setPayPal(status);
-        // Offer reads append ledger facts, so re-read the annual evidence too. Best effort: a failure keeps the previous evidence.
-        const seq = ++annualSeq.current;
-        api<unknown>("/api/twin").then((body) => { const next = liveAnnualFromTwin(body); if (next && seq === annualSeq.current) setLiveAnnual(next); }).catch(() => {});
+        // The status read appends the offer reads and returns annual evidence built after them. A missing field keeps the previous evidence.
+        const next = liveAnnualFromStatus(status);
+        if (next) setLiveAnnual(next);
         return true;
       })
       .catch((e) => { setError(e.message); return false; });

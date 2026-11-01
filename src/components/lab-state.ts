@@ -58,13 +58,11 @@ export function dashboardReducer(state: DashboardState, action: Action): Dashboa
   }
 }
 
-/** Current annual-offer evidence re-read from the ledger (after a PayPal status refresh). `annual` is undefined when no offer exists yet. It never touches discount evidence or a displayed run. */
-export interface LiveAnnual { annual: AnnualEvidence | undefined }
-/** Reads only the `annual` part of a `GET /api/twin` body. Returns null for an unusable body, so the previous evidence stays. */
-export function liveAnnualFromTwin(body: unknown): LiveAnnual | null {
+/** Current annual-offer evidence from the guarded PayPal status read. `annual` is the evidence itself. It never touches discount evidence or a displayed run. */
+export interface LiveAnnual { annual: AnnualEvidence }
+/** Reads only `annualEvidence` from a `GET /api/paypal/status` body. A missing or unusable field returns null, so the previous evidence stays. */
+export function liveAnnualFromStatus(body: unknown): LiveAnnual | null {
   if (typeof body !== "object" || body === null) return null;
-  const raw = (body as { annual?: unknown }).annual;
-  if (raw === undefined || raw === null) return { annual: undefined };
-  const parsed = AnnualEvidenceSchema.safeParse(raw);
+  const parsed = AnnualEvidenceSchema.safeParse((body as { annualEvidence?: unknown }).annualEvidence);
   return parsed.success ? { annual: parsed.data } : null;
 }

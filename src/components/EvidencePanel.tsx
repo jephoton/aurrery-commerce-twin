@@ -17,7 +17,7 @@ export function EvidencePanel({ summary, evidence, source, snapshot, liveAnnual 
   const provenance = snapshot?.provenance ?? (source ? {} : summary.provenance);
   const measured = snapshot?.evidence ?? (source ? undefined : summary.observedEvidence);
   const changes = snapshot?.changes ?? (source ? undefined : summary.parameterChanges);
-  const annual = liveAnnual ? liveAnnual.annual : snapshot ? snapshot.annual : source ? undefined : summary.annualEvidence;
+  const annual = liveAnnual?.annual ?? (snapshot ? snapshot.annual : source ? undefined : summary.annualEvidence);
   return (
     <aside className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="evidence-title">
       <p className="eyebrow">Evidence record</p>
@@ -50,7 +50,7 @@ export function EvidencePanel({ summary, evidence, source, snapshot, liveAnnual 
         {changes?.length ? <ul className="mt-2 space-y-1">{changes.map(change => <li key={change.parameter}>{change.parameter}: mean {change.before.mean.toFixed(4)} → {change.after.mean.toFixed(4)} · {change.evidence}</li>)}</ul> : <p className="mt-1">No measured effect parameter changes. A price override alone is not retention evidence.</p>}
         <p className="mt-2 text-muted">{measured.limitation}</p>
       </div>}
-      {annual && <AnnualOfferEvidence annual={annual} segments={summary.segments} />}
+      {annual && <AnnualOfferEvidence annual={annual} segments={summary.segments} live={!!liveAnnual} runDisplayed={!!snapshot} />}
       {source && !snapshot && <p className="mt-3 text-sm text-muted">Measured evidence snapshot unavailable for this run.</p>}
       <p className="mt-3 text-sm text-muted">{source === "manual" ? "Canonical synthetic twin estimates with separately measured sandbox effects and registered pilots." : classified ? "Classified synthetic feedback updates reason estimates; measured effects, historical estimates and intervention assumptions remain distinct." : "Current synthetic history, measured sandbox effects and model assumptions."}</p>
       <details className="mt-4 border-t border-border pt-3 text-sm">
@@ -63,13 +63,14 @@ export function EvidencePanel({ summary, evidence, source, snapshot, liveAnnual 
   );
 }
 
-function AnnualOfferEvidence({ annual, segments }: { annual: AnnualEvidence; segments: MerchantSummary["segments"] }) {
+function AnnualOfferEvidence({ annual, segments, live, runDisplayed }: { annual: AnnualEvidence; segments: MerchantSummary["segments"]; live: boolean; runDisplayed: boolean }) {
   const label = (id: string) => segments.find((segment) => segment.id === id)?.label ?? id.replaceAll("_", " ");
   const total = (key: "accepted" | "declined" | "unresolved") => annual.offers.reduce((sum, offer) => sum + offer[key], 0);
   return (
-    <div className="mt-3 rounded-lg border border-border bg-background p-4 text-sm">
-      <h4 className="font-medium">Annual offers</h4>
-      <p className="mt-1">{total("accepted")} accepted · {total("declined")} declined · {total("unresolved")} awaiting decision or final check</p>
+    <section className="mt-3 rounded-lg border border-border bg-background p-4 text-sm" aria-labelledby="annual-offers-title">
+      <h4 id="annual-offers-title" className="font-medium">Annual offers</h4>
+      {live && <p className="mt-1 text-muted">Current ledger, updated by the latest PayPal check.{runDisplayed && " The displayed run used the evidence snapshot above."}</p>}
+      <p className="mt-1" aria-live="polite">{total("accepted")} accepted · {total("declined")} declined · {total("unresolved")} awaiting decision or final check</p>
       {annual.offers.length > 0 && <ul className="mt-2 space-y-1">{annual.offers.map((offer) => (
         <li key={offer.segment}>{label(offer.segment)}: {offer.accepted} accepted · {offer.declined} declined · {offer.unresolved} awaiting decision or final check</li>
       ))}</ul>}
@@ -77,6 +78,6 @@ function AnnualOfferEvidence({ annual, segments }: { annual: AnnualEvidence; seg
         ? <ul className="mt-2 space-y-1">{annual.changes.map((change) => <li key={change.parameter}>{change.parameter}: mean {change.before.mean.toFixed(4)} → {change.after.mean.toFixed(4)} · {change.evidence}</li>)}</ul>
         : <p className="mt-1">No uptake estimate has changed: only switched or confirmed-declined offers update it.</p>}
       <p className="mt-2 text-muted">{annual.limitation}</p>
-    </div>
+    </section>
   );
 }

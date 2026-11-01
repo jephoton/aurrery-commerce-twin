@@ -64,6 +64,15 @@ it("appends a read per offer on each successful GET and reports the switch witho
   for (const at of observedAt()) expect(at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 });
 
+it("returns annual evidence counts, uptake changes and limitation built after the offer reads, with no link", async () => {
+  mocks.getSubscription.mockImplementation(async (id: string) => live(id, FIXTURE_ANNUAL_PLAN));
+  const body = await status();
+  expect(body.annualEvidence.offers).toEqual([expect.objectContaining({ segment: expect.any(String), accepted: 1, declined: 0, unresolved: 0 })]);
+  expect(body.annualEvidence.changes).toEqual([expect.objectContaining({ parameter: expect.stringMatching(/^segments\..+\.annualUptake$/) })]);
+  expect(body.annualEvidence.limitation).toContain("not a randomized uptake estimate");
+  expect(JSON.stringify(body.annualEvidence)).not.toMatch(/ba_token|BA-FIXTURE|paypal\.com|approval|https?:/i);
+});
+
 it("records nothing for a failed GET and keeps the offer pending", async () => {
   mocks.getSubscription.mockResolvedValue({ ok: false, error: { httpStatus: 503, name: "UNAVAILABLE", message: "down", debugId: null, details: null } });
   const body = await status();

@@ -1,6 +1,6 @@
 import type { ComparisonResult } from "@/twin/simulate";
 import { expect, it } from "vitest";
-import { dashboardReducer, emptyDashboard, liveAnnualFromTwin } from "./lab-state";
+import { dashboardReducer, emptyDashboard, liveAnnualFromStatus } from "./lab-state";
 import { compareStrategies } from "@/twin/simulate";
 import { buildDemoTwin } from "@/merchant/demo";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
@@ -130,11 +130,12 @@ it("headlines the best executable strategy after a manual comparison, not a high
   expect(dashboardReducer(emptyDashboard, { type: "comparison", comparison: manual, source: "manual" }).selectedId).toBe("save");
 });
 
-it("reads only the annual part of a twin response and keeps the previous evidence on an unusable body", () => {
+it("reads only annualEvidence from a status response and keeps the previous evidence when it is missing or unusable", () => {
   const annual = { offers: [{ segment: "core", accepted: 1, declined: 0, unresolved: 0 }], changes: [], limitation: "Fixture" };
-  expect(liveAnnualFromTwin({ annual, evidence: { episodes: 9 }, changes: [{ ignored: true }] })).toEqual({ annual });
-  expect(liveAnnualFromTwin({ evidence: {} })).toEqual({ annual: undefined });
-  expect(liveAnnualFromTwin({ annual: { offers: "bad" } })).toBeNull();
-  expect(liveAnnualFromTwin(null)).toBeNull();
-  expect(liveAnnualFromTwin("x")).toBeNull();
+  expect(liveAnnualFromStatus({ annualEvidence: annual, subscriptions: [], annualOffers: [{ ignored: true }] })).toEqual({ annual });
+  expect(liveAnnualFromStatus({ subscriptions: [] })).toBeNull();
+  expect(liveAnnualFromStatus({ annualEvidence: null })).toBeNull();
+  expect(liveAnnualFromStatus({ annualEvidence: { offers: "bad" } })).toBeNull();
+  expect(liveAnnualFromStatus(null)).toBeNull();
+  expect(liveAnnualFromStatus("x")).toBeNull();
 });

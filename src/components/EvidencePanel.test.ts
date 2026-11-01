@@ -109,3 +109,29 @@ it("shows page-load annual evidence with no run, and live evidence over it witho
   expect(run).toContain("Evidence snapshot used for this run.");
   expect(run).toContain("1 accepted · 0 declined · 0 awaiting decision or final check");
 });
+
+it("counts awaiting offers in the total and per segment, including a two-segment case", () => {
+  const mixed = { offers: [{ segment: "core" as const, accepted: 1, declined: 0, unresolved: 1 }], changes: [], limitation: "Annual limitation." };
+  const html = renderToStaticMarkup(createElement(EvidencePanel, { summary, evidence: null, source: "manual", snapshot: { ...initialSnapshot, annual: mixed } }));
+  expect(html).toContain("1 accepted · 0 declined · 1 awaiting decision or final check");
+  expect(html).toContain("core: 1 accepted · 0 declined · 1 awaiting decision or final check");
+  const two = { offers: [{ segment: "core" as const, accepted: 1, declined: 0, unresolved: 0 }, { segment: "cancel_intent" as const, accepted: 0, declined: 0, unresolved: 2 }], changes: [], limitation: "Annual limitation." };
+  const twoHtml = renderToStaticMarkup(createElement(EvidencePanel, { summary, evidence: null, source: null, liveAnnual: { annual: two } }));
+  expect(twoHtml).toContain("1 accepted · 0 declined · 2 awaiting decision or final check");
+  expect(twoHtml).toContain("core: 1 accepted · 0 declined · 0 awaiting decision or final check");
+  expect(twoHtml).toContain("Cancel intent: 0 accepted · 0 declined · 2 awaiting decision or final check");
+});
+
+it("labels live annual evidence, mentions the run snapshot only when a run is displayed, and exposes a labelled live region", () => {
+  const live: LiveAnnual = { annual: annualFixture(1) };
+  const noRun = renderToStaticMarkup(createElement(EvidencePanel, { summary, evidence: null, source: null, liveAnnual: live }));
+  expect(noRun).toContain("Current ledger, updated by the latest PayPal check.");
+  expect(noRun).not.toContain("The displayed run used the evidence snapshot above.");
+  expect(noRun).toContain('aria-live="polite"');
+  expect(noRun).toMatch(/<section[^>]*aria-labelledby="annual-offers-title"/);
+  const run = renderToStaticMarkup(createElement(EvidencePanel, { summary, evidence: null, source: "manual", snapshot: initialSnapshot, liveAnnual: live }));
+  expect(run).toContain("Current ledger, updated by the latest PayPal check.");
+  expect(run).toContain("The displayed run used the evidence snapshot above.");
+  const loaded = renderToStaticMarkup(createElement(EvidencePanel, { summary: { ...summary, annualEvidence: annualFixture(0) }, evidence: null, source: null }));
+  expect(loaded).not.toContain("Current ledger, updated by the latest PayPal check.");
+});

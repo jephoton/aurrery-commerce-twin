@@ -7,6 +7,7 @@ import { paypalConfigured } from "@/paypal/client";
 import { getSubscription, type SubscriptionSnapshot } from "@/paypal/subscriptions";
 import { errorResponse } from "../../_lib/http";
 import { admitHostedRequest } from "@/hosting/guard";
+import { observedMerchant } from "@/merchant/observed";
 
 /**
  * Live read of the registered sandbox subscriptions, straight from PayPal. Every successful GET of a
@@ -15,6 +16,8 @@ import { admitHostedRequest } from "@/hosting/guard";
  * read only while one of its offers still needs a read, in the same PayPal round. Failed GETs, and GETs
  * that return a different subscription, record nothing. The payload carries offer status and expiry only,
  * never approval links.
+ * `annualEvidence` (counts, per-segment uptake changes, limitation) is built after those reads from the same ledger
+ * the evidence panel uses, so it never lags the offer table. It is omitted if it cannot be built; the poll itself still succeeds.
  */
 export async function GET(request: Request) {
   await connection();
@@ -53,7 +56,8 @@ export async function GET(request: Request) {
         ])
       : [registered];
     const viewedAt = new Date();
-    return Response.json({ environment: "sandbox", configured, planId: await getSetting("paypal.plan_id"), subscriptions, annualOffers: await listAnnualOfferViews(viewedAt) });
+    const annualEvidence = await observedMerchant().then((merchant) => merchant.annual, () => undefined);
+    return Response.json({ environment: "sandbox", configured, planId: await getSetting("paypal.plan_id"), subscriptions, annualOffers: await listAnnualOfferViews(viewedAt), annualEvidence });
   } catch (e) {
     return errorResponse(e);
   }
