@@ -8,7 +8,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { TargetOutcome } from "@/execution/outcomes";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { buildAnnualOfferAction } from "./annual-offer-action";
-import { createLibsqlConnection, createLocalConnection, initializeLedgerSchema, type LedgerConnection } from "./connection";
+import { createLibsqlConnection, createLocalConnection, initializeLedgerSchema, type LedgerConnection, type LedgerExecutor } from "./connection";
 import { assertCanonicalTargetSchema } from "./import";
 import {
   appendOfferReads, listAnnualOfferLinks, listAnnualOfferViews, listAnnualPlanIds, openOfferSubscriptionIds,
@@ -40,6 +40,18 @@ const issued = (subscriptionId: string): TargetOutcome => ({ subscriptionId, ok:
 const offer = (subscriptionId: string) => ({ proposalId: PROPOSAL, subscriptionId, segment: "core" as const, annualPlanId: ANNUAL, approvalUrl: `${LINK}${subscriptionId.slice(2)}`,
   offeredAt: OFFERED, expiresAt: EXPIRES, request: { subscriptionId, operation: "revise", planId: ANNUAL }, outcome: issued(subscriptionId) });
 const read = (status: string, planId: string | null) => ({ status, planId, debugId: "dbg-read" });
+
+/** Wraps every transaction handle so a test can observe or alter individual statements. */
+function intercept(connection: LedgerConnection, hook: (sql: string, args: readonly unknown[], run: () => ReturnType<LedgerExecutor["execute"]>) => ReturnType<LedgerExecutor["execute"]>): LedgerConnection {
+  return {
+    ...connection,
+    transaction: (callback) => connection.transaction((tx) => {
+      const execute: LedgerExecutor["execute"] = (sql, args = []) => hook(sql, args, () => tx.execute(sql, args));
+      return callback({ execute, query: async (sql, args) => (await execute(sql, args)).rows, executeMultiple: (sql) => tx.executeMultiple(sql) });
+    }),
+  };
+}
+const counts = async (c: LedgerConnection) => Promise.all(["executions", "annual_offers", "audit_events"].map(async (table) => (await c.query(`SELECT COUNT(*) AS n FROM ${table}`))[0].n));
 
 async function withLocal(work: (connection: LedgerConnection) => Promise<void>) {
   const db = new DatabaseSync(":memory:");
@@ -139,6 +151,55 @@ describe("annual offer records", () => {
       await recordAnnualOffer(offer("I-PILOTD"), connection);
       expect(await listAnnualPlanIds(connection)).toEqual(new Set([ANNUAL]));
     } finally { db.close(); }
+  });
+
+  it("rolls back the execution and audit when the offer insert fails after the execution insert", () => withLocal(async (c) => {
+    await recordAnnualOffer(offer("I-PILOTE"), c);
+    const before = await counts(c);
+    await expect(recordAnnualOffer({ ...offer("I-PILOTD"), segment: "vip" as never }, c)).rejects.toThrow();
+    expect(await counts(c)).toEqual(before);
+    expect(await c.query("SELECT target_id FROM executions")).toEqual([{ target_id: "I-PILOTE" }]);
+  }));
+
+  it("refuses an offer row without an id and rolls back", () => withLocal(async (c) => {
+    const missing = intercept(c, async (sql, _args, run) => {
+      const result = await run();
+      return /INSERT INTO annual_offers/.test(sql) ? { rows: result.rows, rowsAffected: result.rowsAffected } : result;
+    });
+    await expect(recordAnnualOffer(offer("I-PILOTD"), missing)).rejects.toThrow(/offer record/i);
+    expect(await counts(c)).toEqual([0, 0, 0]);
+  }));
+
+  it("refuses an offer window that does not end after it opens, and a non-ISO evidence time", () => withLocal(async (c) => {
+    const closed = (expiresAt: string) => ({ ...offer("I-PILOTD"), expiresAt, outcome: { ...issued("I-PILOTD"), offer: { annualPlanId: ANNUAL, expiresAt } } });
+    await expect(recordAnnualOffer(closed(OFFERED), c)).rejects.toThrow(RangeError);
+    await expect(recordAnnualOffer(closed("2026-10-31T00:00:00.000Z"), c)).rejects.toThrow(RangeError);
+    expect(await counts(c)).toEqual([0, 0, 0]);
+    await expect(readAnnualOfferEvidence(c, "2026-11-02")).rejects.toThrow(RangeError);
+    await expect(readAnnualOfferEvidence(c, "Nov 2 2026")).rejects.toThrow(RangeError);
+  }));
+
+  it("reads approval links only for pending offers", () => withLocal(async (c) => {
+    await recordAnnualOffer(offer("I-PILOTD"), c);
+    const pendingId = await recordAnnualOffer(offer("I-PILOTE"), c);
+    await appendOfferReads("I-PILOTD", read("ACTIVE", ANNUAL), "2026-11-01T00:10:00.000Z", c);
+    const secretReads: unknown[][] = [];
+    const watched = intercept(c, (sql, args, run) => { if (/approval_url/.test(sql)) secretReads.push([...args]); return run(); });
+    expect(await listAnnualOfferLinks(new Date("2026-11-02T00:00:00Z"), watched)).toHaveLength(1);
+    expect(secretReads).toEqual([[pendingId]]);
+    secretReads.length = 0;
+    expect(await listAnnualOfferLinks(new Date("2026-11-09T00:00:00Z"), watched)).toEqual([]);
+    expect(secretReads).toEqual([]);
+  }));
+
+  it("rolls back a partial offer write through a checked libSQL connection", async () => {
+    const client = createClient({ url: `file:${join(dir, "libsql-rollback.sqlite")}` });
+    try {
+      const c = createLibsqlConnection(client);
+      await seed(c);
+      await expect(recordAnnualOffer({ ...offer("I-PILOTD"), segment: "vip" as never }, c)).rejects.toThrow();
+      expect(await counts(c)).toEqual([0, 0, 0]);
+    } finally { client.close(); }
   });
 
   it("records offers and reads through a checked libSQL connection", async () => {

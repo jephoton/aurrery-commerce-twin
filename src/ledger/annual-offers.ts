@@ -42,7 +42,10 @@ async function insertExecution(tx: LedgerExecutor, proposalId: string, request: 
 
 /** One transaction: execution record (verified = 0; the switch is verified only by later reads), offer with its secret link, and audit entry. */
 export async function recordAnnualOffer(offer: IssuedOffer, connection?: LedgerConnection): Promise<number> {
-  if (parseIsoInstant(offer.offeredAt) === null || parseIsoInstant(offer.expiresAt) === null) throw new RangeError("Offer times must be ISO-8601 instants.");
+  const offeredMs = parseIsoInstant(offer.offeredAt);
+  const expiresMs = parseIsoInstant(offer.expiresAt);
+  if (offeredMs === null || expiresMs === null) throw new RangeError("Offer times must be ISO-8601 instants.");
+  if (expiresMs <= offeredMs) throw new RangeError("An offer window must end after it opens.");
   const issued = offer.outcome.offer;
   if (!offer.outcome.ok || !issued || offer.outcome.subscriptionId !== offer.subscriptionId ||
     issued.annualPlanId !== offer.annualPlanId || issued.expiresAt !== offer.expiresAt) throw new RangeError("Only an issued offer for this target can be recorded.");
@@ -56,6 +59,7 @@ export async function recordAnnualOffer(offer: IssuedOffer, connection?: LedgerC
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [offer.proposalId, execution.lastInsertRowid, offer.subscriptionId, offer.segment, offer.annualPlanId, offer.approvalUrl, offer.offeredAt, offer.expiresAt],
     );
+    if (inserted.lastInsertRowid === undefined) throw new Error("Offer record was not created.");
     const offerId = Number(inserted.lastInsertRowid);
     await auditOn(tx, "annual_offer.issued", offer.proposalId, { targetId: offer.subscriptionId, offerId, annualPlanId: offer.annualPlanId, expiresAt: offer.expiresAt });
     return offerId;
@@ -127,8 +131,11 @@ export async function listAnnualOfferLinks(at = new Date(), connection?: LedgerC
   return authoritativeWrite(await runtime(connection), async (tx) => {
     const pending = (await offerRecords(tx)).map(({ record, reads }) => offerView(record, reads, at)).filter((view) => view.status === "pending");
     if (pending.length === 0) return [];
+    // Read secrets only for offers whose window is still open.
     const secrets = new Map((await tx.query(
-      "SELECT o.id, o.approval_url, p.action_json FROM annual_offers o JOIN proposals p ON p.id = o.proposal_id ORDER BY o.id",
+      `SELECT o.id, o.approval_url, p.action_json FROM annual_offers o JOIN proposals p ON p.id = o.proposal_id
+       WHERE o.id IN (${pending.map(() => "?").join(", ")}) ORDER BY o.id`,
+      pending.map((view) => view.id),
     )).map((row) => [Number(row.id), row]));
     return pending.map((view) => {
       const row = secrets.get(view.id);
@@ -157,8 +164,9 @@ export async function listAnnualPlanIds(connection?: LedgerConnection): Promise<
 
 /** Per-segment accepted / declined / unresolved counts; only resolved offers feed the twin. */
 export async function readAnnualOfferEvidence(connection?: LedgerConnection, at = new Date().toISOString()): Promise<AnnualOfferEvidence> {
-  const instant = new Date(at);
-  if (Number.isNaN(instant.getTime())) throw new RangeError("Invalid evidence time.");
+  const atMs = parseIsoInstant(at);
+  if (atMs === null) throw new RangeError("Evidence time must be an ISO-8601 instant.");
+  const instant = new Date(atMs);
   return authoritativeWrite(await runtime(connection), async (tx) => ({
     offers: countResolvedOffers((await offerRecords(tx)).map(({ record, reads }) => ({ segment: record.segment, outcome: offerView(record, reads, instant).outcome }))),
     limitation: ANNUAL_OFFER_LIMITATION,
