@@ -216,7 +216,13 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `DecisionSummary` drops "Simulate only" for annual plans, explains that each customer must agree in PayPal and the yearly price starts at their next renewal date, and lists "Also executable within your rules" for the headline pick (`Lab` passes the prop).
   - Default verified against the real starter-strategy simulation (demo twin, default rules): the headline is the annual plan, the price-driven cancel save is also executable, and the list price rise is the only bigger lever. A headline test pins this.
   - Verification: 1113 tests pass, typecheck and lint clean.
-  - **Next:** Task 17.
+- **Task 17 done (annual offer approval card, window input and execution report).**
+  - New `AnnualOfferCard` (rendered by `Lab`'s `ProposalCard` for `annual_plan_offer`): yearly price ("$X/yr, N% off $Y/mo x 12"), product and currency, monthly-to-yearly switch, offer window, targets with labels and segments, simulated value, status, payload hash, PayPal operation details, and the statements that each customer must agree in PayPal, the yearly price starts at each subscriber's next renewal date, switched customers can't be moved back automatically, and offers close only when their window ends. Unchecked confirmation; "Approve & issue offers" needs confirmation, administrator access and PayPal. No links are rendered.
+  - `Lab`: the approval panel now gates on `isExecutableIntervention` (was `targeted_discount` only). Annual strategies get an offer-window input (whole days 1-30, default 7); `proposalBody` sends `offerWindowDays` only for annual strategies.
+  - Execution report: `outcomeCells` (new `annual-offers-view.ts`, with `formatUtc` and `clampOfferWindowDays`) shows an issued offer as "Offer issued, window closes <UTC>" and "customer decides", never "verified: no"; a refused annual target shows its reason (error before read-back status) and "no offer" (or "unconfirmed" for a non-definitive HTTP status). Annual reports also show `reportSummary` (offers issued of targets). Discount rows are unchanged.
+  - Task 16 review follow-up (separate commit): `DecisionSummary` now says "Can be sent as an offer..." so it cannot contradict "No executable strategy meets the decision rules", and the "Also executable" list shows simulated discount cost beside discount strategies only.
+  - Verification: 1127 tests pass, typecheck and lint clean.
+  - **Next:** Task 18.
 
 ## M5 complete and published
 
