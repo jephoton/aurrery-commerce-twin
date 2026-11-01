@@ -67,8 +67,8 @@ function AnnualOfferEvidence({ annual, segments, live, runDisplayed }: { annual:
   const label = (id: string) => segments.find((segment) => segment.id === id)?.label ?? id.replaceAll("_", " ");
   const total = (key: "accepted" | "declined" | "unresolved") => annual.offers.reduce((sum, offer) => sum + offer[key], 0);
   return (
-    <section className="mt-3 rounded-lg border border-border bg-background p-4 text-sm" aria-labelledby="annual-offers-title">
-      <h4 id="annual-offers-title" className="font-medium">Annual offers</h4>
+    <section className="mt-3 rounded-lg border border-border bg-background p-4 text-sm" aria-labelledby="annual-evidence-title">
+      <h4 id="annual-evidence-title" className="font-medium">Annual offers</h4>
       {live && <p className="mt-1 text-muted">Current ledger, updated by the latest PayPal check.{runDisplayed && " The displayed run used the evidence snapshot above."}</p>}
       <p className="mt-1" aria-live="polite">{total("accepted")} accepted · {total("declined")} declined · {total("unresolved")} awaiting decision or final check</p>
       {annual.offers.length > 0 && <ul className="mt-2 space-y-1">{annual.offers.map((offer) => (

@@ -128,7 +128,10 @@ it("labels live annual evidence, mentions the run snapshot only when a run is di
   expect(noRun).toContain("Current ledger, updated by the latest PayPal check.");
   expect(noRun).not.toContain("The displayed run used the evidence snapshot above.");
   expect(noRun).toContain('aria-live="polite"');
-  expect(noRun).toMatch(/<section[^>]*aria-labelledby="annual-offers-title"/);
+  // Its own id: the annual offers panel on the same page uses annual-offers-title.
+  expect(noRun).toMatch(/<section[^>]*aria-labelledby="annual-evidence-title"/);
+  expect(noRun).toContain('id="annual-evidence-title"');
+  expect(noRun).not.toContain("annual-offers-title");
   const run = renderToStaticMarkup(createElement(EvidencePanel, { summary, evidence: null, source: "manual", snapshot: initialSnapshot, liveAnnual: live }));
   expect(run).toContain("Current ledger, updated by the latest PayPal check.");
   expect(run).toContain("The displayed run used the evidence snapshot above.");
