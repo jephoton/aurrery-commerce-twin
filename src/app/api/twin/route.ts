@@ -5,7 +5,7 @@ import { errorResponse } from "../_lib/http";
 export async function GET() {
   await connection();
   try {
-    const { twin, history, evidence, changes } = await observedMerchant();
-    return Response.json({ twin, history, evidence, changes, dataLabel: "Synthetic demo history with separately measured sandbox evidence" });
+    const { twin, history, evidence, changes, annual } = await observedMerchant();
+    return Response.json({ twin, history, evidence, changes, annual, dataLabel: "Synthetic demo history with separately measured sandbox evidence" });
   } catch (error) { return errorResponse(error); }
 }

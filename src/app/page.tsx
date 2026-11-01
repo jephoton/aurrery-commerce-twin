@@ -13,7 +13,7 @@ export default function Home() {
 
 async function ObservedHome() {
   await connection();
-  const { twin, history, evidence, changes } = await observedMerchant();
+  const { twin, history, evidence, changes, annual } = await observedMerchant();
   const lastMonth = history.segments.at(-1)!.month;
   const recent = history.segments.filter((r) => r.month === lastMonth);
   const startActive = recent.reduce((s, r) => s + r.activeAtStart, 0);
@@ -38,6 +38,7 @@ async function ObservedHome() {
     provenance: twin.provenance,
     observedEvidence: evidence,
     parameterChanges: changes,
+    annualEvidence: annual,
   };
 
   return <Lab summary={summary} starterStrategies={STARTER_STRATEGIES} simulationRuns={simulationRuns()} />;

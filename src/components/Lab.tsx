@@ -6,7 +6,7 @@ import type { ExecutionReport } from "@/execution/execute";
 import { outcomeStatusText } from "@/execution/outcomes";
 import type { Proposal } from "@/ledger/proposals";
 import type { Strategy } from "@/twin/interventions";
-import { ObservedSnapshotSchema, type ObservedComparison } from "@/merchant/observed-snapshot";
+import { ObservedSnapshotSchema, type AnnualEvidence, type ObservedComparison } from "@/merchant/observed-snapshot";
 import type { Provenance, SegmentId } from "@/twin/types";
 import type { DiscountEvidence } from "@/ledger/discount-outcomes";
 import type { ParameterChange } from "@/twin/calibrate";
@@ -36,6 +36,7 @@ export interface MerchantSummary {
   provenance: Record<string, Provenance>;
   observedEvidence?: DiscountEvidence;
   parameterChanges?: ParameterChange[];
+  annualEvidence?: AnnualEvidence;
 }
 
 interface PayPalStatus {

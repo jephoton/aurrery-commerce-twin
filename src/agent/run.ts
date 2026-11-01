@@ -3,7 +3,7 @@ import { observedMerchant } from "@/merchant/observed";
 import type { MerchantTwin } from "@/twin/types";
 import type { DiscountEvidence } from "@/ledger/discount-outcomes";
 import type { ParameterChange } from "@/twin/calibrate";
-import { toObservedSnapshot } from "@/merchant/observed-snapshot";
+import { toObservedSnapshot, type AnnualEvidence } from "@/merchant/observed-snapshot";
 import { createProvider } from "@/signals/providers";
 import type { SafeProviderError } from "@/signals/transport";
 import { CLASSIFICATION_INSTRUCTION, CLASSIFICATION_JSON_SCHEMA, modelInputJSON } from "@/signals/prompt";
@@ -26,7 +26,7 @@ export interface RunOptions extends Omit<BudgetOptions, "rateProfile"> {
   lease?: AgentLease;
   toolOptions?: Omit<ToolContextOptions, "objective" | "signal" | "emit" | "provider" | "sleep">;
   createTools?: (options: ToolContextOptions) => ToolBoundary;
-  readMerchant?: () => Promise<{ twin: MerchantTwin; evidence?: DiscountEvidence; changes?: ParameterChange[] }>;
+  readMerchant?: () => Promise<{ twin: MerchantTwin; evidence?: DiscountEvidence; changes?: ParameterChange[]; annual?: AnnualEvidence }>;
 }
 export type RunReason = "COMPLETE" | "NO_PROPOSAL" | "TOOL_LIMIT" | "TURN_LIMIT" | "PROTOCOL" | "QUOTA" | "PROVIDER_FAILED" | "CLASSIFICATION_FAILED" | "CONFIGURATION" | "INVALID_OBJECTIVE" | "FAILED" | "BUSY" | "CANCELLED" | "DEADLINE" | "TOKEN_LIMIT";
 export interface RunResult {
@@ -88,9 +88,9 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
       } : { messages: [{ role: "system", content: CLASSIFICATION_INSTRUCTION }, { role: "user", content: modelInputJSON(inputs) }], stream: false, max_completion_tokens: 4096, reasoning_effort: "low", response_format: { type: "json_schema", json_schema: { name: "feedback", strict: true, schema: CLASSIFICATION_JSON_SCHEMA } }, model: modelName });
       return classifier.classify(inputs);
     } };
-    const view = options.toolOptions?.twin ? { twin: options.toolOptions.twin, evidence: undefined, changes: undefined } : await (options.readMerchant ?? observedMerchant)();
+    const view = options.toolOptions?.twin ? { twin: options.toolOptions.twin, evidence: undefined, changes: undefined, annual: undefined } : await (options.readMerchant ?? observedMerchant)();
     budget.check();
-    if (view.evidence && view.changes) emit({ type: "observed_snapshot", snapshot: toObservedSnapshot({ twin: view.twin, evidence: view.evidence, changes: view.changes }) });
+    if (view.evidence && view.changes) emit({ type: "observed_snapshot", snapshot: toObservedSnapshot({ twin: view.twin, evidence: view.evidence, changes: view.changes, annual: view.annual }) });
     tools = (options.createTools ?? createToolContext)({ ...options.toolOptions, twin: view.twin, objective, signal: budget.signal, emit, provider, sleep: budget.sleep, propose(input) {
       budget!.check();
       return (options.toolOptions?.propose ?? createProposal)(input);

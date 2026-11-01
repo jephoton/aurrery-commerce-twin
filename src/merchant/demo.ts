@@ -129,7 +129,7 @@ export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
     transitions: est("Beta posteriors of observed segment moves.", rows.length),
     churnPriceElasticity: assume("No price changes in history, so price sensitivity is a prior, not an estimate."),
     acquisitionPriceElasticity: assume("Prior on how signups respond to list price."),
-    annualUptake: assume("Prior on annual-plan uptake when offered; no annual plan has been tried."),
+    annualUptake: assume("Prior on annual-plan uptake when offered, per segment. Segments with resolved sandbox offers show their own observed row."),
     "offerChurnRelativeRisk.price": assume("Prior that a retention discount cuts churn to ~45% of normal for price-driven leavers (wide); updated from observed outcomes. The modelled effect does not scale with discount depth: deeper discounts cost more without retaining more."),
     "offerChurnRelativeRisk.other": assume("Prior that a retention discount cuts churn to ~85% of normal for other leavers (sd 0.10, allowing a small chance of no benefit); updated from observed outcomes. The modelled effect does not scale with discount depth: deeper discounts cost more without retaining more."),
     priceReasonShare: assume("Prior share of price-driven leavers per segment; replaced by classified customer feedback when available. Sets the initial split and acquisitions; only cancel intent is re-split on entry, so other segments drift."),
