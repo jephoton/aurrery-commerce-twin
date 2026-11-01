@@ -165,6 +165,16 @@ const annualAction = (proposal: LedgerRow | undefined): AnnualOfferAction | null
 const parseJson = (value: unknown): unknown => { try { return JSON.parse(String(value)); } catch { return undefined; } };
 const PLAN_ID = /^P-[A-Z0-9]+$/;
 const TOKEN_MARKER = /ba_token|ba%5ftoken/i;
+/**
+ * The one refusal whose message may leave the process: it names only a schema table and column,
+ * never a stored value, so an operator can find and remove the copy.
+ */
+export class ApprovalLinkLeakError extends Error {
+  constructor(readonly location: string) {
+    super(`Source ledger stores an approval link outside annual offers (${location})`);
+    this.name = "ApprovalLinkLeakError";
+  }
+}
 type RecordedOutcome = { ok?: unknown; subscriptionId?: unknown; offer?: { annualPlanId?: unknown; expiresAt?: unknown } };
 
 /** Annual offers, their reads and revise records; then decision 0008's rule that approval links live only in annual_offers.approval_url. */
@@ -175,14 +185,14 @@ function validateAnnualOffers(tables: TableSnapshot[], of: (table: TableName) =>
     const execution = of("executions").find((candidate) => candidate.id === row.execution_id);
     const action = annualAction(proposal);
     const target = action?.targets.find((candidate) => candidate.subscriptionId === row.subscription_id);
-    // offerExpiry accepts only a strict ISO instant, so `expected` also proves offered_at; equality then proves expires_at.
+    // offerExpiry accepts only a strict ISO instant and returns one, so `expected` proves offered_at and equality proves expires_at.
     let expected: string | null = null;
     try { expected = action && typeof row.offered_at === "string" ? offerExpiry(row.offered_at, action.offerWindowDays) : null; } catch { expected = null; }
     const issued = (parseJson(execution?.response_json) ?? {}) as RecordedOutcome;
     if (!proposal || !action || !target || !execution || expected === null || !["executing", "succeeded", "partially_failed"].includes(String(proposal.status)) ||
       !SEGMENTS.includes(String(row.segment) as typeof SEGMENTS[number]) || row.segment !== target.registration.segment ||
       !PLAN_ID.test(String(row.annual_plan_id)) || typeof row.approval_url !== "string" || !isPayPalApprovalUrl(row.approval_url) ||
-      row.expires_at !== expected || parseIsoInstant(String(row.expires_at)) === null ||
+      row.expires_at !== expected ||
       execution.proposal_id !== row.proposal_id || execution.target_id !== row.subscription_id || execution.operation !== ANNUAL_REVISE_OPERATION ||
       Number(execution.ok) !== 1 || Number(execution.verified) !== 0 || execution.created_at !== row.offered_at ||
       issued.ok !== true || issued.subscriptionId !== row.subscription_id ||
@@ -204,19 +214,20 @@ function validateAnnualOffers(tables: TableSnapshot[], of: (table: TableName) =>
       (Number(row.ok) === 1) !== offered || (!offered && outcome.offer !== undefined)) throw new Error("Source annual execution is invalid");
   }
   // Approval links are per-subscriber secrets: refuse any copy of a link, its token or a token marker anywhere else.
-  const secrets = new Set<string>();
+  const found = new Set<string>();
   for (const offer of offers) {
     const link = String(offer.approval_url);
-    secrets.add(link);
-    try { const token = new URL(link).searchParams.get("ba_token"); if (token && token.length >= 8) secrets.add(token); } catch { /* checked above */ }
+    found.add(link);
+    try { const token = new URL(link).searchParams.get("ba_token"); if (token && token.length >= 8) found.add(token); } catch { /* checked above */ }
   }
+  const secrets = [...found];
   for (const { table, rows, columns } of tables) {
     for (const row of rows) {
       for (const column of columns) {
         if (table === "annual_offers" && column === "approval_url") continue;
         const value = row[column];
-        if (typeof value === "string" && (TOKEN_MARKER.test(value) || [...secrets].some((secret) => value.includes(secret))))
-          throw new Error("Source ledger stores an approval link outside annual offers");
+        if (typeof value === "string" && (TOKEN_MARKER.test(value) || secrets.some((secret) => value.includes(secret))))
+          throw new ApprovalLinkLeakError(`${table}.${column}`);
       }
     }
   }

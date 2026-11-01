@@ -7,7 +7,7 @@ import { createClient } from "@libsql/client/http";
 import { createLibsqlConnection, createLocalConnection, createTursoFetch, validateTursoUrl, type LedgerConnection, type LedgerRow } from "./connection";
 import { LEDGER_SCHEMA } from "./db";
 import { authoritativeWrite } from "./operations";
-import { applySnapshot, assertCanonicalTargetSchema, importLedger, rowHash, TABLES, validateRecords, type ImportManifest, type TableSnapshot } from "./import";
+import { applySnapshot, ApprovalLinkLeakError, assertCanonicalTargetSchema, importLedger, rowHash, TABLES, validateRecords, type ImportManifest, type TableSnapshot } from "./import";
 
 type Source = { connection: LedgerConnection; close(): void };
 type ExportOptions = { outputPath: string; sourcePath?: string; source?: LedgerConnection; openSource?: () => Promise<Source> };
@@ -79,7 +79,10 @@ export async function exportLedger(options: ExportOptions): Promise<ImportManife
     // The owned private inode is complete before becoming visible at the final name.
     linkSync(temporary, options.outputPath);
     return manifest;
-  } catch { throw failure(); }
+  } catch (error) {
+    // A misplaced approval link is the one refusal worth naming: its message carries only a table and column.
+    throw error instanceof ApprovalLinkLeakError ? error : failure();
+  }
   finally {
     try { close?.(); } catch { throw failure(); }
     finally {

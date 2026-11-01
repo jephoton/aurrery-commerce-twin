@@ -10,9 +10,17 @@ import { LEDGER_SCHEMA } from "./db";
 import { createProposalRepository, hashAction, PriceOverrideActionSchema, RevertActionSchema } from "./proposals";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { assertCanonicalTargetSchema, importLedger } from "./import";
-import { recordTarget } from "@/execution/execute";
 import { PILOT_COHORT } from "@/paypal/pilot-cohort";
-import { fixtureLink, seedAnnualOffer } from "@/test/annual-offer-fixture";
+import { FIXTURE_ANNUAL_PLAN, FIXTURE_MONTHLY_PLAN, FIXTURE_PRODUCT, fixtureLink, seedAnnualOffer } from "@/test/annual-offer-fixture";
+import { executeAnnualOfferWith, type AnnualDependencies } from "@/execution/annual-offer";
+import { recordObservation, recordTarget } from "@/execution/execute";
+import { ExecutionReconciliationRequired } from "@/execution/outcomes";
+import { currentMerchant } from "@/merchant";
+import { compareStrategies } from "@/twin/simulate";
+import type { PlanSnapshot } from "@/paypal/plans";
+import { AnnualOfferActionSchema } from "./annual-offer-action";
+import { recordAnnualOffer, recordAnnualPlan, recordAnnualTarget } from "./annual-offers";
+import { exportLedger } from "./export";
 
 it.each([false, true])("checks constraint enforcement through SQL introspection when direct PRAGMA is unavailable (disabled=%s)", async (disabled) => {
   const db = new DatabaseSync(":memory:");
@@ -493,11 +501,14 @@ it("prints only counts and hashes when the import CLI dry runs an annual offer l
   expect(output).not.toMatch(/ba_token|BA-FIXTURE|paypal\.com/);
 });
 
+/** Removes the issued offer and fails the proposal, leaving only its annual revise record. */
+const REFUSED = "DELETE FROM annual_offer_reads; DELETE FROM annual_offers; UPDATE proposals SET status='failed'";
+
 it("accepts a refused annual target that carries no offer", async () => {
   const path = join(dir, "annual-refused.sqlite");
   await annualSource(path);
   const source = new DatabaseSync(path);
-  source.exec(`DELETE FROM annual_offer_reads; DELETE FROM annual_offers; UPDATE proposals SET status='failed';
+  source.exec(`${REFUSED};
     UPDATE executions SET ok=0, response_json=json_remove(json_set(response_json,'$.ok',json('false'),'$.error','refused'),'$.offer')`);
   source.close();
   const manifest = await importLedger({ sourcePath: path, dryRun: true });
@@ -519,10 +530,13 @@ it.each([
   ["an issued annual execution without its offer", "DELETE FROM annual_offer_reads; DELETE FROM annual_offers", /Source annual execution is invalid/],
   ["an unparseable read time", "UPDATE annual_offer_reads SET observed_at='yesterday'", /Source annual offer read is invalid/],
   ["a read with an empty status", "UPDATE annual_offer_reads SET status=' '", /Source annual offer read is invalid/],
-  ["a link leaked into the audit log", `UPDATE audit_events SET detail_json='{"note":"${fixtureLink("I-PILOTD")}"}' WHERE id=(SELECT MAX(id) FROM audit_events)`, /approval link outside annual offers/],
-  ["a token leaked into an execution request", `UPDATE executions SET request_json='{"note":"ba_token"}'`, /approval link outside annual offers/],
-  ["an encoded token leaked into a read", "UPDATE annual_offer_reads SET debug_id='ba%5Ftoken'", /approval link outside annual offers/],
-  ["a bare approval token stored in settings", "INSERT INTO kv (key,value) VALUES ('note','BA-FIXTUREPILOTD')", /approval link outside annual offers/],
+  ["a link leaked into the audit log", `UPDATE audit_events SET detail_json='{"note":"${fixtureLink("I-PILOTD")}"}' WHERE id=(SELECT MAX(id) FROM audit_events)`, "Source ledger stores an approval link outside annual offers (audit_events.detail_json)"],
+  ["a token leaked into an execution request", `UPDATE executions SET request_json='{"note":"ba_token"}'`, "Source ledger stores an approval link outside annual offers (executions.request_json)"],
+  ["an encoded token leaked into a read", "UPDATE annual_offer_reads SET debug_id='ba%5Ftoken'", "Source ledger stores an approval link outside annual offers (annual_offer_reads.debug_id)"],
+  ["a bare approval token stored in settings", "INSERT INTO kv (key,value) VALUES ('note','BA-FIXTUREPILOTD')", "Source ledger stores an approval link outside annual offers (kv.value)"],
+  ["a link copied into an execution outcome", `UPDATE executions SET response_json=json_set(response_json,'$.error','${fixtureLink("I-PILOTD")}')`, "Source ledger stores an approval link outside annual offers (executions.response_json)"],
+  ["a refused annual execution carrying an offer", `${REFUSED}; UPDATE executions SET ok=0`, /Source annual execution is invalid/],
+  ["a refused annual execution for a subscriber outside the proposal", `${REFUSED}; UPDATE executions SET ok=0, target_id='I-OTHER', response_json=json_remove(response_json,'$.offer')`, /Source annual execution is invalid/],
   ["a missing forecast", "UPDATE proposals SET simulation_json='null'", /Source proposal schema is invalid/],
   ["a strategy with another discount", "UPDATE proposals SET strategy_json=json_set(strategy_json,'$.intervention.discountPct',20)", /Source proposal schema is invalid/],
   ["a scheduled revert", "UPDATE proposals SET revert_after='2027-01-01T00:00:00.000Z'", /annual offer cannot schedule a recovery/],
@@ -532,6 +546,66 @@ it.each([
   await annualSource(path);
   const source = new DatabaseSync(path); source.exec(sql); source.close();
   const openTarget = vi.fn();
-  await expect(importLedger({ sourcePath: path, openTarget })).rejects.toThrow(message);
+  const error = await importLedger({ sourcePath: path, openTarget }).then(() => null, (caught: Error) => caught);
+  expect(error?.message).toMatch(message);
+  // A refusal names at most a table and column, never a stored value.
+  expect(error?.message).not.toMatch(/ba_token|ba%5ftoken|BA-FIXTURE|paypal\.com/i);
   expect(openTarget).not.toHaveBeenCalled();
+});
+
+it("imports and exports the ledger a real annual execution leaves: one offer, one definitive refusal, then an ambiguous failure", async () => {
+  const path = join(dir, "annual-executor.sqlite");
+  const db = new DatabaseSync(path);
+  const connection = createLocalConnection(db);
+  try {
+    await initializeLedgerSchema(connection);
+    const repo = createProposalRepository(connection);
+    for (const [subscriptionId, label, segment] of [["I-PILOTD", "Pilot D", "core"], ["I-PILOTE", "Pilot E", "core"], ["I-PILOTF", "Pilot F", "price_sensitive"]] as const)
+      await repo.registerSandboxSubscriber({ subscriptionId, label, segment, reason: "other" });
+    await connection.execute("INSERT INTO kv (key, value) VALUES ('paypal.plan_id', ?)", [FIXTURE_MONTHLY_PLAN]);
+    const strategy = STARTER_STRATEGIES.find((s) => s.intervention.kind === "annual_plan")!;
+    const result = compareStrategies(currentMerchant().twin, [strategy], { runs: 2, horizonMonths: 1 }).strategies[1];
+    const created = await repo.createAnnualOfferProposal({ objective: "Executor ledger", strategy, result, listPrice: 24, productId: FIXTURE_PRODUCT,
+      monthlyPlanId: FIXTURE_MONTHLY_PLAN, offerWindowDays: 7, eligibleIds: ["I-PILOTD", "I-PILOTE", "I-PILOTF"] });
+    await repo.approveProposal(created.id, created.actionHash, "fixture administrator");
+    const claimed = await repo.claimForExecution(created.id);
+    const action = AnnualOfferActionSchema.parse(claimed.action);
+    expect(action.targets.map((target) => target.subscriptionId)).toEqual(["I-PILOTD", "I-PILOTE", "I-PILOTF"]);
+    const monthly: PlanSnapshot = { planId: FIXTURE_MONTHLY_PLAN, status: "ACTIVE", name: "Monthly", productId: FIXTURE_PRODUCT, price: "24.0", currency: "USD",
+      intervalUnit: "MONTH", intervalCount: 1, totalCycles: 0, regularCycleCount: 1, cycleCount: 1 };
+    const annual: PlanSnapshot = { ...monthly, planId: FIXTURE_ANNUAL_PLAN, name: "Annual", price: action.annualPrice, intervalUnit: "YEAR" };
+    const ok = <T>(value: T) => ({ ok: true as const, value, debugId: "dbg-fake" as string | null });
+    const refused = (httpStatus: number, name: string) => ({ ok: false as const, error: { httpStatus, name, message: "PayPal refused", debugId: "dbg-fail", details: null } });
+    const deps: AnnualDependencies = {
+      monthlyPlanSetting: async () => FIXTURE_MONTHLY_PLAN,
+      getPlan: async (planId) => ok(planId === FIXTURE_MONTHLY_PLAN ? monthly : annual),
+      createPlan: async () => ok(annual),
+      read: async (id) => ok({ id, status: "ACTIVE", planId: FIXTURE_MONTHLY_PLAN, planOverridden: false, regularPrice: "24.0", nextBillingTime: "2026-11-30T10:00:00Z", lastPayment: null, raw: {} }),
+      revise: async ({ subscriptionId }) => subscriptionId === "I-PILOTD" ? ok({ approvalUrl: fixtureLink(subscriptionId), planId: FIXTURE_ANNUAL_PLAN, httpStatus: 200 })
+        : subscriptionId === "I-PILOTE" ? refused(422, "UNPROCESSABLE_ENTITY") : refused(500, "INTERNAL_SERVER_ERROR"),
+      validateTarget: (subscriptionId) => repo.validateTargetForExecution(claimed, subscriptionId),
+      recordObservation: (snapshot, source) => recordObservation(snapshot, source, connection),
+      recordPlan: (plan, debugId) => recordAnnualPlan(claimed.id, plan, debugId, connection),
+      recordOffer: (offer) => recordAnnualOffer(offer, connection),
+      recordTarget: (request, outcome) => recordAnnualTarget(claimed.id, request, outcome, connection),
+      finish: (status, summary) => repo.finishExecution(claimed.id, status, null, summary),
+      get: () => repo.getProposal(claimed.id),
+      now: () => new Date(),
+      returnUrl: "http://localhost:3001/?paypal=annual",
+    };
+    await expect(executeAnnualOfferWith({ id: claimed.id, actionHash: claimed.actionHash, action }, deps)).rejects.toBeInstanceOf(ExecutionReconciliationRequired);
+    expect((await repo.getProposal(claimed.id)).status).toBe("executing");
+    expect(await connection.query("SELECT target_id FROM active_target_claims ORDER BY target_id")).toEqual([{ target_id: "I-PILOTD" }, { target_id: "I-PILOTE" }, { target_id: "I-PILOTF" }]);
+    expect(await connection.query("SELECT target_id, ok, http_status FROM executions ORDER BY id")).toEqual([
+      { target_id: "I-PILOTD", ok: 1, http_status: 200 }, { target_id: "I-PILOTE", ok: 0, http_status: 422 }, { target_id: "I-PILOTF", ok: 0, http_status: 500 },
+    ]);
+    expect(await connection.query("SELECT subscription_id FROM annual_offers")).toEqual([{ subscription_id: "I-PILOTD" }]);
+  } finally { db.close(); }
+  const manifest = await importLedger({ sourcePath: path, dryRun: true });
+  expect(manifest.tables.find((row) => row.table === "annual_offers")?.count).toBe(1);
+  expect(manifest.tables.find((row) => row.table === "active_target_claims")?.count).toBe(3);
+  const output = join(dir, "annual-executor-backup.sqlite");
+  expect(await exportLedger({ sourcePath: path, outputPath: output })).toEqual(manifest);
+  expect(await importLedger({ sourcePath: output, dryRun: true })).toEqual(manifest);
+  expect(JSON.stringify(manifest)).not.toMatch(/ba_token|BA-FIXTURE|paypal\.com/);
 });

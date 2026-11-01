@@ -206,7 +206,25 @@ it("refuses to export a ledger that stores an approval link outside annual offer
     await seedAnnualOffer(connection);
     await connection.execute("INSERT INTO kv (key,value) VALUES ('note',?)", [fixtureLink("I-PILOTD")]);
     const output = join(dir, "annual-leak-backup.sqlite");
-    await expect(exportLedger({ outputPath: output, source: connection })).rejects.toThrow("Ledger export was not confirmed");
+    // The one diagnosable refusal: it names the table and column, never the value.
+    const error = await exportLedger({ outputPath: output, source: connection }).then(() => null, (caught: Error) => caught);
+    expect(error?.message).toBe("Source ledger stores an approval link outside annual offers (kv.value)");
     expect(existsSync(output)).toBe(false);
   } finally { client.close(); }
+});
+
+it("prints where a refused export stores a link, without the link, from the export CLI", async () => {
+  const sourcePath = join(dir, "annual-leak-cli.sqlite");
+  const db = new DatabaseSync(sourcePath);
+  try {
+    const connection = createLocalConnection(db);
+    await seedAnnualOffer(connection);
+    await connection.execute("INSERT INTO kv (key,value) VALUES ('note',?)", [fixtureLink("I-PILOTD")]);
+  } finally { db.close(); }
+  const outputPath = join(dir, "annual-leak-cli-backup.sqlite");
+  const result = spawnSync(process.execPath, ["--import=tsx", "--conditions=react-server", "scripts/export-ledger.ts", "--source", sourcePath, "--output", outputPath], { encoding: "utf8" });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain("approval link outside annual offers (kv.value)");
+  expect(result.stdout + result.stderr).not.toMatch(/ba_token|BA-FIXTURE|paypal\.com|details suppressed/);
+  expect(existsSync(outputPath)).toBe(false);
 });
