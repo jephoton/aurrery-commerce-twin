@@ -3,7 +3,7 @@ import { chooseHeadline } from "./headline";
 import type { ExecutionReport } from "@/execution/execute";
 import type { Proposal } from "@/ledger/proposals";
 import type { ComparisonResult } from "@/twin/simulate";
-import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
+import { AnnualEvidenceSchema, type AnnualEvidence, type ObservedSnapshot } from "@/merchant/observed-snapshot";
 
 export interface DashboardState {
   comparison: ComparisonResult | null;
@@ -56,4 +56,15 @@ export function dashboardReducer(state: DashboardState, action: Action): Dashboa
       return state;
     }
   }
+}
+
+/** Current annual-offer evidence re-read from the ledger (after a PayPal status refresh). `annual` is undefined when no offer exists yet. It never touches discount evidence or a displayed run. */
+export interface LiveAnnual { annual: AnnualEvidence | undefined }
+/** Reads only the `annual` part of a `GET /api/twin` body. Returns null for an unusable body, so the previous evidence stays. */
+export function liveAnnualFromTwin(body: unknown): LiveAnnual | null {
+  if (typeof body !== "object" || body === null) return null;
+  const raw = (body as { annual?: unknown }).annual;
+  if (raw === undefined || raw === null) return { annual: undefined };
+  const parsed = AnnualEvidenceSchema.safeParse(raw);
+  return parsed.success ? { annual: parsed.data } : null;
 }

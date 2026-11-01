@@ -7,6 +7,7 @@ import { EvidencePanel } from "./EvidencePanel";
 import { dashboardReducer, emptyDashboard } from "./lab-state";
 import { deriveDiscountOutcomes } from "@/ledger/discount-outcomes";
 import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
+import type { LiveAnnual } from "./lab-state";
 
 const summary = {
   name: "Demo", description: "", planName: "Monthly", asOfMonth: "2026-10", listPrice: 24,
@@ -68,4 +69,43 @@ it.each(["manual", "agent"] as const)("uses the %s run snapshot when page-load e
   expect(html).not.toContain("No measured effect parameter changes");
   expect(html).not.toContain("page load");
   expect(dashboardReducer(state, { type: "reset" }).observedSnapshot).toBeNull();
+});
+
+const annualFixture = (accepted: number) => ({
+  offers: [{ segment: "core" as const, accepted, declined: 0, unresolved: 1 - accepted }],
+  changes: accepted ? [{ parameter: "segments.core.annualUptake", before: { mean: .05, sd: .03 }, after: { mean: .0732, sd: .04 }, evidence: "1 accepted, 0 confirmed declined (1 resolved annual offer(s))" }] : [],
+  limitation: "Customers chose whether to switch, so this is not a randomized uptake estimate.",
+});
+
+it("keeps annual offer evidence in its own block with its own limitation", () => {
+  const snapshot: ObservedSnapshot = { ...initialSnapshot, annual: annualFixture(1) };
+  const html = renderToStaticMarkup(createElement(EvidencePanel, { summary, evidence: null, source: "manual", snapshot }));
+  expect(html).toContain("Annual offers");
+  expect(html).toContain("1 accepted · 0 declined · 0 awaiting decision or final check");
+  expect(html).toContain("core: 1 accepted");
+  expect(html.indexOf("segments.core.annualUptake")).toBeGreaterThan(html.indexOf("Annual offers"));
+  expect(html).toContain("not a randomized uptake estimate");
+  expect(html).toContain("No measured effect parameter changes");
+  expect(html).not.toContain("<a ");
+  expect(html).not.toContain("href");
+  // The annual change is outside the discount block and the discount limitation stays out of the annual block.
+  const discountBlock = html.slice(html.indexOf("Measured sandbox outcomes"), html.indexOf("Annual offers"));
+  expect(discountBlock).not.toContain("segments.core.annualUptake");
+  expect(html.slice(html.indexOf("Annual offers"))).not.toContain(initialSnapshot.evidence.limitation);
+  const withoutAnnual = renderToStaticMarkup(createElement(EvidencePanel, { summary, evidence: null, source: "manual", snapshot: initialSnapshot }));
+  expect(withoutAnnual).not.toContain("Annual offers");
+});
+
+it("shows page-load annual evidence with no run, and live evidence over it without touching discount evidence", () => {
+  const loaded = { ...summary, annualEvidence: annualFixture(0) };
+  const before = renderToStaticMarkup(createElement(EvidencePanel, { summary: loaded, evidence: null, source: null }));
+  expect(before).toContain("0 accepted · 0 declined · 1 awaiting decision or final check");
+  const live: LiveAnnual = { annual: annualFixture(1) };
+  const after = renderToStaticMarkup(createElement(EvidencePanel, { summary: loaded, evidence: null, source: null, liveAnnual: live }));
+  expect(after).toContain("1 accepted · 0 declined · 0 awaiting decision or final check");
+  // A displayed run keeps its own discount evidence while annual evidence follows the refresh.
+  const snapshot: ObservedSnapshot = { ...initialSnapshot, annual: annualFixture(0) };
+  const run = renderToStaticMarkup(createElement(EvidencePanel, { summary: loaded, evidence: null, source: "manual", snapshot, liveAnnual: live }));
+  expect(run).toContain("Evidence snapshot used for this run.");
+  expect(run).toContain("1 accepted · 0 declined · 0 awaiting decision or final check");
 });
