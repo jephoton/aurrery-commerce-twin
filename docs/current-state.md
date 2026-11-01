@@ -154,7 +154,14 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - New `src/ledger/annual-offers.ts`: `recordAnnualOffer` writes the execution (`POST subscription revise (annual plan)`, `verified = 0`), the offer and its audit entry in one transaction, and refuses a non-PayPal link, mismatched offer facts, or any link or `ba_token` in the request or outcome. `recordAnnualTarget` records a target without an offer. `appendOfferReads` appends one read per offer for each successful GET and requires a strict ISO instant.
   - Status stays derived: `listAnnualOfferViews` (public, never a link), `listAnnualOfferLinks` (administrator only, pending offers with the approved price), `openOfferSubscriptionIds` (anything short of a confirmed decline), `listAnnualPlanIds` and `readAnnualOfferEvidence` (per-segment counts with the limitation text). Covered on real SQLite and a file-backed libSQL client.
   - Verification: 954 tests pass, typecheck and lint clean.
-  - **Next:** Task 7, annual offer executor.
+- **Task 7 done (annual offer executor, injected dependencies).**
+  - New `src/execution/annual-offer.ts`: `executeAnnualOfferWith` checks the registered monthly plan and its product, creates the yearly plan under `annualPlanRequestId(actionHash)` (the same PayPal request ID every time the same action executes) and accepts it only when the read-back is ACTIVE, YEAR x 1, same product, USD and the exact price by cents.
+  - Any failure before the first `revise` (changed monthly-plan setting, monthly plan on another product, refused creation, unreadable or mismatched read-back) finishes the proposal failed with one outcome per target ending "no offer was made".
+  - Per target it validates the ledger, reads the subscription live, re-checks eligibility, validates again and calls `revise` at most once. Only `isDefinitiveFailure` statuses continue to the next target; a failed pre-read, any other revise failure, a returned plan mismatch or any storage failure throws `ExecutionReconciliationRequired` (proposal stays executing, no retry).
+  - Each issued offer goes to `recordOffer` with `outcome.offer { annualPlanId, expiresAt }` and `verified: false`; the approval link reaches nothing else. A PayPal error message containing a link is withheld from outcome text.
+  - Not yet wired into production; Task 8 adds dispatch.
+  - Verification: 980 tests pass, typecheck and lint clean.
+  - **Next:** Task 8, `annual_plan_offer` in the proposal union, claims and executor dispatch.
 
 ## M5 complete and published
 
