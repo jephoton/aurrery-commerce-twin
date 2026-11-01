@@ -1,4 +1,5 @@
 import { isDefinitiveFailure, outcomeStatusText, type TargetOutcome } from "@/execution/outcomes";
+import type { AnnualOfferView } from "@/ledger/annual-offer-status";
 import type { Strategy } from "@/twin/interventions";
 
 /** Compact UTC display for stored ISO instants. */
@@ -37,3 +38,48 @@ export function outcomeCells(outcome: TargetOutcome, annual: boolean): OutcomeCe
   }
   return { price, status: outcomeStatusText(outcome) ?? "—", verified: outcome.verified ? "yes" : "no", tone: outcome.verified ? "positive" : "negative" };
 }
+
+/** "Offer window closed", never "link dead": a link's real lifetime is untested (decision 0008). */
+export function offerStatusLabel(offer: Pick<AnnualOfferView, "status" | "outcome">): string {
+  if (offer.status === "switched") return "Switched (verified by PayPal)";
+  if (offer.status === "pending") return "Pending customer decision";
+  if (offer.status === "invalid") return "Needs administrator check (invalid deadline)";
+  return offer.outcome === "declined" ? "Offer window closed · declined" : "Offer window closed · awaiting final check";
+}
+
+export function offerCounts(offers: Pick<AnnualOfferView, "outcome">[]) {
+  return {
+    accepted: offers.filter((o) => o.outcome === "accepted").length,
+    declined: offers.filter((o) => o.outcome === "declined").length,
+    awaiting: offers.filter((o) => o.outcome === "unresolved").length,
+  };
+}
+
+/** One display-only draft from GET /api/annual-offers/links (administrators only). Its message carries a secret link. */
+export interface OfferDraft { id: number; subscriptionId: string; label: string | null; expiresAt: string; message: string }
+
+/** Drafts (or the failure) recorded against the fetch key they were requested for. */
+export interface FetchedDrafts { key: string; drafts: OfferDraft[] | null; error: string | null }
+
+/**
+ * Identifies one drafts fetch: a new status refresh or a changed pending set is a new fetch. Empty means
+ * fetch nothing: visitors, an unreadable status, or no pending offer (decision 5: links only while pending).
+ */
+export function draftsFetchKey(input: { canReview: boolean; unavailable: boolean; revision: number; offers: Pick<AnnualOfferView, "id" | "status">[] }): string {
+  const pending = input.offers.filter((offer) => offer.status === "pending").map((offer) => offer.id).join(",");
+  return input.canReview && !input.unavailable && pending ? `${input.revision}:${pending}` : "";
+}
+
+/**
+ * Drafts safe to show now: fetched for exactly the current key (so a refetch or failure hides the previous
+ * links at once) and still pending in the latest status read.
+ */
+export function visibleDrafts(fetched: FetchedDrafts | null, key: string, offers: Pick<AnnualOfferView, "id" | "status">[]): OfferDraft[] {
+  if (!key || !fetched || fetched.key !== key || !fetched.drafts) return [];
+  const pending = new Set(offers.filter((offer) => offer.status === "pending").map((offer) => offer.id));
+  return fetched.drafts.filter((draft) => pending.has(draft.id));
+}
+
+/** A 401 means the administrator session ended; anything else is a fixed, link-free message. */
+export const draftsErrorMessage = (status: number | null) =>
+  status === 401 ? "Your administrator session has ended. Sign in again to see the customer messages." : "Customer messages are unavailable.";

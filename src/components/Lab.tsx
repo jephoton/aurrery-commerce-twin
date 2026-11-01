@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { AgentEvent } from "@/agent/contracts";
 import type { ExecutionReport } from "@/execution/execute";
 import type { Proposal } from "@/ledger/proposals";
+import type { AnnualOfferView } from "@/ledger/annual-offer-status";
 import type { Strategy } from "@/twin/interventions";
 import { ObservedSnapshotSchema, type AnnualEvidence, type ObservedComparison } from "@/merchant/observed-snapshot";
 import type { Provenance, SegmentId } from "@/twin/types";
@@ -22,6 +23,7 @@ import { canReviewAccess, type AccessState } from "./admin-access";
 import { DEFAULT_DECISION_RULES } from "@/agent/contracts";
 import { chooseHeadline, isExecutableIntervention } from "./headline";
 import { AnnualOfferCard } from "./AnnualOfferCard";
+import { AnnualOffersPanel } from "./AnnualOffersPanel";
 import { clampOfferWindowDays, DEFAULT_OFFER_WINDOW_DAYS, outcomeCells, proposalBody, reportColumns } from "./annual-offers-view";
 
 export interface MerchantSummary {
@@ -48,9 +50,10 @@ interface PayPalStatus {
     label: string;
     segment: string;
     reason: string;
-    live?: { status: string; regularPrice: string | null; planOverridden: boolean; nextBillingTime: string | null };
+    live?: { status: string; regularPrice: string | null; planOverridden: boolean; nextBillingTime: string | null; annualPlan?: boolean };
     error?: string;
   }[];
+  annualOffers?: AnnualOfferView[];
 }
 
 const DEFAULT_OBJECTIVE =
@@ -70,6 +73,8 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
   const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress, observedSnapshot }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
   const [liveAnnual, setLiveAnnual] = useState<LiveAnnual | null>(null);
+  // Each successful status read bumps the revision (the offers panel refetches drafts); a failed or rate-limited read marks it unavailable.
+  const [statusRead, setStatusRead] = useState({ revision: 0, unavailable: false });
   const [access, setAccess] = useState<AccessState | null>(null);
   // Raw text while typing, so the field can be cleared and retyped; clamped on blur and when proposing.
   const [offerWindowInput, setOfferWindowInput] = useState(String(DEFAULT_OFFER_WINDOW_DAYS));
@@ -84,12 +89,13 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
     return api<PayPalStatus>("/api/paypal/status")
       .then((status) => {
         setPayPal(status);
+        setStatusRead((read) => ({ revision: read.revision + 1, unavailable: false }));
         // The status read appends the offer reads and returns annual evidence built after them. A missing field keeps the previous evidence.
         const next = liveAnnualFromStatus(status);
         if (next) setLiveAnnual(next);
         return true;
       })
-      .catch((e) => { setError(e.message); return false; });
+      .catch((e) => { setError(e.message); setStatusRead((read) => ({ ...read, unavailable: true })); return false; });
   }, []);
   useEffect(() => { void refreshPayPal(); }, [refreshPayPal]);
   useEffect(() => { api<AccessState>("/api/admin/session").then(setAccess).catch(() => setError("Administrator access unavailable.")); }, []);
@@ -337,6 +343,14 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
         </section>
       )}
 
+      <AnnualOffersPanel
+        offers={paypal?.annualOffers ?? []}
+        labels={Object.fromEntries(paypal?.subscriptions.map((s) => [s.subscriptionId, s.label]) ?? [])}
+        canReview={canReviewAccess(access)}
+        unavailable={statusRead.unavailable}
+        revision={statusRead.revision}
+      />
+
       <RecoveryPanel canReview={canReviewAccess(access)} paypalConfigured={!!paypal?.configured} onObservedChange={refreshPayPal} />
 
       <section className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
@@ -372,7 +386,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
                   </td>
                   <td className="max-w-48 break-all font-mono">{s.subscriptionId}</td>
                   <td>{s.live?.status ?? s.error ?? "—"}</td>
-                  <td>{s.live ? (s.live.regularPrice ? `$${s.live.regularPrice}${s.live.planOverridden ? " (override)" : ""}` : `$${summary.listPrice.toFixed(2)} (plan)`) : "—"}</td>
+                  <td>{s.live ? (s.live.regularPrice ? `$${s.live.regularPrice}${s.live.annualPlan ? "/yr" : "/mo"}${s.live.planOverridden ? " (override)" : ""}` : `$${summary.listPrice.toFixed(2)}/mo (plan)`) : "—"}</td>
                   <td>{s.live?.nextBillingTime?.slice(0, 10) ?? "—"}</td>
                 </tr>
               ))}
