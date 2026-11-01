@@ -6,10 +6,8 @@ import type { ExecutionReport } from "@/execution/execute";
 import type { Proposal } from "@/ledger/proposals";
 import type { AnnualOfferView } from "@/ledger/annual-offer-status";
 import type { Strategy } from "@/twin/interventions";
-import { ObservedSnapshotSchema, type AnnualEvidence, type ObservedComparison } from "@/merchant/observed-snapshot";
-import type { Provenance, SegmentId } from "@/twin/types";
-import type { DiscountEvidence } from "@/ledger/discount-outcomes";
-import type { ParameterChange } from "@/twin/calibrate";
+import { ObservedSnapshotSchema, type ObservedComparison } from "@/merchant/observed-snapshot";
+import type { MerchantSummary } from "@/merchant/summary";
 import { FanChart } from "./FanChart";
 import { ScenarioGrid, toRows } from "./ScenarioGrid";
 import { AgentPanel } from "./AgentPanel";
@@ -26,21 +24,7 @@ import { AnnualOfferCard } from "./AnnualOfferCard";
 import { AnnualOffersPanel } from "./AnnualOffersPanel";
 import { clampOfferWindowDays, DEFAULT_OFFER_WINDOW_DAYS, outcomeCells, proposalBody, reportColumns } from "./annual-offers-view";
 
-export interface MerchantSummary {
-  name: string;
-  description: string;
-  planName: string;
-  asOfMonth: string;
-  listPrice: number;
-  active: number;
-  mrr: number;
-  lastMonthChurnRate: number;
-  segments: { id: SegmentId; label: string; active: number; churn: number }[];
-  provenance: Record<string, Provenance>;
-  observedEvidence?: DiscountEvidence;
-  parameterChanges?: ParameterChange[];
-  annualEvidence?: AnnualEvidence;
-}
+export type { MerchantSummary } from "@/merchant/summary";
 
 interface PayPalStatus {
   configured: boolean;
