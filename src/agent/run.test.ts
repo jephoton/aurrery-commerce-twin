@@ -5,7 +5,7 @@ import { emptyMetrics } from "@/signals/providers";
 import type { AgentModel } from "./model";
 import { feedbackCorpus } from "@/signals/corpus";
 import { ledger } from "@/ledger/db";
-import { listProposals, listSandboxSubscribers, registerSandboxSubscriber } from "@/ledger/proposals";
+import { listProposals, listSandboxSubscribers, registerSandboxSubscriber, type Proposal } from "@/ledger/proposals";
 import { PILOT_COHORT } from "@/paypal/setup";
 
 const env = { AI_PROVIDER: "groq", GROQ_MODEL: "openai/gpt-oss-120b", GROQ_API_KEY: "fake-key" };
@@ -90,4 +90,14 @@ it("checks the wall deadline immediately at proposal persistence", async () => {
   const result = await runAgent({ ...options, objective: "Investigate", now: () => now, model: fakeModel(steps), toolOptions: { ...options.toolOptions, registry: () => { if (++reads === 2) now = 600001; return listSandboxSubscribers(); } } });
   expect(result.reason).toBe("DEADLINE");
   expect(await listProposals()).toHaveLength(0);
+});
+it("proposes an annual offer through the injected entry point with the run's abort signal", async () => {
+  const annual = { id: "annual", name: "Annual prepay", intervention: { kind: "annual_plan", discountPct: 10, segments: ["core"] } };
+  const propose = vi.fn(async () => ({ id: "prop_annual", status: "proposed", action: { type: "annual_plan_offer", targets: [{ subscriptionId: "I-RUN3" }] } }) as unknown as Proposal);
+  const options = await base();
+  const result = await runAgent({ ...options, objective: "Investigate annual prepay", toolOptions: { ...options.toolOptions, propose }, model: fakeModel([["get_merchant_state", {}], ["classify_feedback", {}], ["set_decision_rules", { discountBudget: 1000, maxProbWorse: 1, horizonMonths: 12 }], ["simulate_strategies", { strategies: [annual] }], ["stress_test", { strategyId: "annual" }], ["recommend", { strategyId: "annual", rationale: "Supported base result", tradeoffs: "Prepay discount and uncertainty" }]]) });
+  expect(result).toMatchObject({ status: "complete", proposalId: "prop_annual" });
+  expect(propose).toHaveBeenCalledOnce();
+  expect(propose.mock.calls[0]).toEqual([expect.objectContaining({ strategy: annual }), expect.any(AbortSignal)]);
+  expect(await listProposals()).toEqual([]);
 });

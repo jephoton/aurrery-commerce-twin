@@ -3,8 +3,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { currentMerchant } from "@/merchant";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
-import { createProposal, listSandboxSubscribers, ProposalError, type CreateProposalInput, type Proposal, type SandboxSubscriber } from "@/ledger/proposals";
+import { listSandboxSubscribers, ProposalError, type CreateProposalInput, type Proposal, type SandboxSubscriber } from "@/ledger/proposals";
 import { PILOT_COHORT } from "@/paypal/setup";
+import { proposeStrategy } from "@/execution/annual-proposal";
 import { feedbackCorpus, toModelInput } from "@/signals/corpus";
 import { classifyFeedback, type ClassificationResult } from "@/signals/classify";
 import { applyEvidence, pilotEligibility, summarizeEvidence } from "@/signals/evidence";
@@ -44,7 +45,7 @@ const descriptions: Record<ToolName, string> = {
   simulate_strategies: "Compare candidates cumulatively. The server automatically adds the do-nothing baseline; submit intervention candidates only. Classify feedback and explicitly set rules first; either change invalidates comparisons and stress tests.",
   stress_test: "Test a previously simulated candidate with adverse assumption shifts.",
   draft_customer_message: "Display customer message copy for a simulated candidate. Does not send.",
-  recommend: "Create one proposed action from a classified, simulated and stressed candidate within the rules. Merchant approval is separate.",
+  recommend: "Create one proposed action (a retention discount or an annual-plan offer) from a classified, simulated and stressed candidate within the rules. Merchant approval is separate.",
 };
 export const TOOL_DEFINITIONS = Object.entries(schemas).map(([name, schema]) => ({
   type: "function" as const,
@@ -65,7 +66,8 @@ export interface ToolContextOptions {
   classify?: typeof classifyFeedback;
   simulate?: (...args: Parameters<typeof compareStrategies>) => ComparisonResult | Promise<ComparisonResult>;
   stress?: (...args: Parameters<typeof stressTest>) => StressResult | Promise<StressResult>;
-  propose?: (input: CreateProposalInput) => Proposal | Promise<Proposal>;
+  /** Receives the run's abort signal so a cancelled or timed-out run never leaves an orphan proposal. */
+  propose?: (input: CreateProposalInput, signal?: AbortSignal) => Proposal | Promise<Proposal>;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 export interface ToolState {
@@ -211,11 +213,23 @@ export function createToolContext(options: ToolContextOptions = {}) {
         const { strategyId, rationale, tradeoffs } = schemas.recommend.parse(args);
         const result = currentResult(strategyId);
         if (!state.stresses[strategyId]) throw new ToolFailure("PREREQUISITE", "Stress test this strategy in the current context first.");
-        if (result.strategy.intervention.kind !== "targeted_discount") throw new ToolFailure("NOT_EXECUTABLE", "Only subscription price overrides are executable in this build.");
-        if (result.metrics.discountCost.mean > state.rules.discountBudget || result.probValueBelowBaseline > state.rules.maxProbWorse) throw new ToolFailure("RULE_VIOLATION", "The base simulation exceeds the decision rules.");
-        const eligibleTargetIds = pilotEligibility(feedbackCorpus, accepted, await registry(), labels).eligibleSubscriptionIds;
+        const kind = result.strategy.intervention.kind;
+        if (kind !== "targeted_discount" && kind !== "annual_plan") throw new ToolFailure("NOT_EXECUTABLE", "Only retention discounts and annual-plan offers are executable in this build.");
+        // The discount budget governs retention discounts only; an annual prepay discount is netted in total value.
+        if ((kind === "targeted_discount" && result.metrics.discountCost.mean > state.rules.discountBudget) || result.probValueBelowBaseline > state.rules.maxProbWorse)
+          throw new ToolFailure("RULE_VIOLATION", "The base simulation exceeds the decision rules.");
+        // Discount targets come from classified evidence; annual targets come from live PayPal eligibility in preparation.
+        const eligibleTargetIds = kind === "targeted_discount" ? pilotEligibility(feedbackCorpus, accepted, await registry(), labels).eligibleSubscriptionIds : undefined;
         checkAbort();
-        const proposal = await (options.propose ?? createProposal)({ objective, strategy: result.strategy, result, listPrice: state.twin.params.listPrice, eligibleTargetIds });
+        // One entry point for both kinds; an annual offer uses the default offer window.
+        let proposal: Proposal;
+        try {
+          proposal = await (options.propose ?? proposeStrategy)({ objective, strategy: result.strategy, result, listPrice: state.twin.params.listPrice, ...(eligibleTargetIds ? { eligibleTargetIds } : {}) }, options.signal);
+        } catch (error) {
+          // Annual preparation explains itself with fixed, link-free messages (e.g. a failed PayPal read, no eligible subscriber).
+          if (kind === "annual_plan" && error instanceof ProposalError) throw new ToolFailure(error.code, error.message);
+          throw error;
+        }
         state.proposal = proposal;
         emit({ type: "proposal", proposal, rationale, tradeoffs });
         return { id: proposal.id, status: proposal.status, targetCount: proposal.action.targets.length, rationale, tradeoffs };

@@ -11,6 +11,8 @@ import { runComparison } from "@/twin/worker-client";
 import { ledger } from "@/ledger/db";
 import { listProposals, listSandboxSubscribers, registerSandboxSubscriber, replaceSandboxSubscription } from "@/ledger/proposals";
 import { PILOT_COHORT } from "@/paypal/setup";
+import { ProposalError, type CreateProposalInput, type Proposal } from "@/ledger/proposals";
+import { AGENT_INSTRUCTION } from "./run";
 
 const strategy: Strategy = { id: "save", name: "Save", intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 10, months: 1, campaignMonths: 0 } };
 const predictions = (): Prediction[] => feedbackCorpus.map((m) => ({ id: m.id, intent: m.pilotIndex === 2 || m.pilotIndex === 3 ? "stay" : "cancel", reason: m.pilotIndex === 2 || m.pilotIndex === 3 ? "other" : "price", confidence: .9 }));
@@ -180,11 +182,61 @@ describe("agent tool boundary", () => {
     expect(await recommend(ctx)).toMatchObject({ ok: false, code: "RULE_VIOLATION" });
     expect(await listProposals()).toEqual([]);
   });
-  it("returns NOT_EXECUTABLE for an annual comparison", async () => {
+  it("proposes an annual-plan offer through the shared preparation path, applying the risk rule but not the discount budget", async () => {
     const annual: Strategy = { id: "annual", name: "Annual", intervention: { kind: "annual_plan", discountPct: 10, segments: ["core"] } };
-    const ctx = await setup(); await ready(ctx, annual);
+    const controller = new AbortController();
+    const propose = vi.fn<(input: CreateProposalInput, signal?: AbortSignal) => Promise<Proposal>>(async () => ({ id: "prop_annual", status: "proposed", action: { type: "annual_plan_offer", targets: [{ subscriptionId: "I-PILOT3" }] } }) as unknown as Proposal);
+    const ctx = await setup({ propose, signal: controller.signal }); await ready(ctx, annual);
+    await ctx.dispatch("set_decision_rules", { ...rules, discountBudget: 0 });
+    await ctx.dispatch("simulate_strategies", { strategies: [annual] });
     await ctx.dispatch("stress_test", { strategyId: "annual" });
-    expect(await recommend(ctx, "annual")).toMatchObject({ ok: false, code: "NOT_EXECUTABLE" });
+    expect(await recommend(ctx, "annual")).toMatchObject({ ok: true, data: { id: "prop_annual", status: "proposed", targetCount: 1 } });
+    expect(propose).toHaveBeenCalledOnce();
+    expect(propose.mock.calls[0][0]).toMatchObject({ strategy: { id: "annual" }, listPrice: 24 });
+    expect(propose.mock.calls[0][0]).not.toHaveProperty("eligibleTargetIds");
+    expect(propose.mock.calls[0][0]).not.toHaveProperty("offerWindowDays");
+    expect(propose.mock.calls[0][1]).toBe(controller.signal);
+  });
+  it("surfaces an annual preparation refusal as a clear, safe tool failure", async () => {
+    const annual: Strategy = { id: "annual", name: "Annual", intervention: { kind: "annual_plan", discountPct: 10, segments: ["core"] } };
+    const message = "PayPal could not be read for 1 pilot(s); nothing was proposed. Try again.";
+    const ctx = await setup({ propose: async () => { throw new ProposalError(message, "NOT_EXECUTABLE"); } }); await ready(ctx, annual);
+    await ctx.dispatch("stress_test", { strategyId: "annual" });
+    expect(await recommend(ctx, "annual")).toEqual({ ok: false, code: "NOT_EXECUTABLE", message });
+    expect(ctx.state.proposal).toBeUndefined();
+  });
+  it("reports a run cancelled during annual preparation as aborted, with no proposal", async () => {
+    const annual: Strategy = { id: "annual", name: "Annual", intervention: { kind: "annual_plan", discountPct: 10, segments: ["core"] } };
+    const controller = new AbortController();
+    const ctx = await setup({ signal: controller.signal, propose: async () => { controller.abort(); throw new ProposalError("PayPal could not be read for 1 pilot(s); nothing was proposed. Try again.", "NOT_EXECUTABLE"); } });
+    await ready(ctx, annual);
+    await ctx.dispatch("stress_test", { strategyId: "annual" });
+    expect(await recommend(ctx, "annual")).toMatchObject({ ok: false, code: "ABORTED" });
+    expect(ctx.state.proposal).toBeUndefined();
+  });
+  it("still refuses a list price change and the chance-worse rule for annual offers", async () => {
+    const rise: Strategy = { id: "rise", name: "Rise", intervention: { kind: "list_price_change", newPrice: 27 } };
+    const ctx = await setup(); await ready(ctx, rise);
+    await ctx.dispatch("stress_test", { strategyId: "rise" });
+    expect(await recommend(ctx, "rise")).toMatchObject({ ok: false, code: "NOT_EXECUTABLE" });
+    const annual: Strategy = { id: "annual", name: "Annual", intervention: { kind: "annual_plan", discountPct: 10, segments: ["core"] } };
+    const propose = vi.fn();
+    const risky = await setup({ propose, simulate: (twin, candidates, options) => {
+      const comparison = compareStrategies(twin, candidates, { ...options, runs: 10 });
+      for (const s of comparison.strategies) s.probValueBelowBaseline = .9;
+      return comparison;
+    } });
+    await ready(risky, annual);
+    await risky.dispatch("set_decision_rules", { ...rules, maxProbWorse: .5 });
+    await risky.dispatch("simulate_strategies", { strategies: [annual] });
+    await risky.dispatch("stress_test", { strategyId: "annual" });
+    expect(await recommend(risky, "annual")).toMatchObject({ ok: false, code: "RULE_VIOLATION" });
+    expect(propose).not.toHaveBeenCalled();
+  });
+  it("tells the agent annual offers are executable and need each customer's consent", () => {
+    expect(AGENT_INSTRUCTION).not.toMatch(/simulation only/i);
+    expect(AGENT_INSTRUCTION).toMatch(/annual.*approve.*PayPal/i);
+    expect(TOOL_DEFINITIONS.map((d) => d.function.name)).not.toEqual(expect.arrayContaining([expect.stringMatching(/approve|execute/)]));
   });
   it("never falls back to registry targets when no classifier pilots qualify", async () => {
     const ctx = await setup({ classify: async () => ({ ...classified(), accepted: predictions().map((p) => ({ ...p, intent: "stay" })) }) });
