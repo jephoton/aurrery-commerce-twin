@@ -131,7 +131,12 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `offerExpiry(offeredAt, windowDays)` drops the unused PayPal expiry argument; the merchant's offer window is the only expiry.
   - New pure `offerView` derives status, outcome, resolved time and read need from recorded reads, with no approval link.
   - Verification: 888 tests pass, typecheck and lint clean.
-  - **Next:** Task 2, live eligibility and plan read-back checks (pure).
+- **Task 2 done (live eligibility and plan read-back checks).**
+  - `annualIneligibility` accepts only the same subscription, ACTIVE, on the registered monthly plan and at list price by cents; `INELIGIBILITY_TEXT` gives each refusal a "no offer was made" message.
+  - `annualPlanMismatch` names the first field of a read-back yearly plan that differs from the approved offer (plan id, status, product, currency, price, interval, billing cycles).
+  - Follow-up: `offerView` now builds the public view from explicit fields, so an extra key such as an approval link cannot leak.
+  - Verification: 905 tests pass, typecheck and lint clean.
+  - **Next:** Task 3, draft customer message (pure).
 
 ## M5 complete and published
 
