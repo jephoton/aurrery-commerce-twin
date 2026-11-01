@@ -77,7 +77,7 @@ describe("annual plan adapter", () => {
 
   it("requests a switch and returns the customer approval link", async () => {
     sdk.reviseSubscription.mockResolvedValue(reviseResult("https://www.sandbox.paypal.com/approve?token=x"));
-    expect(await reviseToPlan(revise)).toEqual({ ok: true, debugId: "dbg2", value: { approvalUrl: "https://www.sandbox.paypal.com/approve?token=x", planId: plan.id } });
+    expect(await reviseToPlan(revise)).toEqual({ ok: true, debugId: "dbg2", value: { approvalUrl: "https://www.sandbox.paypal.com/approve?token=x", planId: plan.id, httpStatus: 200 } });
     expect(sdk.reviseSubscription).toHaveBeenCalledWith({ id: "I-SUB0000001", body: { planId: plan.id, applicationContext: { returnUrl: "https://aurrery.example/return", cancelUrl: "https://aurrery.example/return" } } });
   });
 

@@ -1,5 +1,6 @@
 import "server-only";
 import { IntervalUnit, PlanRequestStatus, TenureType, type BillingPlan } from "@paypal/paypal-server-sdk";
+import { isPayPalApprovalUrl } from "./approval-link";
 import { paypal, toFailure, type PayPalFailure } from "./client";
 import type { Result } from "./subscriptions";
 
@@ -99,15 +100,8 @@ export interface ReviseOffer {
   /** Secret, per-subscriber customer approval link. Never log or return it to visitors. */
   approvalUrl: string;
   planId: string | null;
-}
-
-function isPayPalApprovalUrl(href: string): boolean {
-  try {
-    const u = new URL(href);
-    return u.protocol === "https:" && (u.hostname === "paypal.com" || u.hostname.endsWith(".paypal.com"));
-  } catch {
-    return false;
-  }
+  /** The real HTTP status of the revise call, for the execution record. */
+  httpStatus: number;
 }
 
 /** Ask PayPal to switch a subscription to `planId`. The customer must open the approval link. */
@@ -126,7 +120,7 @@ export async function reviseToPlan(input: { subscriptionId: string; planId: stri
     if (!approvalUrl) return fail("MISSING_APPROVAL_LINK", "PayPal accepted the revision without an approval link.");
     // The link is a secret, per-subscriber URL: never echo it, and only hand on a PayPal https link.
     if (!isPayPalApprovalUrl(approvalUrl)) return fail("UNEXPECTED_APPROVAL_LINK", "PayPal returned an approval link that is not a PayPal https URL.");
-    return { ok: true, value: { approvalUrl, planId: res.result.planId ?? null }, debugId };
+    return { ok: true, value: { approvalUrl, planId: res.result.planId ?? null, httpStatus: res.statusCode }, debugId };
   } catch (e) {
     return { ok: false, error: toFailure(e) };
   }
