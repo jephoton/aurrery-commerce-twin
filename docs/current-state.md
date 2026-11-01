@@ -209,7 +209,13 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `EvidencePanel` shows a separate "Annual offers" block: accepted, declined and awaiting decision or final check, in total and per segment, then the per-segment uptake changes and the annual-specific limitation. Annual changes never appear under "Measured sandbox outcomes" or with the discount limitation. No links are rendered.
   - Review requirement: evidence must not lag the offers panel. After a successful PayPal status refresh (the button, a recovery action, an approval), `Lab` re-fetches `GET /api/twin` and keeps only its `annual` part as `liveAnnual`, which `EvidencePanel` prefers over the page-load or run-snapshot value. A displayed run's discount evidence and all other state are untouched; a failed or unusable response keeps the previous evidence, and a sequence counter drops out-of-order responses. `liveAnnualFromTwin` in `lab-state.ts` is the pure, tested parser; `AnnualEvidenceSchema` is now exported from `observed-snapshot.ts`.
   - Tests: EvidencePanel (own block and limitation, no discount leakage, no links, live over page-load over run snapshot) and `liveAnnualFromTwin`. Verification: 1110 tests pass, typecheck and lint clean.
-  - **Next:** Task 16.
+- **Task 16 done (headline rules and "Also executable within your rules").**
+  - `isExecutableIntervention` (new) and `isExecutable` now include `annual_plan`, in step with `proposeStrategy`; `whyNotExecutable` returns null for annual plans. The scenario grid now marks the annual plan "Executable".
+  - The discount budget applies only to `targeted_discount` strategies (an annual prepay discount is netted in total value); the chance-worse rule still applies to every strategy. `chooseHeadline` also returns `alsoExecutable`: other executable strategies within the rules, best first.
+  - `DecisionSummary` drops "Simulate only" for annual plans, explains that each customer must agree in PayPal and the yearly price starts at their next renewal date, and lists "Also executable within your rules" for the headline pick (`Lab` passes the prop).
+  - Default verified against the real starter-strategy simulation (demo twin, default rules): the headline is the annual plan, the price-driven cancel save is also executable, and the list price rise is the only bigger lever. A headline test pins this.
+  - Verification: 1113 tests pass, typecheck and lint clean.
+  - **Next:** Task 17.
 
 ## M5 complete and published
 
