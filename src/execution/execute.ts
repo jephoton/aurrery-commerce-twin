@@ -8,7 +8,12 @@ import { sameUsdAmount, usdCents } from "@/paypal/prices";
 import { PriceOverrideActionSchema } from "@/ledger/proposals";
 import { REASONS, SEGMENTS } from "@/twin/types";
 import { SUBSCRIBER_MONTH_MS } from "@/ledger/discount-outcomes";
+import { recordAnnualOffer, recordAnnualPlan, recordAnnualTarget } from "@/ledger/annual-offers";
+import { getSetting } from "@/ledger/operations";
+import { createAnnualPlan, getPlan, reviseToPlan } from "@/paypal/plans";
+import { hostedConfig } from "@/hosting/config";
 import { ExecutionReconciliationRequired, isDefinitiveFailure, type ExecutionReport, type TargetOutcome } from "./outcomes";
+import { executeAnnualOfferWith, type AnnualDependencies } from "./annual-offer";
 export { ExecutionReconciliationRequired, type ExecutionReport, type TargetOutcome } from "./outcomes";
 
 // PayPal calls run outside a transaction. Storage acknowledgement failure leaves the claim
@@ -24,6 +29,8 @@ type Dependencies = {
   record: (id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null) => Promise<void>;
   recordObservation?: typeof recordObservation;
   validateTarget?: typeof validateTargetForExecution;
+  /** Ledger and PayPal adapters for an annual offer; built only after its claim succeeds. */
+  annual?: (proposal: Proposal) => AnnualDependencies;
 };
 
 export async function recordTarget(id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null, connection?: LedgerConnection, recordedAt = now()): Promise<void> {
@@ -63,6 +70,15 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
   try { proposal = await deps.claim(id); }
   catch (error) { if (error instanceof ProposalError) throw error; throw new ExecutionReconciliationRequired(id); }
   const action = proposal.action;
+  if (action.type === "annual_plan_offer") {
+    // Claimed: a missing or misconfigured executor must never fall through to a price PATCH or a retry.
+    let annual: AnnualDependencies;
+    try {
+      if (!deps.annual) throw new Error("Annual offer execution is not wired.");
+      annual = deps.annual(proposal);
+    } catch { throw new ExecutionReconciliationRequired(id); }
+    return executeAnnualOfferWith({ id: proposal.id, actionHash: proposal.actionHash, action }, annual);
+  }
   const outcomes: TargetOutcome[] = [];
   const targets = action.type === "subscription_price_override"
     ? action.targets.map((subscriptionId) => ({ subscriptionId, expectedCurrentPrice: action.listPrice, listPrice: action.newPrice }))
@@ -151,9 +167,31 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
   catch { throw new ExecutionReconciliationRequired(id); }
 }
 
+/** Where PayPal returns a customer after approving or cancelling a switch: the hosted origin, or local APP_URL. */
+export function annualReturnUrl(env: Record<string, string | undefined> = process.env): string {
+  const config = hostedConfig(env);
+  return `${config.hosted ? config.origin : env.APP_URL ?? "http://localhost:3001"}/?paypal=annual`;
+}
+
+const annualDependencies = (proposal: Proposal): AnnualDependencies => ({
+  monthlyPlanSetting: () => getSetting("paypal.plan_id"),
+  getPlan, createPlan: createAnnualPlan, read: getSubscription, revise: reviseToPlan,
+  validateTarget: (subscriptionId) => validateTargetForExecution(proposal, subscriptionId),
+  recordObservation: (snapshot, source) => recordObservation(snapshot, source),
+  recordPlan: (plan, debugId) => recordAnnualPlan(proposal.id, plan, debugId),
+  recordOffer: (offer) => recordAnnualOffer(offer),
+  recordTarget: (request, outcome) => recordAnnualTarget(proposal.id, request, outcome),
+  finish: (status, summary) => finishExecution(proposal.id, status, null, summary),
+  get: () => getProposal(proposal.id),
+  now: () => new Date(),
+  // Resolved here, inside deps.annual(proposal): a configuration error becomes a reconciliation, never a half-run.
+  returnUrl: annualReturnUrl(),
+});
+
 export const executeProposal = (id: string): Promise<ExecutionReport> => executeProposalWith(id, {
   claim: claimForExecution, get: getProposal, finish: finishExecution,
   patch: overrideSubscriptionPrice, read: getSubscription, record: recordTarget, recordObservation, validateTarget: validateTargetForExecution,
+  annual: annualDependencies,
 });
 
 export async function recordObservation(s: SubscriptionSnapshot, source: string, connection?: LedgerConnection): Promise<void> {

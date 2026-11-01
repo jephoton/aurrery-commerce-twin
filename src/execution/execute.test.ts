@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { createLocalConnection, initializeLedgerSchema } from "@/ledger/connection";
 import { executeProposalWith, listExecutions } from "./execute";
 import type { Proposal } from "@/ledger/proposals";
+import type { AnnualDependencies } from "./annual-offer";
 
 it("reset patches only an active expected-price target to the canonical list price without scheduling a revert", async () => {
   const proposal = { id: "p", action: { type: "subscription_price_reset", canonicalListPrice: "24.00", targets: [{ subscriptionId: "I-ONE", expectedCurrentPrice: "18.00" }] } } as Proposal;
@@ -200,4 +201,35 @@ it("does not verify an exponent-form PayPal read-back", async () => {
   await expect(executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish: vi.fn(),
     patch: async () => ({ ok: true, value: { httpStatus: 204 }, debugId: null }), read, record, recordObservation: vi.fn() })).rejects.toThrow(/reconcile/i);
   expect(record.mock.calls[0][2].verified).toBe(false);
+});
+
+it("dispatches an annual offer to its own executor and never PATCHes a price", async () => {
+  const proposal = { id: "p", actionHash: "a".repeat(64), status: "executing",
+    action: { type: "annual_plan_offer", monthlyPlanId: "P-MONTHLY", targets: [{ subscriptionId: "I-ONE", registration: {} }] } } as unknown as Proposal;
+  const patch = vi.fn(); const read = vi.fn(); const finish = vi.fn(async () => {}); const recordTarget = vi.fn(async () => {});
+  const annual = vi.fn(() => ({ monthlyPlanSetting: async () => "P-CHANGED", recordTarget, finish, get: async () => proposal }) as unknown as AnnualDependencies);
+  const report = await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish: vi.fn(), patch, read, record: vi.fn(), annual });
+  expect(annual).toHaveBeenCalledWith(proposal);
+  expect(patch).not.toHaveBeenCalled();
+  expect(read).not.toHaveBeenCalled();
+  expect(finish).toHaveBeenCalledWith("failed", { succeeded: 0, total: 1 });
+  expect(report.outcomes[0].error).toMatch(/monthly plan changed.*no offer was made/);
+});
+
+it.each([
+  ["not wired", undefined],
+  ["misconfigured", () => { throw new Error("Invalid hosted configuration"); }],
+])("leaves an annual offer for reconciliation when its executor is %s", async (_case, annual) => {
+  const proposal = { id: "p", actionHash: "a".repeat(64), status: "executing", action: { type: "annual_plan_offer", targets: [] } } as unknown as Proposal;
+  const patch = vi.fn();
+  await expect(executeProposalWith("p", { claim: async () => proposal, get: vi.fn(), finish: vi.fn(), patch, read: vi.fn(), record: vi.fn(), annual }))
+    .rejects.toMatchObject({ name: "ExecutionReconciliationRequired", proposalId: "p" });
+  expect(patch).not.toHaveBeenCalled();
+});
+
+it("returns customers to the hosted origin, or the local app URL, after an annual offer", async () => {
+  const { annualReturnUrl } = await import("./execute");
+  expect(annualReturnUrl({})).toBe("http://localhost:3001/?paypal=annual");
+  expect(annualReturnUrl({ APP_URL: "http://localhost:4000" })).toBe("http://localhost:4000/?paypal=annual");
+  expect(() => annualReturnUrl({ HOSTED_DEMO: "true" })).toThrow(/hosted configuration/);
 });

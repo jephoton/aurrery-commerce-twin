@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DiscountResumeReview, RecoveryReview, RecoveryPanel, pendingActions, runRecoveryAttempt } from "./RecoveryPanel";
+import { DiscountResumeReview, RecoveryReview, RecoveryPanel, pendingActions, reportSummary, runRecoveryAttempt } from "./RecoveryPanel";
 import type { Proposal } from "@/ledger/proposals";
 
 it.each(["proposed", "approved", "executing"] as const)("shows a reloaded %s reset with exact price/hash, unchecked confirmation and guarded execution", (status) => {
@@ -83,4 +83,39 @@ it("invalidates prior current evidence after partial execution followed by recon
     (value) => { current = value as { episodes: number } | null; })).rejects.toBe(reconcile);
   expect(status).toHaveBeenCalledOnce();
   expect(current).toBeNull();
+});
+
+it("lists only approved or executing annual offers and shows an approved one for explicit resumption", () => {
+  const action = { type: "annual_plan_offer", annualPrice: "244.80", discountPct: 15, targets: [{ subscriptionId: "I-PILOTE", registration: { label: "Pilot E" } }] };
+  const proposed = { id: "a1", actionHash: "b".repeat(64), status: "proposed", action } as unknown as Proposal;
+  const approved = { ...proposed, id: "a2", status: "approved" } as Proposal;
+  expect(pendingActions([proposed, approved])).toEqual([approved]);
+  const html = renderToStaticMarkup(createElement(DiscountResumeReview, { proposal: approved, confirmed: false, canReview: true, paypalConfigured: true, busy: false, onConfirm: vi.fn(), onResume: vi.fn() }));
+  expect(html).toContain("$244.80/yr");
+  expect(html).toContain("15% off");
+  expect(html).toContain("I-PILOTE");
+  expect(html).toContain("Execute approved annual offer");
+  expect(html).toContain("disabled");
+  expect(html).not.toContain('checked=""');
+  expect(renderToStaticMarkup(createElement(RecoveryReview, { proposal: approved, confirmed: false, canReview: true, paypalConfigured: true, busy: false,
+    onConfirm: vi.fn(), onApprove: vi.fn(), onReject: vi.fn() }))).toBe("");
+});
+
+it("shows reconciliation without an execution control for an executing annual offer", () => {
+  const proposal = { id: "a3", actionHash: "b".repeat(64), status: "executing",
+    action: { type: "annual_plan_offer", annualPrice: "244.80", discountPct: 15, targets: [{ subscriptionId: "I-PILOTE", registration: { label: "Pilot E" } }] } } as unknown as Proposal;
+  expect(pendingActions([proposal])).toEqual([proposal]);
+  const html = renderToStaticMarkup(createElement(DiscountResumeReview, { proposal, confirmed: false, canReview: true, paypalConfigured: true, busy: false, onConfirm: vi.fn(), onResume: vi.fn() }));
+  expect(html).toContain("reconciliation");
+  expect(html).not.toContain("<button");
+});
+
+it("reports a resumed annual offer as offers issued, never as verified switches, and keeps the recovery wording", () => {
+  const outcome = { subscriptionId: "I-PILOTE", ok: true, httpStatus: 200, debugId: null, verified: false, observed: null, error: null };
+  const annual = reportSummary({ proposal: { status: "succeeded", action: { type: "annual_plan_offer" } } as unknown as Proposal,
+    outcomes: [{ ...outcome, offer: { annualPlanId: "P-ANNUAL", expiresAt: "2026-11-08T00:00:00.000Z" } }, { ...outcome, subscriptionId: "I-PILOTD", ok: false, error: "Not ACTIVE" }] });
+  expect(annual).toBe("Annual offer succeeded: 1 of 2 offer(s) issued. Each customer chooses in PayPal; a switch counts only after a later status read confirms it.");
+  const recovery = reportSummary({ proposal: { status: "partially_failed", action: { type: "subscription_price_revert" } } as unknown as Proposal,
+    outcomes: [{ ...outcome, verified: true }, { ...outcome, ok: false, skipped: true }] });
+  expect(recovery).toBe("Recovery partially failed: 1 of 2 target(s) verified · 1 already at list price. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.");
 });

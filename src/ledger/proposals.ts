@@ -10,7 +10,8 @@ import { currentMerchant } from "@/merchant";
 import { now } from "./db";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow } from "./connection";
 import { auditOn, authoritativeWrite } from "./operations";
-import { RegistrationSnapshotSchema } from "./annual-offer-action";
+import { AnnualOfferActionSchema, RegistrationSnapshotSchema, type AnnualOfferAction } from "./annual-offer-action";
+import { openOfferSubscriptionIds } from "./annual-offers";
 
 // Action proposals: the only route from a recommendation to a PayPal call.
 // proposed → approved (explicit merchant approval of an exact payload) → executing → terminal.
@@ -72,7 +73,7 @@ export const ResetActionSchema = z.object({
     ctx.addIssue({ code: "custom", message: "Already at list price", path: ["targets"] });
 });
 export type ResetAction = z.infer<typeof ResetActionSchema>;
-export type ProposalAction = PriceOverrideAction | RevertAction | ResetAction;
+export type ProposalAction = PriceOverrideAction | RevertAction | ResetAction | AnnualOfferAction;
 
 export type ProposalStatus = "proposed" | "approved" | "executing" | "succeeded" | "partially_failed" | "failed" | "rejected";
 export type ProposalCursor = { createdAt: string; id: string };
@@ -298,7 +299,7 @@ export function createProposalRepository(connection: LedgerConnection) {
       return authoritativeWrite(connection, async (tx) => {
         const rows = await tx.query(`SELECT * FROM proposals WHERE
           ((action_type IN ('subscription_price_revert','subscription_price_reset') AND status IN ('proposed','approved','executing')) OR
-           (action_type='subscription_price_override' AND status IN ('approved','executing')))
+           (action_type IN ('subscription_price_override','annual_plan_offer') AND status IN ('approved','executing')))
           ${before ? "AND (created_at < ? OR (created_at = ? AND id < ?))" : ""}
           ORDER BY created_at DESC,id DESC LIMIT ?`, before ? [before.createdAt, before.createdAt, before.id, limit + 1] : [limit + 1]);
         const proposals = rows.slice(0, limit).map((row) => parseProposal(row, String(row.id)));
@@ -380,6 +381,19 @@ export function createProposalRepository(connection: LedgerConnection) {
             try { if (!sameUsdAmount(JSON.parse(String(execution.response_json)).observed?.regularPrice, target.expectedCurrentPrice)) return fail("source_price_changed"); }
             catch { return fail("source_execution_invalid"); }
           }
+        } else if (p.action.type === "annual_plan_offer") {
+          const action = AnnualOfferActionSchema.safeParse(p.action);
+          if (!action.success || hashAction(p.action) !== p.actionHash) return fail("invalid_annual_action");
+          const monthly = (await tx.query("SELECT value FROM kv WHERE key='paypal.plan_id'"))[0];
+          if (String(monthly?.value ?? "") !== action.data.monthlyPlanId) return fail("monthly_plan_changed");
+          // Checked on the claim's own transaction, atomically with the reservation below.
+          const open = await openOfferSubscriptionIds(tx, new Date());
+          for (const target of action.data.targets) {
+            const registration = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [target.subscriptionId]))[0];
+            if (!registration || registration.label !== target.registration.label || registration.segment !== target.registration.segment ||
+              registration.reason !== target.registration.reason || registration.created_at !== target.registration.createdAt) return fail("registration_changed");
+            if (open.has(target.subscriptionId)) return fail("open_annual_offer");
+          }
         } else {
           const action = PriceOverrideActionSchema.safeParse(p.action);
           if (!action.success || hashAction(p.action) !== p.actionHash) return fail("invalid_discount_action");
@@ -419,6 +433,15 @@ export function createProposalRepository(connection: LedgerConnection) {
           if (!action.targets.includes(subscriptionId)) return false;
           const pilot = (await tx.query("SELECT segment,reason FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];
           return !!pilot && pilot.segment === action.segment && (action.reason === "any" || pilot.reason === action.reason);
+        }
+        if (action.type === "annual_plan_offer") {
+          const target = action.targets.find((candidate) => candidate.subscriptionId === subscriptionId);
+          if (!target) return false;
+          const pilot = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];
+          const monthly = (await tx.query("SELECT value FROM kv WHERE key='paypal.plan_id'"))[0];
+          return !!pilot && pilot.label === target.registration.label && pilot.segment === target.registration.segment &&
+            pilot.reason === target.registration.reason && pilot.created_at === target.registration.createdAt &&
+            String(monthly?.value ?? "") === action.monthlyPlanId && !(await openOfferSubscriptionIds(tx, new Date())).has(subscriptionId);
         }
         const pilot = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];
         if (action.type === "subscription_price_reset") {

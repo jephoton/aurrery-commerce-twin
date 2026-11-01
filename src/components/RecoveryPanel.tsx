@@ -10,10 +10,20 @@ type Listed = Proposal & { executions: { ok: boolean; verified: boolean }[] };
 type OutstandingPage = { proposals: Proposal[]; nextCursor: string | null };
 type Props = { canReview: boolean; paypalConfigured: boolean; onObservedChange: () => Promise<boolean> };
 
+/** Actions approved in the main flow; the panel only resumes or reports them, never approves them. */
+const awaitsMerchantOnly = (type: Proposal["action"]["type"]) => type === "subscription_price_override" || type === "annual_plan_offer";
 export function pendingActions(proposals: Proposal[]): Proposal[] {
-  return proposals.filter((proposal) => proposal.action.type !== "subscription_price_override"
-    ? ["proposed", "approved", "executing"].includes(proposal.status)
-    : ["approved", "executing"].includes(proposal.status));
+  return proposals.filter((proposal) => awaitsMerchantOnly(proposal.action.type)
+    ? ["approved", "executing"].includes(proposal.status)
+    : ["proposed", "approved", "executing"].includes(proposal.status));
+}
+
+/** An annual offer is issued, not verified, at execution: each customer's switch is confirmed only by a later read. */
+export function reportSummary(report: ExecutionReport): string {
+  const status = report.proposal.status.replaceAll("_", " ");
+  if (report.proposal.action.type === "annual_plan_offer")
+    return `Annual offer ${status}: ${report.outcomes.filter((outcome) => outcome.ok && outcome.offer).length} of ${report.outcomes.length} offer(s) issued. Each customer chooses in PayPal; a switch counts only after a later status read confirms it.`;
+  return `Recovery ${status}: ${report.outcomes.filter((outcome) => outcome.ok && outcome.verified).length} of ${report.outcomes.length} target(s) verified · ${report.outcomes.filter((outcome) => outcome.skipped).length} already at list price. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.`;
 }
 
 /** An execution error can follow a successful earlier target, so refresh facts even on rejection. */
@@ -157,16 +167,16 @@ export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange }:
         <h3 className="font-medium">Outstanding approved and recovery actions</h3>
         <p className="mt-1 text-sm text-muted">Choose an action to inspect its current ledger state. Selection never approves or executes it.</p>
         <ul className="mt-2 space-y-2">{pending.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="break-all font-mono">{item.id} · {item.action.type === "subscription_price_revert" ? "restoration" : item.action.type === "subscription_price_reset" ? "demo reset" : "discount"} · {item.status}</span>
+          <span className="break-all font-mono">{item.id} · {item.action.type === "subscription_price_revert" ? "restoration" : item.action.type === "subscription_price_reset" ? "demo reset" : item.action.type === "annual_plan_offer" ? "annual offer" : "discount"} · {item.status}</span>
           <button type="button" disabled={busy} onClick={() => { setProposal(item); setConfirmed(false); setReport(null); setCurrentEvidence(null); setError(null); setResetSkipped(null); }} className="min-h-10 rounded-lg border border-border px-3 hover:bg-background disabled:opacity-50">Review action</button>
         </li>)}</ul>
         {outstandingCursor && <button type="button" disabled={busy} onClick={() => void loadMore()} className="mt-3 min-h-10 rounded-lg border border-border px-3 hover:bg-background disabled:opacity-50">Load more outstanding actions</button>}
       </div>}
-      {proposal && proposal.action.type !== "subscription_price_override" && <RecoveryReview proposal={proposal} confirmed={confirmed} canReview={canReview} paypalConfigured={paypalConfigured} busy={busy}
+      {proposal && !awaitsMerchantOnly(proposal.action.type) && <RecoveryReview proposal={proposal} confirmed={confirmed} canReview={canReview} paypalConfigured={paypalConfigured} busy={busy}
         onConfirm={setConfirmed} onApprove={() => void act(false)} onResume={() => void act(true)} onReject={() => void reject()} />}
-      {proposal?.action.type === "subscription_price_override" && <DiscountResumeReview proposal={proposal} confirmed={confirmed} canReview={canReview} paypalConfigured={paypalConfigured} busy={busy}
+      {proposal && awaitsMerchantOnly(proposal.action.type) && <DiscountResumeReview proposal={proposal} confirmed={confirmed} canReview={canReview} paypalConfigured={paypalConfigured} busy={busy}
         onConfirm={setConfirmed} onResume={() => void act(true)} />}
-      {report && <p className="mt-3 text-sm">Recovery {report.proposal.status.replaceAll("_", " ")}: {report.outcomes.filter((outcome) => outcome.ok && outcome.verified).length} of {report.outcomes.length} target(s) verified · {report.outcomes.filter((outcome) => outcome.skipped).length} already at list price. Current PayPal prices can be checked below; the run&apos;s simulation snapshot remains historical.</p>}
+      {report && <p className="mt-3 text-sm">{reportSummary(report)}</p>}
       {currentEvidence && <p className="mt-2 text-sm text-muted">Current ledger after the action attempt: {currentEvidence.episodes} verified discount episodes · {currentEvidence.subscriberMonths.toFixed(3)} observed discounted subscriber-months. Previous run evidence snapshots remain as recorded.</p>}
       {error && <p role="alert" className="mt-3 text-sm text-negative">{error}</p>}
     </section>
@@ -177,17 +187,19 @@ export function DiscountResumeReview({ proposal, confirmed, canReview, paypalCon
   proposal: Proposal; confirmed: boolean; canReview: boolean; paypalConfigured: boolean; busy: boolean;
   onConfirm: (value: boolean) => void; onResume: () => void;
 }) {
-  if (proposal.action.type !== "subscription_price_override" || !["approved", "executing"].includes(proposal.status)) return null;
   const action = proposal.action;
+  if ((action.type !== "subscription_price_override" && action.type !== "annual_plan_offer") || !["approved", "executing"].includes(proposal.status)) return null;
+  const ids = action.type === "annual_plan_offer" ? action.targets.map((target) => target.subscriptionId) : action.targets;
+  const noun = action.type === "annual_plan_offer" ? "annual offer" : "discount";
   return <div className="mt-4 border-t border-border pt-4 text-sm">
-    <p><strong>Approved discount:</strong> ${action.listPrice} → ${action.newPrice} for {action.targets.length} registered pilot(s).</p>
-    <p><strong>Targets:</strong> <span className="break-all font-mono">{action.targets.join(", ")}</span></p>
+    <p><strong>Approved {noun}:</strong> {action.type === "annual_plan_offer" ? `$${action.annualPrice}/yr (${action.discountPct}% off)` : `$${action.listPrice} → $${action.newPrice}`} for {ids.length} registered pilot(s).</p>
+    <p><strong>Targets:</strong> <span className="break-all font-mono">{ids.join(", ")}</span></p>
     <p><strong>Payload hash:</strong> <span className="break-all font-mono">{proposal.actionHash}</span></p>
     {proposal.status === "approved" ? <>
       <p className="mt-2 text-muted">The prior approval remains recorded. This separate merchant request checks the exact hash and current state before any PayPal call.</p>
       <label className="mt-3 flex min-h-10 items-center gap-3"><input type="checkbox" checked={confirmed} disabled={busy || !canReview} onChange={(event) => onConfirm(event.target.checked)} className="h-5 w-5 shrink-0 accent-brand" />
-        I confirm executing this already approved discount for {action.targets.length} PayPal Sandbox subscription(s).</label>
-      <button type="button" disabled={!confirmed || busy || !canReview || !paypalConfigured} onClick={onResume} className="mt-2 min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background disabled:opacity-50">Execute approved discount</button>
+        I confirm executing this already approved {noun} for {ids.length} PayPal Sandbox subscription(s).</label>
+      <button type="button" disabled={!confirmed || busy || !canReview || !paypalConfigured} onClick={onResume} className="mt-2 min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background disabled:opacity-50">Execute approved {noun}</button>
     </> : <p className="mt-2 text-negative">Execution outcome requires ledger and PayPal reconciliation. Do not retry the PayPal action.</p>}
   </div>;
 }
@@ -196,7 +208,7 @@ export function RecoveryReview({ proposal, confirmed, canReview, paypalConfigure
   proposal: Proposal; confirmed: boolean; canReview: boolean; paypalConfigured: boolean; busy: boolean;
   onConfirm: (value: boolean) => void; onApprove: () => void; onResume?: () => void; onReject: () => void;
 }) {
-  if (proposal.action.type === "subscription_price_override") return null;
+  if (proposal.action.type === "subscription_price_override" || proposal.action.type === "annual_plan_offer") return null;
   const action = proposal.action;
   const reset = action.type === "subscription_price_reset";
   return <div className="mt-4 border-t border-border pt-4 text-sm">
