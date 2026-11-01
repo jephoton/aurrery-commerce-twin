@@ -192,7 +192,13 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - The payload gains `annualOffers` from `listAnnualOfferViews`: derived status, outcome, expiry and `needsRead` only, never an approval link (tests assert no `ba_token` or PayPal URL in the body, including when PayPal is not configured).
   - New `src/app/api/paypal/status/route.test.ts` (6 tests, PayPal stubbed, fixture offer): two refreshes append two reads and show the switch; failed GET records nothing; confirmed decline still read when registered; unregistered open offer read; unregistered confirmed decline not read; unconfigured PayPal reads nothing.
   - Verification: 1083 tests pass at the code commit (1090 with the concurrent Task 11 follow-up), typecheck and lint clean.
-  - **Next:** Task 13, administrator-only draft messages with approval links.
+- **Task 13 done (administrator-only draft messages with approval links).**
+  - New `GET /api/annual-offers/links` calls `await connection()` first, then the existing hosted admin guard (`admitHostedRequest(request, { admin: true })`). A hosted visitor without a valid administrator session gets the unchanged `401 ADMIN_REQUIRED` before any link is read. Local mode is unguarded, as for approve and reject.
+  - Administrators get `{ offers: [{ id, subscriptionId, label, expiresAt, message }] }` with `Cache-Control: no-store`: one `draftAnnualOfferMessage` per offer from `listAnnualOfferLinks`, so only `pending` offers carry a link (decision 5). Switched, expired (unconfirmed or declined) and invalid offers return none.
+  - Errors return a fixed `500 INTERNAL` body with `no-store` and log nothing (the route does not use `errorResponse`, which logs a line). The public status payload is unchanged and still carries no link.
+  - New `src/app/api/annual-offers/links/route.test.ts` (8 tests, hosted mode, fixture offer, PayPal stubbed): missing, malformed and unknown session cookies; public status payload without a link; admin draft after `connection()`; switched, closed and invalid offers; closed and open offers together; an error carrying a fake link returns the fixed body with no console output.
+  - Verification: 1098 tests pass at the code commit, typecheck and lint clean.
+  - **Next:** Task 14, learn annual uptake in the observed-merchant path.
 
 ## M5 complete and published
 
