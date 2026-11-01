@@ -10,6 +10,12 @@ type Listed = Proposal & { executions: { ok: boolean; verified: boolean }[] };
 type OutstandingPage = { proposals: Proposal[]; nextCursor: string | null };
 type Props = { canReview: boolean; paypalConfigured: boolean; onObservedChange: () => Promise<boolean> };
 
+/** Why a pilot is left out of a reset; an annual switch is the customer's choice, not a failure. */
+export const RESET_SKIP_TEXT: Record<ResetPreview["skipped"][number]["reason"], string> = {
+  already_list_price: "already at list price", inactive: "inactive", unregistered: "unregistered",
+  annual_plan: "switched to annual by customer choice; not reset",
+};
+
 /** Actions approved in the main flow; the panel only resumes or reports them, never approves them. */
 const awaitsMerchantOnly = (type: Proposal["action"]["type"]) => type === "subscription_price_override" || type === "annual_plan_offer";
 export function pendingActions(proposals: Proposal[]): Proposal[] {
@@ -162,7 +168,7 @@ export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange }:
       </div>}
       {resetSkipped && <div role="status" className="mt-3 text-sm">
         {!proposal && <p>No active off-list registered pilots require a reset.</p>}
-        <ul>{resetSkipped.map((pilot) => <li key={pilot.label}>{pilot.label}{pilot.subscriptionId ? ` (${pilot.subscriptionId})` : ""}: {pilot.reason.replaceAll("_", " ")}</li>)}</ul>
+        <ul>{resetSkipped.map((pilot) => <li key={pilot.label}>{pilot.label}{pilot.subscriptionId ? ` (${pilot.subscriptionId})` : ""}: {RESET_SKIP_TEXT[pilot.reason]}</li>)}</ul>
       </div>}
       {sources.length > 0 && <ul className="mt-4 space-y-2">{sources.map((source) => <li key={source.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="break-all font-mono">{source.id} · {source.status}</span>

@@ -6,16 +6,19 @@ import { sameUsdAmount, usdCents } from "@/paypal/prices";
 import { createResetProposal, ProposalError, ResetRegistrationSnapshotSchema } from "@/ledger/proposals";
 import { runtimeLedgerConnection } from "@/ledger/connection";
 import { authoritativeWrite } from "@/ledger/operations";
+import { listAnnualPlanIds } from "@/ledger/annual-offers";
 import { getSubscription } from "@/paypal/subscriptions";
 import { currentMerchant } from "@/merchant";
 
-export type ResetPreview = { proposal: Proposal | null; skipped: { label: string; subscriptionId: string | null; reason: "already_list_price" | "inactive" | "unregistered" }[] };
+export type ResetPreview = { proposal: Proposal | null; skipped: { label: string; subscriptionId: string | null; reason: "already_list_price" | "inactive" | "unregistered" | "annual_plan" }[] };
 export type ResetDependencies = {
   list: () => Promise<SandboxSubscriber[]>;
   registrations: () => Promise<Record<string, string>>;
   read: (id: string) => Promise<Result<SubscriptionSnapshot>>;
   create: (price: string, targets: ResetAction["targets"]) => Promise<Proposal>;
   listPrice: () => number;
+  /** Yearly plans offers were made on; a pilot on one switched by customer choice and is not reset. */
+  annualPlanIds?: () => Promise<ReadonlySet<string>>;
 };
 
 export async function previewDemoResetWith(deps: ResetDependencies): Promise<ResetPreview> {
@@ -40,12 +43,14 @@ export async function previewDemoResetWith(deps: ResetDependencies): Promise<Res
   });
   const ids = resolved.flatMap(({ pilot }) => pilot ? [pilot.subscriptionId] : []);
   if (new Set(ids).size !== ids.length) throw new ProposalError("Duplicate pilot identity.", "INVALID_STATE");
+  const annualPlans = await (deps.annualPlanIds?.() ?? Promise.resolve(new Set<string>()));
   const targets: ResetAction["targets"] = [];
   const skipped: ResetPreview["skipped"] = [];
   for (const { member, pilot } of resolved) {
     if (!pilot) { skipped.push({ label: member.label, subscriptionId: null, reason: "unregistered" }); continue; }
     const read = await deps.read(pilot.subscriptionId);
     if (!read.ok || read.value.id !== pilot.subscriptionId) throw new ProposalError("Pilot PayPal status could not be verified.", "INVALID_STATE");
+    if (read.value.planId && annualPlans.has(read.value.planId)) { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "annual_plan" }); continue; }
     if (read.value.status !== "ACTIVE") { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "inactive" }); continue; }
     if (usdCents(read.value.regularPrice) === null) throw new ProposalError("Pilot price could not be verified.", "INVALID_STATE");
     if (sameUsdAmount(read.value.regularPrice, canonicalListPrice)) { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "already_list_price" }); continue; }
@@ -66,5 +71,7 @@ export async function previewDemoReset(): Promise<ResetPreview> {
   return previewDemoResetWith({ list: async () => registered, read: getSubscription, create: createResetProposal,
     listPrice: () => currentMerchant().twin.params.listPrice,
     registrations: async () => dates,
+    // Called by previewDemoResetWith after the registry transaction above has closed.
+    annualPlanIds: () => listAnnualPlanIds(),
   });
 }

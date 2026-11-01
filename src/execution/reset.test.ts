@@ -4,6 +4,7 @@ import { PILOT_COHORT } from "@/paypal/pilot-cohort";
 import { previewDemoReset, previewDemoResetWith } from "./reset";
 import * as ledger from "@/ledger/connection";
 import * as paypal from "@/paypal/subscriptions";
+import { FIXTURE_ANNUAL_PLAN, seedAnnualOffer } from "@/test/annual-offer-fixture";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -102,4 +103,31 @@ it.each(["duplicate label", "duplicate identity", "attributes"])("fails closed o
   const create = vi.fn(); const read = vi.fn();
   await expect(previewDemoResetWith({ list: async () => list, registrations: async () => ({ "I-A": "2026-01-01T00:00:00.000Z" }), read, create, listPrice: () => 24 })).rejects.toThrow();
   expect(read).not.toHaveBeenCalled(); expect(create).not.toHaveBeenCalled();
+});
+
+it("skips a pilot on an annual plan by customer choice instead of resetting it", async () => {
+  const read = vi.fn(async (id: string) => ({ ok: true, value: { id, status: "ACTIVE", regularPrice: "244.8", planOverridden: false, planId: "P-ANNUAL1" }, debugId: null } as never));
+  const create = vi.fn();
+  const preview = await previewDemoResetWith({ list: async () => [{ subscriptionId: "I-A", ...PILOT_COHORT[0] }],
+    registrations: async () => ({ "I-A": "2026-01-01T00:00:00.000Z" }), read, create, listPrice: () => 24, annualPlanIds: async () => new Set(["P-ANNUAL1"]) });
+  expect(create).not.toHaveBeenCalled();
+  expect(preview.proposal).toBeNull();
+  expect(preview.skipped[0]).toEqual({ label: PILOT_COHORT[0].label, subscriptionId: "I-A", reason: "annual_plan" });
+});
+
+it("refuses to reset a switched pilot by the annual plan recorded in the ledger", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    const connection = ledger.createLocalConnection(db);
+    await seedAnnualOffer(connection, { switchedAt: "2026-11-02T00:00:00.000Z" });
+    vi.spyOn(ledger, "runtimeLedgerConnection").mockResolvedValue(connection);
+    const read = vi.spyOn(paypal, "getSubscription").mockResolvedValue({ ok: true, value: { id: "I-PILOTD", status: "ACTIVE", regularPrice: "244.8",
+      planOverridden: false, nextBillingTime: null, lastPayment: null, planId: FIXTURE_ANNUAL_PLAN, raw: {} }, debugId: null });
+    const before = (await connection.query("SELECT COUNT(*) AS n FROM proposals"))[0].n;
+    const preview = await previewDemoReset();
+    expect(read.mock.calls).toEqual([["I-PILOTD"]]);
+    expect(preview.proposal).toBeNull();
+    expect(preview.skipped).toContainEqual({ label: PILOT_COHORT.find((pilot) => pilot.segment === "core")!.label, subscriptionId: "I-PILOTD", reason: "annual_plan" });
+    expect((await connection.query("SELECT COUNT(*) AS n FROM proposals"))[0].n).toBe(before);
+  } finally { db.close(); }
 });

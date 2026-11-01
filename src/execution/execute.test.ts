@@ -236,3 +236,72 @@ it("returns customers to the hosted origin, or the local app URL, after an annua
   expect(() => annualReturnUrl({ APP_URL: "ftp://localhost:4000" })).toThrow(/http/);
   expect(() => annualReturnUrl({ APP_URL: "not a url" })).toThrow();
 });
+
+const annualSnapshot = { id: "I-ONE", status: "ACTIVE", regularPrice: "244.8", planOverridden: true, nextBillingTime: null, lastPayment: null, planId: "P-ANNUAL1", raw: {} };
+const annualTargetProposal = (type: "subscription_price_reset" | "subscription_price_override" | "subscription_price_revert") => ({ id: "p", action:
+  type === "subscription_price_reset" ? { type, canonicalListPrice: "24.00", targets: [{ subscriptionId: "I-ONE", expectedCurrentPrice: "244.80" }] }
+  : type === "subscription_price_override" ? { type, targets: ["I-ONE"], listPrice: "244.80", newPrice: "18.00", months: 3 }
+  : { type, targets: [{ subscriptionId: "I-ONE", expectedCurrentPrice: "244.80", listPrice: "24.00" }] } } as Proposal);
+
+it.each(["subscription_price_reset", "subscription_price_override", "subscription_price_revert"] as const)("never PATCHes a subscriber who switched to an annual plan (%s)", async (type) => {
+  // Built to PATCH under the price check alone: the captured 244.80 matches the read-back 244.8 by cents.
+  const proposal = annualTargetProposal(type);
+  const patch = vi.fn(); const finish = vi.fn(); const record = vi.fn();
+  const report = await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish, patch, record,
+    read: async () => ({ ok: true, value: annualSnapshot, debugId: null }), annualPlanIds: async () => new Set(["P-ANNUAL1"]) });
+  expect(patch).not.toHaveBeenCalled();
+  expect(report.outcomes).toHaveLength(1);
+  expect(report.outcomes[0]).toMatchObject({ subscriptionId: "I-ONE", ok: false, verified: false, error: expect.stringMatching(/annual plan by customer choice/) });
+  expect(report.outcomes[0].skipped).toBeUndefined();
+  expect(record).toHaveBeenCalledOnce();
+  expect(finish).toHaveBeenCalledWith("p", "failed", null, { succeeded: 0, total: 1 });
+});
+
+it("still PATCHes a subscriber whose plan is not a recorded annual plan", async () => {
+  const proposal = annualTargetProposal("subscription_price_override");
+  const patch = vi.fn().mockResolvedValue({ ok: true, value: { httpStatus: 204 }, debugId: null });
+  const read = vi.fn().mockResolvedValueOnce({ ok: true, value: { ...annualSnapshot, planId: "P-MONTHLY1" }, debugId: null })
+    .mockResolvedValueOnce({ ok: true, value: { ...annualSnapshot, planId: "P-MONTHLY1", regularPrice: "18.0" }, debugId: null });
+  const finish = vi.fn();
+  await executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish, patch, read, record: vi.fn(),
+    annualPlanIds: async () => new Set(["P-ANNUAL1"]) });
+  expect(patch).toHaveBeenCalledWith("I-ONE", "18.00");
+  expect(finish).toHaveBeenCalledWith("p", "succeeded", expect.any(String), { succeeded: 1, total: 1 });
+});
+
+it("leaves execution unresolved without any PATCH when the recorded annual plans cannot be read", async () => {
+  const proposal = annualTargetProposal("subscription_price_reset");
+  const patch = vi.fn(); const read = vi.fn(); const finish = vi.fn();
+  await expect(executeProposalWith("p", { claim: async () => proposal, get: async () => proposal, finish, patch, read, record: vi.fn(),
+    annualPlanIds: async () => { throw new Error("ledger unavailable"); } }))
+    .rejects.toMatchObject({ name: "ExecutionReconciliationRequired", proposalId: "p" });
+  expect(read).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(finish).not.toHaveBeenCalled();
+});
+
+it("refuses a reset of a switched subscriber through the wired ledger without sending a PATCH", async () => {
+  const ledger = await import("@/ledger/connection");
+  const paypal = await import("@/paypal/subscriptions");
+  const { createProposalRepository } = await import("@/ledger/proposals");
+  const { seedAnnualOffer, FIXTURE_ANNUAL_PLAN } = await import("@/test/annual-offer-fixture");
+  const { executeProposal } = await import("./execute");
+  const db = new DatabaseSync(":memory:");
+  try {
+    const connection = createLocalConnection(db);
+    await seedAnnualOffer(connection, { switchedAt: "2026-11-02T00:00:00.000Z" });
+    const repo = createProposalRepository(connection);
+    const { PILOT_COHORT } = await import("@/paypal/pilot-cohort");
+    const pilot = PILOT_COHORT.find((member) => member.segment === "core")!;
+    const createdAt = String((await connection.query("SELECT created_at FROM sandbox_subscribers WHERE subscription_id = 'I-PILOTD'"))[0].created_at);
+    const reset = await repo.createResetProposal("24.00", [{ subscriptionId: "I-PILOTD", expectedCurrentPrice: "244.80",
+      registration: { label: pilot.label, segment: pilot.segment, reason: pilot.reason, createdAt } }]);
+    await repo.approveResetProposal(reset.id, reset.actionHash, "test administrator");
+    vi.spyOn(ledger, "runtimeLedgerConnection").mockResolvedValue(connection);
+    vi.spyOn(paypal, "getSubscription").mockResolvedValue({ ok: true, value: { id: "I-PILOTD", status: "ACTIVE", regularPrice: "244.8",
+      planOverridden: false, nextBillingTime: null, lastPayment: null, planId: FIXTURE_ANNUAL_PLAN, raw: {} }, debugId: null });
+    const patch = vi.spyOn(paypal, "overrideSubscriptionPrice").mockRejectedValue(new Error("No PayPal call is allowed in this test."));
+    const report = await executeProposal(reset.id);
+    expect(patch).not.toHaveBeenCalled();
+    expect(report.proposal.status).toBe("failed");
+    expect(await listExecutions(reset.id, connection)).toEqual([expect.objectContaining({ subscriptionId: "I-PILOTD", ok: false, error: expect.stringMatching(/annual plan by customer choice/) })]);
+  } finally { vi.restoreAllMocks(); db.close(); }
+});

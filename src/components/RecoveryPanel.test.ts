@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DiscountResumeReview, RecoveryReview, RecoveryPanel, discountEvidenceReader, pendingActions, reportSummary, runRecoveryAttempt } from "./RecoveryPanel";
+import { DiscountResumeReview, RecoveryReview, RecoveryPanel, RESET_SKIP_TEXT, discountEvidenceReader, pendingActions, reportSummary, runRecoveryAttempt } from "./RecoveryPanel";
 import type { Proposal } from "@/ledger/proposals";
 
 it.each(["proposed", "approved", "executing"] as const)("shows a reloaded %s reset with exact price/hash, unchecked confirmation and guarded execution", (status) => {
@@ -130,4 +130,9 @@ it("reports a resumed annual offer as offers issued, never as verified switches,
   const recovery = reportSummary({ proposal: { status: "partially_failed", action: { type: "subscription_price_revert" } } as unknown as Proposal,
     outcomes: [{ ...outcome, verified: true }, { ...outcome, ok: false, skipped: true }] });
   expect(recovery).toBe("Recovery partially failed: 1 of 2 target(s) verified · 1 already at list price. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.");
+});
+
+it("reports an annual subscriber as a customer choice, not a reset failure", () => {
+  expect(RESET_SKIP_TEXT).toEqual({ already_list_price: "already at list price", inactive: "inactive", unregistered: "unregistered",
+    annual_plan: "switched to annual by customer choice; not reset" });
 });

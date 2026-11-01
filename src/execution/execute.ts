@@ -8,7 +8,7 @@ import { sameUsdAmount, usdCents } from "@/paypal/prices";
 import { PriceOverrideActionSchema } from "@/ledger/proposals";
 import { REASONS, SEGMENTS } from "@/twin/types";
 import { SUBSCRIBER_MONTH_MS } from "@/ledger/discount-outcomes";
-import { recordAnnualOffer, recordAnnualPlan, recordAnnualTarget } from "@/ledger/annual-offers";
+import { listAnnualPlanIds, recordAnnualOffer, recordAnnualPlan, recordAnnualTarget } from "@/ledger/annual-offers";
 import { getSetting } from "@/ledger/operations";
 import { createAnnualPlan, getPlan, reviseToPlan } from "@/paypal/plans";
 import { hostedConfig } from "@/hosting/config";
@@ -31,6 +31,8 @@ type Dependencies = {
   validateTarget?: typeof validateTargetForExecution;
   /** Ledger and PayPal adapters for an annual offer; built only after its claim succeeds. */
   annual?: (proposal: Proposal) => AnnualDependencies;
+  /** Yearly plans offers were made on; a subscriber on one switched by customer choice and is never re-priced. */
+  annualPlanIds?: () => Promise<ReadonlySet<string>>;
 };
 
 export async function recordTarget(id: string, request: unknown, outcome: TargetOutcome, snapshot: SubscriptionSnapshot | null, connection?: LedgerConnection, recordedAt = now()): Promise<void> {
@@ -79,6 +81,10 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
     } catch { throw new ExecutionReconciliationRequired(id); }
     return executeAnnualOfferWith({ id: proposal.id, actionHash: proposal.actionHash, action }, annual);
   }
+  // Read after the claim's transaction has closed: the ledger read opens its own.
+  let annualPlans: ReadonlySet<string>;
+  try { annualPlans = await (deps.annualPlanIds?.() ?? Promise.resolve(new Set<string>())); }
+  catch { throw new ExecutionReconciliationRequired(id); }
   const outcomes: TargetOutcome[] = [];
   const targets = action.type === "subscription_price_override"
     ? action.targets.map((subscriptionId) => ({ subscriptionId, expectedCurrentPrice: action.listPrice, listPrice: action.newPrice }))
@@ -100,6 +106,15 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
       current = before.value;
       if (deps.recordObservation) await deps.recordObservation(current, "paypal.execution_preread");
     } catch { throw new ExecutionReconciliationRequired(id); }
+    // Refused by plan, not price: a switched subscriber's yearly price can coincide with a captured one.
+    if (current.planId !== null && annualPlans.has(current.planId)) {
+      const outcome: TargetOutcome = { subscriptionId, ok: false, httpStatus: null, debugId: null, verified: false,
+        observed: { status: current.status, regularPrice: current.regularPrice, planOverridden: current.planOverridden, nextBillingTime: current.nextBillingTime },
+        error: "On an annual plan by customer choice; the price was not changed." };
+      try { await deps.record(id, request, outcome, null); } catch { throw new ExecutionReconciliationRequired(id); }
+      outcomes.push(outcome);
+      continue;
+    }
     if (action.type === "subscription_price_reset" && current.id === subscriptionId && current.status === "ACTIVE" && sameUsdAmount(current.regularPrice, requestedPrice)) {
       const outcome: TargetOutcome = { subscriptionId, ok: false, skipped: true, httpStatus: null, debugId: null, verified: false,
         observed: { status: current.status, regularPrice: current.regularPrice, planOverridden: current.planOverridden, nextBillingTime: current.nextBillingTime },
@@ -193,7 +208,7 @@ const annualDependencies = (proposal: Proposal): AnnualDependencies => ({
 export const executeProposal = (id: string): Promise<ExecutionReport> => executeProposalWith(id, {
   claim: claimForExecution, get: getProposal, finish: finishExecution,
   patch: overrideSubscriptionPrice, read: getSubscription, record: recordTarget, recordObservation, validateTarget: validateTargetForExecution,
-  annual: annualDependencies,
+  annual: annualDependencies, annualPlanIds: () => listAnnualPlanIds(),
 });
 
 export async function recordObservation(s: SubscriptionSnapshot, source: string, connection?: LedgerConnection): Promise<void> {
