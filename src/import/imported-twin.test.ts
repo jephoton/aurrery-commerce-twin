@@ -4,7 +4,8 @@ import { historyCsv, historyRowsFromTwin, toCsv } from "./csv-write";
 import { DEFAULT_ECONOMICS } from "./economics";
 import { parseHistoryCsv } from "./history-csv";
 import { toTuple } from "./import-payload";
-import { buildImportedTwin, IMPORTED_MERCHANT_ID, usesReasonTargeting } from "./imported-twin";
+import { buildImportedTwin, IMPORTED_MERCHANT_ID, importedStarterStrategies, usesReasonTargeting } from "./imported-twin";
+import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { formatRowError } from "./row-error";
 
 const demo = buildDemoTwin();
@@ -66,4 +67,14 @@ it("rejects an all-zero history without building a twin", () => {
   expect(built.ok).toBe(false);
   if (built.ok) return;
   expect(built.errors.map(formatRowError)).toEqual(["active_start: 2026-09 has no active subscribers (active_start is 0 in every segment); the twin starts from the last month"]);
+});
+it("builds an import's starters from its list price, feedback and starting cancel-intent actives", () => {
+  const built = buildImportedTwin({ ...payload(), reasonCounts: { new: zero, core: zero, price_sensitive: zero, at_risk: { price: 3, other: 1 }, cancel_intent: zero } });
+  if (!built.ok) throw new Error("must build");
+  expect(importedStarterStrategies(built)).toEqual(STARTER_STRATEGIES);
+  const plain = buildImportedTwin(payload());
+  if (!plain.ok) throw new Error("must build");
+  expect(importedStarterStrategies(plain).map((s) => s.id)).not.toContain("cancel-price-25-3m");
+  const empty = { ...built, twin: { ...built.twin, initialActive: { ...built.twin.initialActive, cancel_intent: 2 } } };
+  expect(importedStarterStrategies(empty).map((s) => s.id)).not.toContain("cancel-price-25-3m");
 });

@@ -7,20 +7,20 @@ import type { HistoryRow } from "./history-csv";
 import type { SAMPLE_FILES } from "./sample-files";
 
 // Hollowbrook Treat Box: a fictional $20/month dog-treat box, the sample "second merchant".
-// SYNTHETIC, like Ridgeline: generated once from these fixed rates and seed. Its settled subscribers
-// (core and price sensitive) rarely cancel, so an annual prepay discount buys little retention,
-// while its at-risk subscribers churn fast but often recover when they stay. On history alone,
-// a broad at-risk discount is the move here: the opposite of Ridgeline's lesson. Its feedback
-// (at-risk leavers mostly cite price) sharpens that story but is not needed for it.
+// SYNTHETIC, like Ridgeline: generated once from these fixed rates and seed. Its core subscribers
+// rarely cancel, so an annual prepay discount buys little retention. Price-sensitive subscribers
+// often slip into at risk, where half cancel each month but most of those who stay recover. On
+// history alone, a broad at-risk discount is the move here: the opposite of Ridgeline's lesson.
+// Its feedback (at-risk leavers mostly cite price) sharpens that story but is not needed for it.
 
 export const SAMPLE_TRUTH: SyntheticTruth = {
-  churn: { new: 0.12, core: 0.008, price_sensitive: 0.02, at_risk: 0.7, cancel_intent: 0.4 },
+  churn: { new: 0.12, core: 0.015, price_sensitive: 0.03, at_risk: 0.5, cancel_intent: 0.4 },
   involuntary: 0.004,
   newGraduation: 0.4,
   newToPriceSensitive: 0.5,
-  coreToAtRisk: 0.03,
-  priceSensitiveToAtRisk: 0.05,
-  atRiskRecovery: 0.6,
+  coreToAtRisk: 0.015,
+  priceSensitiveToAtRisk: 0.15,
+  atRiskRecovery: 0.75,
   atRiskToCancelIntent: 0.12,
   cancelIntentToAtRisk: 0.1,
   acquisitionMean: 26,

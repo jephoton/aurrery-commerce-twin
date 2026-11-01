@@ -1,3 +1,4 @@
+import { starterStrategiesFor } from "@/merchant/candidates";
 import { buildTwinFromHistory } from "@/twin/build-twin";
 import type { TwinHistory } from "@/twin/history";
 import type { Strategy } from "@/twin/interventions";
@@ -65,3 +66,8 @@ export function buildImportedTwin(payload: ImportPayload): ImportedTwin {
 /** Leaving reasons are only known from classified feedback. */
 export const usesReasonTargeting = (strategy: Strategy) =>
   strategy.intervention.kind === "targeted_discount" && strategy.intervention.reason === "price";
+
+/** An import's starter strategies: scaled to its list price, without reason targeting unless feedback was classified, and without an empty cancel-intent save. */
+export function importedStarterStrategies(built: Extract<ImportedTwin, { ok: true }>): Strategy[] {
+  return starterStrategiesFor(built.twin.params.listPrice, { reasonTargeting: built.reasonTargeting, cancelIntentActive: built.twin.initialActive.cancel_intent });
+}
