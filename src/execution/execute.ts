@@ -8,25 +8,12 @@ import { sameUsdAmount, usdCents } from "@/paypal/prices";
 import { PriceOverrideActionSchema } from "@/ledger/proposals";
 import { REASONS, SEGMENTS } from "@/twin/types";
 import { SUBSCRIBER_MONTH_MS } from "@/ledger/discount-outcomes";
+import { ExecutionReconciliationRequired, isDefinitiveFailure, type ExecutionReport, type TargetOutcome } from "./outcomes";
+export { ExecutionReconciliationRequired, type ExecutionReport, type TargetOutcome } from "./outcomes";
 
 // PayPal calls run outside a transaction. Storage acknowledgement failure leaves the claim
 // unresolved; an operator must reconcile PayPal before any further mutation.
-export interface TargetOutcome {
-  subscriptionId: string;
-  ok: boolean;
-  skipped?: boolean;
-  httpStatus: number | null;
-  debugId: string | null;
-  verified: boolean;
-  observed: Pick<SubscriptionSnapshot, "status" | "regularPrice" | "planOverridden" | "nextBillingTime"> | null;
-  error: string | null;
-}
-export interface ExecutionReport { proposal: Proposal; outcomes: TargetOutcome[] }
 const OPERATION = "PATCH subscription fixed_price";
-
-export class ExecutionReconciliationRequired extends Error {
-  constructor(readonly proposalId: string) { super("Approval or execution outcome is unconfirmed; reconcile the ledger and PayPal before any further action."); this.name = "ExecutionReconciliationRequired"; }
-}
 
 type Dependencies = {
   claim: typeof claimForExecution;
@@ -151,7 +138,7 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
     catch { throw new ExecutionReconciliationRequired(id); }
     outcomes.push(outcome);
     // Known client errors failed before mutation; uncertain failures and unverified successes stop.
-    const knownFailure = !outcome.ok && [400, 401, 403, 404, 422].includes(outcome.httpStatus ?? 0);
+    const knownFailure = !outcome.ok && isDefinitiveFailure(outcome.httpStatus);
     if (!knownFailure && (!outcome.ok || !outcome.verified)) throw new ExecutionReconciliationRequired(id);
   }
   const succeeded = outcomes.filter((outcome) => outcome.ok && outcome.verified).length;
