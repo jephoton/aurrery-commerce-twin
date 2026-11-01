@@ -234,7 +234,12 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - Administrators also see display-only draft customer messages (read-only textarea, Copy copies the raw message) fetched on the client from `GET /api/annual-offers/links`; nothing is server-rendered, and visitors never fetch. Drafts are keyed to the status refresh and pending set, so each refetch or failure hides previous links at once, only still-pending offers show, and each draft drops when its window closes. A 401 asks the administrator to sign in again.
   - A failed or rate-limited status read shows "Offer status unavailable" instead of hiding the panel or showing stale rows. The pilot table now shows "/yr" for subscribers on the offered annual plan (`live.annualPlan`) and "/mo" otherwise.
   - New `annual-offers-view.test.ts` (13 tests). Verification: 1147 tests pass, typecheck and lint clean.
-  - **Next:** Task 20.
+- **Task 20 done (Pilot E in the cohort).**
+  - `PILOT_COHORT` gains "Pilot E: loyal, 9 months" (core, reason other); Pilots A-D are unchanged. Feedback pilot indices stay 0-3, so classification and recorded fixtures are unaffected.
+  - `setupPilots` creates a missing E under `aurrery-ridgeline-sub-4-v1` (`customId` `pilot-4`) and leaves registered A-D alone; new tests cover this and the fixed A-D labels. Until E is created in the sandbox (Task 22), the reset preview lists it as "unregistered" (tested) and the status route and UI, which read registry rows, simply omit it. No PayPal call was made.
+  - Cohort-sized assertions now use `PILOT_COHORT.length`; the replay and Gemini integration fixtures register five pilots.
+  - Verification: 1149 tests pass, typecheck and lint clean.
+  - **Next:** Task 21.
 
 ## M5 complete and published
 
