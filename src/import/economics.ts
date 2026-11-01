@@ -7,7 +7,7 @@ const label = z.string().trim()
   .min(1, "is required")
   .max(80, "must be at most 80 characters")
   // \p{Cc} (C0 and C1 controls) keeps ESLint's no-control-regex quiet, unlike a \u0000-\u001f range.
-  .regex(/^\P{Cc}*$/u, "must not contain control characters");
+  .regex(/^[^\p{Cc}\p{Cf}]*$/u, "must not contain control or formatting characters");
 
 export const EconomicsSchema = z.strictObject({
   merchantName: label,
@@ -18,7 +18,11 @@ export const EconomicsSchema = z.strictObject({
   paymentFeeRate: z.number().finite().min(0, "must not be negative").max(0.2, "must be at most 0.2"),
   paymentFeeFixed: z.number().finite().min(0, "must not be negative").max(5, "must be at most 5 USD"),
 }).superRefine((e, ctx) => {
-  if (e.unitCost + e.shippingCost >= e.listPrice) ctx.addIssue({ code: "custom", path: ["unitCost"], message: "unit cost plus shipping must be below the list price" });
+  if (e.unitCost + e.shippingCost >= e.listPrice) {
+    ctx.addIssue({ code: "custom", path: ["unitCost"], message: "unit cost plus shipping must be below the list price" });
+  } else if (e.listPrice * (1 - e.paymentFeeRate) - e.paymentFeeFixed - e.unitCost - e.shippingCost <= 0) {
+    ctx.addIssue({ code: "custom", path: ["unitCost"], message: "margin per subscriber after payment fees must be positive" });
+  }
 });
 export type Economics = z.infer<typeof EconomicsSchema>;
 

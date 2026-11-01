@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SEGMENTS, type SegmentId } from "@/twin/types";
 import { COUNT_COLUMNS, HISTORY_COLUMNS, parseHistoryCsv, validateHistoryRows, type CountColumn } from "./history-csv";
-import { formatRowError } from "./row-error";
+import { formatRowError, MAX_REPORTED_ERRORS } from "./row-error";
 
 type Counts = Partial<Record<CountColumn, number>>;
 const BASE: Record<SegmentId, Counts> = {
@@ -91,6 +91,14 @@ describe("parseHistoryCsv", () => {
   it("requires at least 6 months and at most 300 rows", () => {
     expect(messages(csv(rows(MONTHS.slice(0, 5))))).toEqual(["month: at least 6 consecutive months are required (found 5)"]);
     expect(messages(csv(Array.from({ length: 301 }, () => row("2026-01", "new"))))).toEqual(["at most 300 history rows are allowed (found 301)"]);
+  });
+  it("caps header errors and rejects leading zeros", () => {
+    const result = parseHistoryCsv(`${",".repeat(5000)}
+`);
+    expect(result.ok === false && result.errors.length).toBe(MAX_REPORTED_ERRORS + 1);
+    const lines = rows();
+    lines[0] = lines[0].replace("2026-01,new,100", "2026-01,new,0100");
+    expect(messages(csv(lines))).toEqual(["row 2, active_start: must be a non-negative integer"]);
   });
   it("rejects files over 256 KiB, empty files and short records", () => {
     expect(messages("x".repeat(256 * 1024 + 1))).toEqual(["history file is larger than 256 KiB"]);

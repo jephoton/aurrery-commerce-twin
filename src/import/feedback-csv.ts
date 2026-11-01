@@ -20,7 +20,7 @@ export function hasControlCharacters(text: string): boolean {
 
 export function parseFeedbackCsv(text: string): ParseResult<FeedbackRow> {
   const file = (message: string): ParseResult<FeedbackRow> => ({ ok: false, errors: [{ row: null, column: null, message }] });
-  if (new TextEncoder().encode(text).byteLength > MAX_FEEDBACK_BYTES) return file("feedback file is larger than 256 KiB");
+  if (text.length > MAX_FEEDBACK_BYTES || new TextEncoder().encode(text).byteLength > MAX_FEEDBACK_BYTES) return file("feedback file is larger than 256 KiB");
   const csv = readCsv(text);
   if (!csv.ok) return { ok: false, errors: [{ row: csv.line, column: null, message: csv.message }] };
   const [header, ...records] = csv.records;
@@ -39,10 +39,11 @@ export function parseFeedbackCsv(text: string): ParseResult<FeedbackRow> {
     }
     const segment = record.fields[index.get("segment")!];
     const body = record.fields[index.get("text")!].trim();
+    const length = [...body].length;
     let valid = true;
     if (!(SEGMENTS as readonly string[]).includes(segment)) { errors.push({ row: record.line, column: "segment", message: `must be one of ${SEGMENTS.join(", ")}` }); valid = false; }
-    if (body.length < 1 || body.length > MAX_FEEDBACK_TEXT) {
-      errors.push({ row: record.line, column: "text", message: `must be 1–${MAX_FEEDBACK_TEXT.toLocaleString("en-US")} characters after trimming (found ${body.length})` });
+    if (length < 1 || length > MAX_FEEDBACK_TEXT) {
+      errors.push({ row: record.line, column: "text", message: `must be 1–${MAX_FEEDBACK_TEXT.toLocaleString("en-US")} characters after trimming (found ${length})` });
       valid = false;
     } else if (hasControlCharacters(body)) {
       errors.push({ row: record.line, column: "text", message: CONTROL_CHARACTER_MESSAGE });

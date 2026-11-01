@@ -1,4 +1,4 @@
-import type { RowError } from "./row-error";
+import { capErrors, type RowError } from "./row-error";
 
 // Minimal CSV reader for merchant uploads: comma-separated, double-quoted fields with "" escapes,
 // CRLF, LF or CR line endings, UTF-8 BOM stripped. Unquoted fields are trimmed; blank lines are
@@ -68,5 +68,5 @@ export function checkHeader(fields: string[], expected: readonly string[], line:
     seen.add(name);
   }
   for (const name of expected) if (!seen.has(name)) errors.push({ row: line, column: name, message: "missing column" });
-  return errors;
+  return capErrors(errors);
 }

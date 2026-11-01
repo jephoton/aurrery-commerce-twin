@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { hasControlCharacters, parseFeedbackCsv } from "./feedback-csv";
-import { formatRowError } from "./row-error";
+import { formatRowError, MAX_REPORTED_ERRORS } from "./row-error";
 
 const messages = (text: string) => {
   const result = parseFeedbackCsv(text);
@@ -20,6 +20,20 @@ it("reports bad segments and empty or long text per row", () => {
     "row 3, text: must be 1–1,000 characters after trimming (found 0)",
     "row 4, text: must be 1–1,000 characters after trimming (found 1001)",
   ]);
+});
+it("counts characters, not UTF-16 units", () => {
+  expect(parseFeedbackCsv(`segment,text
+core,"${"😀".repeat(1000)}"
+`).ok).toBe(true);
+  expect(messages(`segment,text
+core,"${"😀".repeat(1001)}"
+`)).toEqual(["row 2, text: must be 1–1,000 characters after trimming (found 1001)"]);
+});
+it("caps header errors", () => {
+  const result = parseFeedbackCsv(`${",".repeat(5000)}
+core,ok
+`);
+  expect(result.ok === false && result.errors.length).toBe(MAX_REPORTED_ERRORS + 1);
 });
 it("keeps tabs and line breaks but rejects other control characters", () => {
   expect(parseFeedbackCsv('segment,text\ncore,"line one\nline\ttwo"\n').ok).toBe(true);

@@ -35,8 +35,10 @@ export const SUPPORTED_MOVES: Record<SegmentId, readonly MoveTarget[]> = {
   at_risk: ["core", "cancel_intent"],
   cancel_intent: ["at_risk"],
 };
-const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
-const INTEGER = /^\d+$/;
+/** A `YYYY-MM` month. Shared with the import payload schema. */
+export const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+/** Non-negative integer without leading zeros. */
+const INTEGER = /^(0|[1-9]\d*)$/;
 
 export function nextMonth(month: string): string {
   const [y, m] = month.split("-").map(Number);
@@ -45,7 +47,7 @@ export function nextMonth(month: string): string {
 
 export function parseHistoryCsv(text: string): ParseResult<HistoryRow> {
   const file = (message: string): ParseResult<HistoryRow> => ({ ok: false, errors: [{ row: null, column: null, message }] });
-  if (new TextEncoder().encode(text).byteLength > MAX_HISTORY_BYTES) return file("history file is larger than 256 KiB");
+  if (text.length > MAX_HISTORY_BYTES || new TextEncoder().encode(text).byteLength > MAX_HISTORY_BYTES) return file("history file is larger than 256 KiB");
   const csv = readCsv(text);
   if (!csv.ok) return { ok: false, errors: [{ row: csv.line, column: null, message: csv.message }] };
   const [header, ...records] = csv.records;
@@ -65,7 +67,7 @@ export function parseHistoryCsv(text: string): ParseResult<HistoryRow> {
     const cell = (column: HistoryColumn) => record.fields[index.get(column)!];
     let valid = true;
     const month = cell("month");
-    if (!MONTH.test(month)) { errors.push({ row: record.line, column: "month", message: "must be YYYY-MM" }); valid = false; }
+    if (!MONTH_PATTERN.test(month)) { errors.push({ row: record.line, column: "month", message: "must be YYYY-MM" }); valid = false; }
     const segment = cell("segment");
     if (!(SEGMENTS as readonly string[]).includes(segment)) { errors.push({ row: record.line, column: "segment", message: `must be one of ${SEGMENTS.join(", ")}` }); valid = false; }
     const counts = {} as Record<CountColumn, number>;
@@ -85,6 +87,8 @@ export function parseHistoryCsv(text: string): ParseResult<HistoryRow> {
 
 /**
  * Cross-row rules, shared by the client parse and the server's re-validation of the payload.
+ * Assumes every cell already passed the schema (month format, segment, bounded integers); never call it on
+ * unparsed input.
  * `rowNumber` maps a row index to its CSV row; the server's default is index + 2 (header = row 1).
  */
 export function validateHistoryRows(rows: HistoryRow[], rowNumber: (index: number) => number = (i) => i + 2): RowError[] {

@@ -24,9 +24,13 @@ it("enforces the spec's bounds", () => {
   expect(issues({ ...DEFAULT_ECONOMICS, paymentFeeFixed: 5.01 })).toContain("paymentFeeFixed: must be at most 5 USD");
   expect(issues({ ...DEFAULT_ECONOMICS, unitCost: 15, shippingCost: 9 })).toEqual(["unitCost: unit cost plus shipping must be below the list price"]);
 });
+it("requires a positive margin after payment fees", () => {
+  expect(issues({ ...DEFAULT_ECONOMICS, listPrice: 20, unitCost: 10, shippingCost: 9.5, paymentFeeRate: 0.05, paymentFeeFixed: 0.5 })).toEqual(["unitCost: margin per subscriber after payment fees must be positive"]);
+});
 it("rejects empty names, control characters, blank numbers and extra fields", () => {
   expect(issues({ ...DEFAULT_ECONOMICS, merchantName: "  " })).toEqual(["merchantName: is required"]);
-  expect(issues({ ...DEFAULT_ECONOMICS, planName: "a\u0007b" })).toEqual(["planName: must not contain control characters"]);
+  expect(issues({ ...DEFAULT_ECONOMICS, planName: "a\u0007b" })).toEqual(["planName: must not contain control or formatting characters"]);
+  expect(issues({ ...DEFAULT_ECONOMICS, merchantName: "ab‮cd" })).toEqual(["merchantName: must not contain control or formatting characters"]);
   expect(issues({ ...DEFAULT_ECONOMICS, listPrice: Number.NaN })[0]).toMatch(/^listPrice: /);
   expect(issues({ ...DEFAULT_ECONOMICS, extra: 1 })[0]).toMatch(/extra|Unrecognized/);
 });
