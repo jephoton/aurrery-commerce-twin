@@ -122,6 +122,12 @@ _Last material update: 2026-11-01. **M7 Phase 2 Tasks 1-21 (consent-based annual
 4. `docs/research/m4-product-validation.md`: M4 baseline and acceptance tracking. `docs/research/m3-agent-validation.md` records M3's measured live attempts and replay; `docs/research/m2-provider-evaluation.md` and `docs/decisions/0004-gemini-flash-lite-primary.md` record the provider decision.
 5. `docs/architecture.md`: modules and the model.
 
+## M6
+
+Plan: `docs/superpowers/plans/2026-11-01-m6-csv-import.md`. Local branch `feat/m6-csv-import` on post-M7 `main` (`01134fb`), not pushed.
+
+- Task 0: baseline 1155 tests, typecheck and lint pass; next: Task 1.
+
 ## M7 Phase 2
 
 Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branch `feat/m7-annual-plan`, not pushed. Decisions as built: `docs/decisions/0008-annual-plan-offers.md` (Phase 2 section). Flow: `docs/architecture.md`. Operations: `docs/runbooks/render-turso.md`, "Annual offers: unresolved targets and links".
