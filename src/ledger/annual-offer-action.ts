@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { Strategy } from "@/twin/interventions";
 import { REASONS, SEGMENTS } from "@/twin/types";
-import { usdCents } from "@/paypal/prices";
+import { sameUsdAmount, usdCents } from "@/paypal/prices";
+import type { PlanSnapshot } from "@/paypal/plans";
 
 // The exact payload a merchant approves for an annual-plan offer. Its SHA-256 hash binds the
 // approval; execution may only do what this payload says.
@@ -88,4 +89,39 @@ export function buildAnnualOfferAction(input: {
     listPrice, discountPct: iv.discountPct, annualPrice: money(cents), offerWindowDays: input.offerWindowDays,
     segments: [...iv.segments], targets,
   });
+}
+
+export type AnnualIneligibility = "identity_mismatch" | "not_active" | "not_monthly_plan" | "not_list_price";
+export const INELIGIBILITY_TEXT: Record<AnnualIneligibility, string> = {
+  identity_mismatch: "PayPal returned a different subscription; no offer was made.",
+  not_active: "Subscription is not ACTIVE; no offer was made.",
+  not_monthly_plan: "Subscription is not on the registered monthly plan (it may already be annual); no offer was made.",
+  not_list_price: "Subscription is not at the list price (for example an active discount); no offer was made.",
+};
+
+/**
+ * Eligibility from a live PayPal read: same subscription, ACTIVE, on the registered monthly plan and at
+ * list price by cents. A plan switch drops price overrides, so a discounted subscriber is never offered one.
+ */
+export function annualIneligibility(
+  observed: { id: string; status: string; planId: string | null; regularPrice: string | null },
+  expected: { subscriptionId: string; monthlyPlanId: string; listPrice: string },
+): AnnualIneligibility | null {
+  if (observed.id !== expected.subscriptionId) return "identity_mismatch";
+  if (observed.status !== "ACTIVE") return "not_active";
+  if (observed.planId !== expected.monthlyPlanId) return "not_monthly_plan";
+  if (!sameUsdAmount(observed.regularPrice, expected.listPrice)) return "not_list_price";
+  return null;
+}
+
+/** Which field of a read-back yearly plan differs from the approved offer, or null when it matches exactly. */
+export function annualPlanMismatch(plan: PlanSnapshot, action: Pick<AnnualOfferAction, "productId" | "annualPrice" | "currency">): string | null {
+  if (!/^P-[A-Z0-9]+$/.test(plan.planId)) return "plan id";
+  if (plan.status !== "ACTIVE") return "status";
+  if (plan.productId !== action.productId) return "product";
+  if (plan.currency !== action.currency) return "currency";
+  if (!sameUsdAmount(plan.price, action.annualPrice)) return "price";
+  if (plan.intervalUnit !== "YEAR" || plan.intervalCount !== 1) return "interval";
+  if (plan.regularCycleCount !== 1 || plan.cycleCount !== 1 || plan.totalCycles !== 0) return "billing cycles";
+  return null;
 }

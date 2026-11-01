@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Strategy } from "@/twin/interventions";
-import { AnnualOfferActionSchema, annualPriceCents, annualPriceFor, buildAnnualOfferAction } from "./annual-offer-action";
+import type { PlanSnapshot } from "@/paypal/plans";
+import {
+  AnnualOfferActionSchema, INELIGIBILITY_TEXT, annualIneligibility, annualPlanMismatch, annualPriceCents, annualPriceFor, buildAnnualOfferAction,
+} from "./annual-offer-action";
 
 const annual: Strategy = { id: "annual-15", name: "Annual", intervention: { kind: "annual_plan", discountPct: 15, segments: ["core", "price_sensitive"] } };
 const CREATED = "2026-10-22T00:00:00.000Z";
@@ -82,5 +85,37 @@ describe("annualPriceFor", () => {
     expect(annualPriceFor(19.99, 12.5)).toBe("209.90");
     expect(annualPriceFor(9.99, 5)).toBe("113.89");
     expect(annualPriceFor(Number.NaN, 5)).toBeNull();
+  });
+});
+
+describe("annual offer eligibility from a live read", () => {
+  const expected = { subscriptionId: "I-EEEEEEEEEE05", monthlyPlanId: "P-MONTHLY0000000000000000000", listPrice: "24.00" };
+  const live = { id: "I-EEEEEEEEEE05", status: "ACTIVE", planId: "P-MONTHLY0000000000000000000", regularPrice: "24.0" };
+  it("accepts an ACTIVE subscriber on the monthly plan at list price by cents", () => {
+    expect(annualIneligibility(live, expected)).toBeNull();
+  });
+  it.each([
+    [{ ...live, id: "I-OTHER" }, "identity_mismatch"],
+    [{ ...live, status: "SUSPENDED" }, "not_active"],
+    [{ ...live, planId: "P-ANNUAL0000000000000000000", regularPrice: "244.8" }, "not_monthly_plan"],
+    [{ ...live, regularPrice: "18.00" }, "not_list_price"],
+    [{ ...live, regularPrice: null }, "not_list_price"],
+  ] as const)("refuses %j as %s", (observed, reason) => {
+    expect(annualIneligibility(observed, expected)).toBe(reason);
+    expect(INELIGIBILITY_TEXT[reason]).toMatch(/no offer was made/);
+  });
+});
+
+describe("annual plan read-back", () => {
+  const action = { productId: "PROD-RIDGELINE00000000", annualPrice: "244.80", currency: "USD" as const };
+  const plan: PlanSnapshot = { planId: "P-ANNUAL0000000000000000000", status: "ACTIVE", name: "Annual", productId: action.productId, price: "244.8",
+    currency: "USD", intervalUnit: "YEAR", intervalCount: 1, totalCycles: 0, regularCycleCount: 1, cycleCount: 1 };
+  it("accepts the exact plan, comparing price by cents", () => expect(annualPlanMismatch(plan, action)).toBeNull());
+  it.each([
+    [{ planId: "not-a-plan" }, "plan id"], [{ status: "CREATED" }, "status"], [{ productId: "PROD-OTHER" }, "product"],
+    [{ currency: "EUR" }, "currency"], [{ price: "244.81" }, "price"], [{ intervalUnit: "MONTH" }, "interval"],
+    [{ intervalCount: 2 }, "interval"], [{ cycleCount: 2 }, "billing cycles"], [{ totalCycles: 1 }, "billing cycles"],
+  ] as const)("reports %j as a %s mismatch", (change, reason) => {
+    expect(annualPlanMismatch({ ...plan, ...change }, action)).toBe(reason);
   });
 });
