@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { connection } from "next/server";
 import { listExecutions } from "@/execution/execute";
-import { createProposal, listProposals } from "@/ledger/proposals";
+import { proposeStrategy } from "@/execution/annual-proposal";
+import { listProposals } from "@/ledger/proposals";
 import { observedMerchant } from "@/merchant/observed";
 import { StrategySchema } from "@/twin/interventions";
 import { runComparison, WorkerTaskError } from "@/twin/worker-client";
@@ -12,6 +13,10 @@ import { simulationRuns } from "@/hosting/simulation-budget";
 const BodySchema = z.object({
   objective: z.string().max(1000).nullable().default(null),
   strategy: StrategySchema,
+  /** Annual offers only: whole days each customer has to accept; bound into the action hash. */
+  offerWindowDays: z.number().int().min(1).max(30).optional(),
+}).refine((body) => body.offerWindowDays === undefined || body.strategy.intervention.kind === "annual_plan", {
+  message: "An offer window applies only to an annual-plan strategy.", path: ["offerWindowDays"],
 });
 
 export async function GET(request: Request) {
@@ -36,7 +41,7 @@ export async function POST(request: Request) {
     const comparison = await runComparison(twin, [body.strategy], { runs: simulationRuns() }, { signal: request.signal });
     if (request.signal.aborted) throw new WorkerTaskError("ABORTED");
     const result = comparison.strategies.find((s) => s.strategy.id === body.strategy.id)!;
-    const proposal = await createProposal({ objective: body.objective, strategy: body.strategy, result, listPrice: twin.params.listPrice });
+    const proposal = await proposeStrategy({ objective: body.objective, strategy: body.strategy, result, listPrice: twin.params.listPrice, offerWindowDays: body.offerWindowDays });
     return Response.json({ proposal }, { status: 201 });
   } catch (e) {
     return errorResponse(e);

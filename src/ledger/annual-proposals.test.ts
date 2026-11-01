@@ -1,7 +1,9 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
-import { buildAnnualOfferAction } from "./annual-offer-action";
+import { currentMerchant } from "@/merchant";
+import { compareStrategies } from "@/twin/simulate";
+import { buildAnnualOfferAction, type AnnualOfferAction } from "./annual-offer-action";
 import { recordAnnualOffer } from "./annual-offers";
 import { createLocalConnection, initializeLedgerSchema, type LedgerConnection } from "./connection";
 import { createProposalRepository, hashAction } from "./proposals";
@@ -116,5 +118,55 @@ describe("annual offer proposals", () => {
     await expect(repo.claimForExecution(ID(1))).rejects.toMatchObject({ name: "Error", code: "INVALID_STATE", message: expect.stringMatching(/unreadable_annual_offers/) });
     expect((await repo.getProposal(ID(1))).status).toBe("approved");
     expect(await c.query("SELECT * FROM active_target_claims")).toEqual([]);
+  }));
+});
+
+describe("annual offer proposal creation", () => {
+  const result = compareStrategies(currentMerchant().twin, [strategy], { runs: 2, horizonMonths: 1 }).strategies[1];
+  const input = { objective: "Annual", strategy, result, listPrice: 24, productId: "PROD-RIDGELINE0000000001", monthlyPlanId: MONTHLY, offerWindowDays: 7, eligibleIds: ["I-PILOTD", "I-PILOTE"] };
+
+  it("snapshots live-eligible registered pilots into an exact hashed payload with its forecast", () => setup(async (c, repo) => {
+    const proposal = await repo.createAnnualOfferProposal(input);
+    const action = proposal.action as AnnualOfferAction;
+    expect(proposal).toMatchObject({ status: "proposed", objective: "Annual", strategy: { id: strategy.id } });
+    expect(action).toMatchObject({ type: "annual_plan_offer", annualPrice: "244.80", listPrice: "24.00", offerWindowDays: 7, monthlyPlanId: MONTHLY });
+    expect(action.targets.map((t) => t.subscriptionId)).toEqual(["I-PILOTD", "I-PILOTE"]);
+    const registered = (await c.query("SELECT created_at FROM sandbox_subscribers WHERE subscription_id='I-PILOTD'"))[0];
+    expect(action.targets[0].registration).toEqual({ label: "Pilot D", segment: "core", reason: "other", createdAt: registered.created_at });
+    expect(proposal.actionHash).toBe(hashAction(action));
+    expect(proposal.prediction).not.toBeNull();
+    expect((await repo.createAnnualOfferProposal({ ...input, offerWindowDays: 30 })).actionHash).not.toBe(proposal.actionHash);
+  }));
+
+  it("ignores IDs that are not registered pilots in the offered segments", () => setup(async (_c, repo) => {
+    await repo.registerSandboxSubscriber({ subscriptionId: "I-PILOTA", label: "Pilot A", segment: "cancel_intent", reason: "price" });
+    const proposal = await repo.createAnnualOfferProposal({ ...input, eligibleIds: ["I-PILOTA", "I-UNKNOWN", "I-PILOTE"] });
+    expect((proposal.action as AnnualOfferAction).targets.map((t) => t.subscriptionId)).toEqual(["I-PILOTE"]);
+    await expect(repo.createAnnualOfferProposal({ ...input, eligibleIds: [] })).rejects.toMatchObject({ code: "NO_TARGETS" });
+  }));
+
+  it("drops pilots with an open offer or a claim, and refuses when none remain", () => setup(async (c, repo) => {
+    await insertAnnual(c, ID(9), "succeeded");
+    await recordOpenOffer(c, ID(9), "I-PILOTE");
+    expect(((await repo.createAnnualOfferProposal(input)).action as AnnualOfferAction).targets.map((t) => t.subscriptionId)).toEqual(["I-PILOTD"]);
+    await c.execute("INSERT INTO active_target_claims (target_id,proposal_id,claimed_at) VALUES ('I-PILOTD',?,?)", [ID(9), new Date().toISOString()]);
+    await expect(repo.createAnnualOfferProposal(input)).rejects.toMatchObject({ code: "NO_TARGETS" });
+  }));
+
+  it("refuses a changed monthly plan, an invalid window, an unpayable price or a non-annual strategy", () => setup(async (_c, repo) => {
+    await expect(repo.createAnnualOfferProposal({ ...input, monthlyPlanId: "P-OTHER0000000000000000001" })).rejects.toMatchObject({ code: "INVALID_STATE" });
+    for (const offerWindowDays of [0, 31, 1.5, Number.NaN])
+      await expect(repo.createAnnualOfferProposal({ ...input, offerWindowDays })).rejects.toMatchObject({ code: "INVALID_STATE" });
+    await expect(repo.createAnnualOfferProposal({ ...input, listPrice: 500 })).rejects.toMatchObject({ code: "NOT_EXECUTABLE" });
+    await expect(repo.createAnnualOfferProposal({ ...input, strategy: STARTER_STRATEGIES[0] })).rejects.toMatchObject({ code: "NOT_EXECUTABLE" });
+    expect(await repo.listProposals()).toEqual([]);
+  }));
+
+  it("refuses cleanly when stored offers are unreadable", () => setup(async (c, repo) => {
+    await insertAnnual(c, ID(9), "succeeded");
+    await recordOpenOffer(c, ID(9), "I-PILOTE");
+    await c.execute("PRAGMA ignore_check_constraints = ON");
+    await c.execute("UPDATE annual_offers SET segment='bogus'");
+    await expect(repo.createAnnualOfferProposal(input)).rejects.toMatchObject({ code: "INVALID_STATE", message: expect.stringMatching(/unreadable_annual_offers/) });
   }));
 });

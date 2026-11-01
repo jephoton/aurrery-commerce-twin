@@ -10,7 +10,9 @@ import { currentMerchant } from "@/merchant";
 import { now } from "./db";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow } from "./connection";
 import { auditOn, authoritativeWrite } from "./operations";
-import { AnnualOfferActionSchema, RegistrationSnapshotSchema, type AnnualOfferAction } from "./annual-offer-action";
+import {
+  AnnualOfferActionSchema, buildAnnualOfferAction, RegistrationSnapshotSchema, type AnnualOfferAction, type AnnualOfferCandidate,
+} from "./annual-offer-action";
 import { openOfferSubscriptionIds } from "./annual-offers";
 
 // Action proposals: the only route from a recommendation to a PayPal call.
@@ -152,6 +154,20 @@ export type CreateProposalInput = {
   eligibleTargetIds?: readonly string[];
 };
 
+export type CreateAnnualProposalInput = {
+  objective: string | null;
+  strategy: Strategy;
+  result: StrategyResult;
+  listPrice: number;
+  productId: string;
+  monthlyPlanId: string;
+  offerWindowDays: number;
+  /** Subscriptions whose live PayPal read was eligible; the transaction re-checks registry, claims and open offers. */
+  eligibleIds: readonly string[];
+};
+
+const UNREADABLE_OFFERS = "Stored annual offers are unreadable (unreadable_annual_offers)";
+
 function parseProposal(r: LedgerRow | undefined, id: string): Proposal {
   if (!r) throw new ProposalError(`Proposal ${id} not found.`, "NOT_FOUND");
   return {
@@ -227,6 +243,42 @@ export function createProposalRepository(connection: LedgerConnection) {
           `INSERT INTO proposals (id, created_at, objective, strategy_json, simulation_json, action_type, action_json, action_hash, status)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed')`,
           [id, now(), input.objective, JSON.stringify(strategy), JSON.stringify(prediction), action.type, JSON.stringify(action), actionHash],
+        );
+        await auditOn(tx, "proposal.created", id, { strategyId: strategy.id, action });
+        return proposalOn(tx, id);
+      });
+    },
+    /** The caller has already read PayPal; this transaction re-checks the ledger and stores the exact hashed payload. */
+    async createAnnualOfferProposal(input: CreateAnnualProposalInput): Promise<Proposal> {
+      const strategy = StrategySchema.parse(input.strategy);
+      const iv = strategy.intervention;
+      if (iv.kind !== "annual_plan") throw new ProposalError("Not an annual-plan strategy.", "NOT_EXECUTABLE");
+      if (!Number.isInteger(input.offerWindowDays) || input.offerWindowDays < 1 || input.offerWindowDays > 30)
+        throw new ProposalError("The offer window must be 1 to 30 whole days.", "INVALID_STATE");
+      return authoritativeWrite(connection, async (tx) => {
+        const monthly = (await tx.query("SELECT value FROM kv WHERE key='paypal.plan_id'"))[0];
+        if (String(monthly?.value ?? "") !== input.monthlyPlanId) throw new ProposalError("The registered monthly plan changed; prepare the offer again.", "INVALID_STATE");
+        let open: Set<string>;
+        try { open = await openOfferSubscriptionIds(tx, new Date()); }
+        catch { throw new ProposalError(`${UNREADABLE_OFFERS}; no proposal was created. Repair the ledger first.`, "INVALID_STATE"); }
+        const claimed = new Set((await tx.query("SELECT target_id FROM active_target_claims")).map((row) => String(row.target_id)));
+        const eligible: AnnualOfferCandidate[] = (await tx.query("SELECT subscription_id,label,segment,reason,created_at FROM sandbox_subscribers ORDER BY rowid"))
+          .map((row) => ({ subscriptionId: String(row.subscription_id), label: String(row.label), segment: String(row.segment), reason: String(row.reason), createdAt: String(row.created_at) }))
+          .filter((s) => input.eligibleIds.includes(s.subscriptionId) && !open.has(s.subscriptionId) && !claimed.has(s.subscriptionId) &&
+            (iv.segments as readonly string[]).includes(s.segment));
+        if (eligible.length === 0) throw new ProposalError(`No subscriber is eligible for this annual offer: each must be a registered ACTIVE pilot in ${iv.segments.join(", ")} at list price on the monthly plan, with no open offer or claim.`, "NO_TARGETS");
+        let action: AnnualOfferAction;
+        try {
+          action = buildAnnualOfferAction({ strategy, listPrice: input.listPrice, productId: input.productId, monthlyPlanId: input.monthlyPlanId, offerWindowDays: input.offerWindowDays, eligible });
+        } catch {
+          throw new ProposalError("The annual offer payload is invalid for the current list price, product or pilot registrations.", "NOT_EXECUTABLE");
+        }
+        const prediction = { metrics: input.result.metrics, vsBaseline: input.result.vsBaseline, probValueBelowBaseline: input.result.probValueBelowBaseline };
+        const id = `prop_${randomUUID()}`;
+        await tx.execute(
+          `INSERT INTO proposals (id, created_at, objective, strategy_json, simulation_json, action_type, action_json, action_hash, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed')`,
+          [id, now(), input.objective, JSON.stringify(strategy), JSON.stringify(prediction), action.type, JSON.stringify(action), hashAction(action)],
         );
         await auditOn(tx, "proposal.created", id, { strategyId: strategy.id, action });
         return proposalOn(tx, id);
@@ -390,7 +442,7 @@ export function createProposalRepository(connection: LedgerConnection) {
           // offer row is a ledger fault, not an execution: refuse cleanly and leave the proposal approved.
           let open: Set<string>;
           try { open = await openOfferSubscriptionIds(tx, new Date()); }
-          catch { throw new ProposalError("Stored annual offers are unreadable (unreadable_annual_offers); nothing was executed and the proposal stays approved. Repair the ledger, then execute again.", "INVALID_STATE"); }
+          catch { throw new ProposalError(`${UNREADABLE_OFFERS}; nothing was executed and the proposal stays approved. Repair the ledger, then execute again.`, "INVALID_STATE"); }
           for (const target of action.data.targets) {
             const registration = (await tx.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id=?", [target.subscriptionId]))[0];
             if (!registration || registration.label !== target.registration.label || registration.segment !== target.registration.segment ||
@@ -485,6 +537,7 @@ export const registerSandboxSubscriber = async (s: SandboxSubscriber) => (await 
 export const replaceSandboxSubscription = async (previousId: string, label: string, subscriptionId: string) => (await runtimeRepository()).replaceSandboxSubscription(previousId, label, subscriptionId);
 export const buildAction = async (strategy: Strategy, listPrice: number, eligibleTargetIds?: readonly string[]) => (await runtimeRepository()).buildAction(strategy, listPrice, eligibleTargetIds);
 export const createProposal = async (input: CreateProposalInput) => (await runtimeRepository()).createProposal(input);
+export const createAnnualOfferProposal = async (input: CreateAnnualProposalInput) => (await runtimeRepository()).createAnnualOfferProposal(input);
 export const createRevertProposal = async (sourceProposalId: string) => (await runtimeRepository()).createRevertProposal(sourceProposalId);
 export const createResetProposal = async (listPrice: string, snapshots: ResetAction["targets"]) => (await runtimeRepository()).createResetProposal(listPrice, snapshots);
 export const getProposal = async (id: string) => (await runtimeRepository()).getProposal(id);
