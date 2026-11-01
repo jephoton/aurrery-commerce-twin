@@ -134,6 +134,7 @@ Plan: `docs/superpowers/plans/2026-11-01-m6-csv-import.md`. Local branch `feat/m
 - Task 5: economics form schema, defaults and sample values; 1184 tests, typecheck and lint pass; next: Task 6.
 - Task 6: seeded history generator extracted to `src/twin/synthetic-history.ts` (shared types and `monthOffset` in `src/twin/history.ts`); Ridgeline's generator is a thin wrapper and its golden fixture is unchanged; 1191 tests, typecheck and lint pass; next: Task 7.
 - Task 7: shared twin builder `buildTwinFromHistory` and `startingActives` in `src/twin/build-twin.ts` (CSV provenance wording, optional classified reason counts); `buildDemoTwin` is a thin wrapper exporting `RIDGELINE_PROFILE` and `RIDGELINE_ECONOMICS`, golden fixture unchanged; 1196 tests, typecheck and lint pass; next: Task 8.
+- Task 8: strict, size-capped import payload (`src/import/import-payload.ts`: compact history tuples, bounded counts and reason counts), `buildImportedTwin` (schema-parsed payload → `validateHistoryRows` → shared builder; per-row errors, no twin on error), CSV writer and demo-only messages; Ridgeline re-estimates exactly from its own history exported as CSV rows; 1206 tests, typecheck and lint pass; next: Task 9.
 
 ## M7 Phase 2
 
