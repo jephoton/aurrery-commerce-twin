@@ -128,6 +128,7 @@ Plan: `docs/superpowers/plans/2026-11-01-m6-csv-import.md`. Local branch `feat/m
 
 - Task 0: baseline 1155 tests, typecheck and lint pass; next: Task 1.
 - Task 1: Ridgeline twin and history pinned by a golden fixture (`src/merchant/fixtures/ridgeline-golden.json`, LF-pinned via `.gitattributes`); 1156 tests, typecheck and lint pass; next: Task 2.
+- Task 2: minimal CSV reader and row errors in `src/import/` (pure, no server-only imports); 1165 tests, typecheck and lint pass; next: Task 3.
 
 ## M7 Phase 2
 
