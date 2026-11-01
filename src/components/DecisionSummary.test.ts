@@ -71,7 +71,7 @@ it("keeps agent-comparison statistics distinct from a separately prepared manual
 });
 
 it("keeps simulate-only and adverse stress tied to the displayed strategy", () => {
-  const simulateOnly = { ...selected, strategy: STARTER_STRATEGIES[2] };
+  const simulateOnly = { ...selected, strategy: STARTER_STRATEGIES[3] };
   const stress: Extract<AgentEvent, { type: "stress" }> = { type: "stress", strategyId: selected.strategy.id, stress: { base: selected, stressed: { ...selected, vsBaseline: { ...selected.vsBaseline, totalValue: { ...selected.vsBaseline.totalValue, p50: 10 } } }, stressedParams: buildDemoTwin().twin.params, shifted: ["Discount effect weaker"] } };
   expect(render({ ...baseProps, selected: simulateOnly, stress })).toContain("Simulate only");
   expect(render({ ...baseProps, selected: simulateOnly, stress })).not.toContain("Adverse stress");
@@ -94,4 +94,17 @@ it("explains why a selected simulate-only strategy is not executable", () => {
   expect(html).toContain("Simulate only");
   expect(html).toMatch(/every subscriber/);
   expect(html).not.toContain("Recommended now");
+});
+
+it("presents a recommended annual offer as executable with consent and renewal timing, plus other executable options", () => {
+  const annual = { ...selected, strategy: STARTER_STRATEGIES[2] };
+  const save = { ...selected, strategy: { ...selected.strategy, id: "save", name: "Price-driven cancel save" }, vsBaseline: { ...selected.vsBaseline, totalValue: { ...selected.vsBaseline.totalValue, p50: 147 } } };
+  const html = render({ ...baseProps, selected: annual, recommended: true, alsoExecutable: [save] });
+  expect(html).toContain("Recommended now");
+  expect(html).not.toContain("Simulate only");
+  expect(html).toContain("each customer must agree in PayPal");
+  expect(html).toContain("next renewal date");
+  expect(html).toContain("Also executable within your rules");
+  expect(html).toContain("Price-driven cancel save");
+  expect(html).toContain("+$147 median");
 });

@@ -1,7 +1,7 @@
 import type { AgentEvent, DecisionRules } from "@/agent/contracts";
 import type { Proposal } from "@/ledger/proposals";
 import type { StrategyResult } from "@/twin/simulate";
-import { whyNotExecutable } from "./headline";
+import { isExecutableIntervention, whyNotExecutable } from "./headline";
 
 interface Props {
   selected: StrategyResult | null;
@@ -17,6 +17,8 @@ interface Props {
   /** No executable strategy met the rules; the selection is the highest simulated value, for context. */
   noQualifyingAction?: boolean;
   biggerLevers?: StrategyResult[];
+  /** Other executable strategies that also meet the decision rules. */
+  alsoExecutable?: StrategyResult[];
   onSelect?: (id: string) => void;
 }
 
@@ -24,7 +26,7 @@ const signedMoney = (value: number) => `${value < 0 ? "−" : "+"}$${Math.round(
 const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
-export function DecisionSummary({ selected, proposal, proposalSource, rules, stress, horizonMonths, source, busy, recommended = false, noQualifyingAction = false, biggerLevers = [], onSelect }: Props) {
+export function DecisionSummary({ selected, proposal, proposalSource, rules, stress, horizonMonths, source, busy, recommended = false, noQualifyingAction = false, biggerLevers = [], alsoExecutable = [], onSelect }: Props) {
   const currentProposal = selected && proposal?.strategy?.id === selected.strategy.id ? proposal : null;
   const matchingStress = selected && stress?.strategyId === selected.strategy.id ? stress : null;
   const manualActionAfterAgentComparison = !!currentProposal && proposalSource === "manual" && source === "agent";
@@ -63,7 +65,23 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
         </p>
       )}
       {noQualifyingAction && <p className="mt-3 text-sm text-muted">No executable strategy meets the decision rules, so nothing is recommended. This is the highest simulated value, shown for context.</p>}
-      {selected.strategy.intervention.kind !== "targeted_discount" && <p className="mt-3 text-sm text-muted">Simulate only: {whyNotExecutable(selected.strategy.intervention) ?? "this strategy has no executable PayPal action in this build."}</p>}
+      {!isExecutableIntervention(selected.strategy.intervention) && <p className="mt-3 text-sm text-muted">Simulate only: {whyNotExecutable(selected.strategy.intervention) ?? "this strategy has no executable PayPal action in this build."}</p>}
+      {selected.strategy.intervention.kind === "annual_plan" && <p className="mt-3 text-sm text-muted">Executable as an offer: each customer must agree in PayPal, and the yearly price is charged from their next renewal date. The prepay discount is netted in value and does not count against the retention discount budget.</p>}
+      {recommended && alsoExecutable.length > 0 && (
+        <div className="mt-5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
+          <p className="font-semibold">Also executable within your rules</p>
+          <ul className="mt-2 space-y-2">
+            {alsoExecutable.map((option) => (
+              <li key={option.strategy.id}>
+                <button type="button" disabled={busy || !onSelect} onClick={() => onSelect?.(option.strategy.id)} className="font-medium text-brand-accent underline-offset-2 hover:underline disabled:no-underline">
+                  {option.strategy.name}
+                </button>{" "}
+                <span className="tabular-nums">{signedMoney(option.vsBaseline.totalValue.p50)} median</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {recommended && biggerLevers.length > 0 && (
         <div className="mt-5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
           <p className="font-semibold">Bigger simulated levers <span className="font-normal text-muted">· simulate only, not executable here</span></p>
