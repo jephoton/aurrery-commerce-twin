@@ -120,6 +120,17 @@ describe("annual offer execution", () => {
   });
 
   it.each([
+    ["an encoded token parameter", "Bad request to ?ba%5Ftoken=X"],
+    ["a scheme-less approval path", "Open www.sandbox.paypal.com/webapps/billing/subscriptions/update"],
+    ["a bare token", "Token ba-fixture1234 was rejected"],
+  ])("withholds a PayPal error message carrying %s", async (_name, message) => {
+    const d = deps(); d.revise.mockResolvedValueOnce(fail(422, "UNPROCESSABLE_ENTITY", message));
+    const report = await executeAnnualOfferWith(proposal, d);
+    expect(report.outcomes[0].error).toMatch(/^UNPROCESSABLE_ENTITY \(PayPal's message was withheld/);
+    expect(JSON.stringify(d.recordTarget.mock.calls)).not.toContain(message);
+  });
+
+  it.each([
     ["a server error", fail(500, "INTERNAL_SERVER_ERROR")],
     ["a network failure", fail(null, "NETWORK_OR_CLIENT_ERROR")],
     ["a 200 without an approval link", fail(200, "MISSING_APPROVAL_LINK")],
@@ -150,11 +161,55 @@ describe("annual offer execution", () => {
     expect(JSON.stringify(d.recordTarget.mock.calls)).not.toContain("ba_token");
   });
 
-  it("leaves the proposal executing when an issued offer cannot be stored", async () => {
+  it("records an unstored offer without its link, then leaves the proposal executing", async () => {
     const d = deps({ recordOffer: vi.fn<AnnualDependencies["recordOffer"]>(async () => { throw new Error("storage"); }) });
-    await expect(executeAnnualOfferWith(proposal, d)).rejects.toMatchObject({ name: "ExecutionReconciliationRequired" });
+    await expect(executeAnnualOfferWith(proposal, d)).rejects.toMatchObject({ name: "ExecutionReconciliationRequired", proposalId: proposal.id });
     expect(d.revise).toHaveBeenCalledOnce();
+    expect(d.recordTarget).toHaveBeenCalledOnce();
+    expect(d.recordTarget).toHaveBeenCalledWith(expect.objectContaining({ subscriptionId: "I-PILOTD" }), expect.objectContaining({
+      subscriptionId: "I-PILOTD", ok: false, httpStatus: 200, debugId: "dbg", observed: expect.objectContaining({ status: "ACTIVE" }),
+      error: expect.stringMatching(/^Offer issued but not stored; the link was not kept\..*do not retry/i),
+    }));
+    expect(d.recordTarget.mock.calls[0][1].offer).toBeUndefined();
+    expect(JSON.stringify(d.recordTarget.mock.calls)).not.toMatch(/ba_token|BA-TEST/);
     expect(d.finish).not.toHaveBeenCalled();
+  });
+
+  it("still leaves the proposal executing when the unstored offer cannot be recorded either", async () => {
+    const d = deps({
+      recordOffer: vi.fn<AnnualDependencies["recordOffer"]>(async () => { throw new Error("storage"); }),
+      recordTarget: vi.fn<AnnualDependencies["recordTarget"]>(async () => { throw new Error("storage"); }),
+    });
+    await expect(executeAnnualOfferWith(proposal, d)).rejects.toMatchObject({ name: "ExecutionReconciliationRequired", proposalId: proposal.id });
+    expect(d.revise).toHaveBeenCalledOnce();
+    expect(d.recordTarget).toHaveBeenCalledOnce();
+    expect(d.finish).not.toHaveBeenCalled();
+  });
+
+  it("issues the offer when PayPal returns no plan ID for the switch", async () => {
+    const d = deps(); d.revise.mockResolvedValueOnce(ok({ approvalUrl: `${LINK}PILOTD`, planId: null, httpStatus: 200 }));
+    const report = await executeAnnualOfferWith(proposal, d);
+    expect(d.recordOffer).toHaveBeenCalledTimes(2);
+    expect(report.outcomes[0]).toMatchObject({ subscriptionId: "I-PILOTD", ok: true, offer: { annualPlanId: ANNUAL, expiresAt: EXPIRES } });
+    expect(d.finish).toHaveBeenCalledWith("succeeded", { succeeded: 2, total: 2 });
+  });
+
+  it.each([
+    ["the monthly-plan setting cannot be read", { monthlyPlanSetting: vi.fn<AnnualDependencies["monthlyPlanSetting"]>(async () => { throw new Error("storage"); }) }],
+    ["plan creation throws", { createPlan: vi.fn<AnnualDependencies["createPlan"]>(async () => { throw new Error("socket"); }) }],
+  ])("leaves the proposal executing without any revise when %s", async (_name, change) => {
+    const d = deps(change);
+    await expect(executeAnnualOfferWith(proposal, d)).rejects.toMatchObject({ name: "ExecutionReconciliationRequired", proposalId: proposal.id });
+    expect(d.revise).not.toHaveBeenCalled();
+    expect(d.recordTarget).not.toHaveBeenCalled();
+    expect(d.finish).not.toHaveBeenCalled();
+  });
+
+  it("leaves the proposal executing when it cannot be finished", async () => {
+    const d = deps({ finish: vi.fn<AnnualDependencies["finish"]>(async () => { throw new Error("storage"); }) });
+    await expect(executeAnnualOfferWith(proposal, d)).rejects.toMatchObject({ name: "ExecutionReconciliationRequired", proposalId: proposal.id });
+    expect(d.revise).toHaveBeenCalledTimes(2);
+    expect(d.get).not.toHaveBeenCalled();
   });
 
   it("leaves the proposal executing when a refused target cannot be recorded", async () => {
@@ -183,6 +238,8 @@ describe("annual offer execution", () => {
     ["the registered monthly plan changed", { monthlyPlanSetting: vi.fn<AnnualDependencies["monthlyPlanSetting"]>(async () => "P-NEWMONTHLY00000000000001") }],
     ["the monthly plan belongs to another product", { getPlan: vi.fn<AnnualDependencies["getPlan"]>(async (id) => ok(id === MONTHLY ? { ...monthlyPlan, productId: "PROD-OTHER000000000000001" } : annualPlan)) }],
     ["plan creation was refused", { createPlan: vi.fn<AnnualDependencies["createPlan"]>(async () => fail(422)) }],
+    ["plan creation failed with a server error", { createPlan: vi.fn<AnnualDependencies["createPlan"]>(async () => fail(500, "INTERNAL_SERVER_ERROR")) }],
+    ["plan creation failed on the network", { createPlan: vi.fn<AnnualDependencies["createPlan"]>(async () => fail(null, "NETWORK_OR_CLIENT_ERROR")) }],
     ["the plan cannot be read back", { getPlan: vi.fn<AnnualDependencies["getPlan"]>(async (id) => id === MONTHLY ? ok(monthlyPlan) : fail(500, "INTERNAL_SERVER_ERROR")) }],
     ["the plan reads back with another id", { getPlan: vi.fn<AnnualDependencies["getPlan"]>(async (id) => ok(id === MONTHLY ? monthlyPlan : { ...annualPlan, planId: "P-OTHER0000000000000000001" })) }],
     ["the plan reads back at another price", { getPlan: vi.fn<AnnualDependencies["getPlan"]>(async (id) => ok(id === MONTHLY ? monthlyPlan : { ...annualPlan, price: "244.81" })) }],

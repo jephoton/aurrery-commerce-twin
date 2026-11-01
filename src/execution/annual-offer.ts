@@ -39,9 +39,11 @@ export interface AnnualDependencies {
 export const annualPlanRequestId = (actionHash: string) => `aurrery-annual-${actionHash}`;
 const OPERATOR_NOTE = "Unresolved: do not retry revise. Reconcile by reading the subscription in PayPal (runbook: annual offers).";
 
+/** Anything that could be (part of) an approval link or its token, including encoded and scheme-less forms. */
+const LINK_LIKE = /ba_token|ba%5ftoken|https?:\/\/|paypal\.com\/webapps|\bBA-[A-Z0-9]{8,}/i;
 /** PayPal's own message, unless it carries anything link-like; approval links must never reach outcomes. */
 const failureText = (error: PayPalFailure) =>
-  /ba_token|https?:\/\//i.test(error.message) ? `${error.name} (PayPal's message was withheld because it contained a link)` : `${error.name}: ${error.message}`;
+  LINK_LIKE.test(error.message) ? `${error.name} (PayPal's message was withheld because it contained a link)` : `${error.name}: ${error.message}`;
 
 type EnsuredPlan = { plan: PlanSnapshot; debugId: string | null } | { reason: string };
 
@@ -142,7 +144,14 @@ export async function executeAnnualOfferWith(proposal: AnnualExecution, deps: An
       const outcome: TargetOutcome = { subscriptionId, ok: true, httpStatus: revised.value.httpStatus, debugId: revised.debugId, verified: false, observed, error: null, offer: { annualPlanId, expiresAt } };
       await deps.recordOffer({ proposalId: proposal.id, subscriptionId, segment: target.registration.segment, annualPlanId, approvalUrl: revised.value.approvalUrl, offeredAt, expiresAt, request, outcome });
       outcomes.push(outcome);
-    } catch (error) { return reconcile(error); }
+    } catch (error) {
+      // PayPal minted a token Aurrery no longer holds. Leave a trace for the operator (best effort, never the link), then stop.
+      try {
+        await deps.recordTarget(request, refuse(subscriptionId, `Offer issued but not stored; the link was not kept. ${OPERATOR_NOTE}`,
+          { httpStatus: revised.value.httpStatus, debugId: revised.debugId, observed }));
+      } catch { /* the reconciliation below still stops execution */ }
+      return reconcile(error);
+    }
   }
   return finish();
 }
