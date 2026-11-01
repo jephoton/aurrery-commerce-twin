@@ -6,7 +6,8 @@ import { compareStrategies } from "@/twin/simulate";
 import { buildAnnualOfferAction, type AnnualOfferAction } from "./annual-offer-action";
 import { recordAnnualOffer } from "./annual-offers";
 import { createLocalConnection, initializeLedgerSchema, type LedgerConnection } from "./connection";
-import { createProposalRepository, hashAction } from "./proposals";
+import { createProposalRepository, hashAction, type Proposal } from "./proposals";
+import { seedAnnualOffer } from "@/test/annual-offer-fixture";
 
 const MONTHLY = "P-MONTHLY000000000000000001";
 const strategy = STARTER_STRATEGIES.find((s) => s.intervention.kind === "annual_plan")!;
@@ -169,4 +170,31 @@ describe("annual offer proposal creation", () => {
     await c.execute("UPDATE annual_offers SET segment='bogus'");
     await expect(repo.createAnnualOfferProposal(input)).rejects.toMatchObject({ code: "INVALID_STATE", message: expect.stringMatching(/^Stored annual offers are unreadable; [^_]*$/) });
   }));
+});
+
+describe("price changes and open annual offers", () => {
+  // A subscriber who could approve a switch while a price change runs must not be re-priced: the ledger
+  // refuses the target before the PayPal read and again before the PATCH, not only by the read-back plan.
+  it.each(["subscription_price_override", "subscription_price_revert", "subscription_price_reset"] as const)("refuses a %s target with an open annual offer", async (type) => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      const c = createLocalConnection(db);
+      // Claims and executions reference a stored proposal; the seeded one stands in for the price change.
+      const { proposal: stored } = await seedAnnualOffer(c);
+      const repo = createProposalRepository(c);
+      const pilot = (await c.query("SELECT label,segment,reason,created_at FROM sandbox_subscribers WHERE subscription_id='I-PILOTD'"))[0];
+      const registration = { label: String(pilot.label), segment: String(pilot.segment), reason: String(pilot.reason), createdAt: String(pilot.created_at) };
+      const verified = await c.execute(`INSERT INTO executions (proposal_id, target_id, operation, request_json, ok, http_status, debug_id, response_json, verified, created_at)
+        VALUES (?, 'I-PILOTD', 'PATCH subscription fixed_price', '{}', 1, 204, NULL, '{}', 1, '2026-10-01T00:00:00.000Z')`, [stored.id]);
+      const action = type === "subscription_price_override" ? { type, targets: ["I-PILOTD"], segment: registration.segment, reason: "any", listPrice: "24.00", newPrice: "18.00", months: 3 }
+        : type === "subscription_price_revert" ? { type, targets: [{ subscriptionId: "I-PILOTD", expectedCurrentPrice: "18.00", listPrice: "24.00", registration, sourceExecutionId: Number(verified.lastInsertRowid) }] }
+        : { type, canonicalListPrice: currentMerchant().twin.params.listPrice.toFixed(2), targets: [{ subscriptionId: "I-PILOTD", expectedCurrentPrice: "18.00", registration }] };
+      const proposal = { id: stored.id, status: "executing", action } as unknown as Proposal;
+      await c.execute("INSERT INTO active_target_claims (target_id, proposal_id, claimed_at) VALUES ('I-PILOTD', ?, '2026-11-01T00:00:00.000Z')", [stored.id]);
+      expect(await repo.validateTargetForExecution(proposal, "I-PILOTD")).toBe(false);
+      // The same target is valid once it has no open offer: the refusal comes from the offer alone.
+      await c.execute("DELETE FROM annual_offers");
+      expect(await repo.validateTargetForExecution(proposal, "I-PILOTD")).toBe(true);
+    } finally { db.close(); }
+  });
 });

@@ -484,6 +484,13 @@ export function createProposalRepository(connection: LedgerConnection) {
         const claim = (await tx.query("SELECT proposal_id FROM active_target_claims WHERE target_id=?", [subscriptionId]))[0];
         if (claim?.proposal_id !== proposal.id) return false;
         const action = proposal.action;
+        if (action.type !== "annual_plan_offer") {
+          // A subscriber with an open offer (pending, awaiting final check, invalid or switched) can approve a
+          // switch at any moment, so no price change may reach them. Checked in this transaction; unreadable offers refuse.
+          let open: Set<string>;
+          try { open = await openOfferSubscriptionIds(tx, new Date()); } catch { return false; }
+          if (open.has(subscriptionId)) return false;
+        }
         if (action.type === "subscription_price_override") {
           if (!action.targets.includes(subscriptionId)) return false;
           const pilot = (await tx.query("SELECT segment,reason FROM sandbox_subscribers WHERE subscription_id=?", [subscriptionId]))[0];

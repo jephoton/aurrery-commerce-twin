@@ -278,7 +278,7 @@ it("leaves execution unresolved without any PATCH when the recorded annual plans
   expect(read).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(finish).not.toHaveBeenCalled();
 });
 
-it("refuses a reset of a switched subscriber through the wired ledger without sending a PATCH", async () => {
+it("refuses a reset of a switched subscriber through the wired ledger before any PayPal read or PATCH", async () => {
   const ledger = await import("@/ledger/connection");
   const paypal = await import("@/paypal/subscriptions");
   const { createProposalRepository } = await import("@/ledger/proposals");
@@ -296,13 +296,15 @@ it("refuses a reset of a switched subscriber through the wired ledger without se
       registration: { label: pilot.label, segment: pilot.segment, reason: pilot.reason, createdAt } }]);
     await repo.approveResetProposal(reset.id, reset.actionHash, "test administrator");
     vi.spyOn(ledger, "runtimeLedgerConnection").mockResolvedValue(connection);
-    vi.spyOn(paypal, "getSubscription").mockResolvedValue({ ok: true, value: { id: "I-PILOTD", status: "ACTIVE", regularPrice: "244.8",
+    const read = vi.spyOn(paypal, "getSubscription").mockResolvedValue({ ok: true, value: { id: "I-PILOTD", status: "ACTIVE", regularPrice: "244.8",
       planOverridden: false, nextBillingTime: null, lastPayment: null, planId: FIXTURE_ANNUAL_PLAN, raw: {} }, debugId: null });
     const patch = vi.spyOn(paypal, "overrideSubscriptionPrice").mockRejectedValue(new Error("No PayPal call is allowed in this test."));
     const report = await executeProposal(reset.id);
+    // A switched offer stays open, so the ledger refuses the target first; the plan check is the second guard.
+    expect(read).not.toHaveBeenCalled();
     expect(patch).not.toHaveBeenCalled();
     expect(report.proposal.status).toBe("failed");
-    expect(await listExecutions(reset.id, connection)).toEqual([expect.objectContaining({ subscriptionId: "I-PILOTD", ok: false, error: expect.stringMatching(/annual plan by customer choice/) })]);
+    expect(await listExecutions(reset.id, connection)).toEqual([expect.objectContaining({ subscriptionId: "I-PILOTD", ok: false, verified: false })]);
   } finally { vi.restoreAllMocks(); db.close(); }
 });
 
