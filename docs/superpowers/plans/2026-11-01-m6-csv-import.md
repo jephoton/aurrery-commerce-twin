@@ -80,6 +80,15 @@ Where the spec is silent or ambiguous, this plan decides as follows. Task 22 rec
 18. **No observed evidence for imports.** `observedMerchant()` (`src/merchant/observed.ts`) reads both discount outcomes (`readDiscountOutcomes`) and annual-offer evidence (`readAnnualOfferEvidence`). Imported simulate and agent requests never call it and never emit an `observed_snapshot`. The imported simulate response carries `imported: true` and no `observedSnapshot`. Tests spy on both ledger readers. `/api/paypal/status` (which returns `annualEvidence`) is untouched, because imported mode never calls it.
 19. **Proposals refuse imports.** `POST /api/proposals` answers 422 `DEMO_ONLY` to any body that carries an `import` field, before parsing or simulating. A stale or hand-made request can never turn an import into a Ridgeline proposal or annual offer.
 
+## Decisions after plan review (Jethro, 2026-11-01) — these override task text where they conflict
+
+1. **Hollowbrook must differ without feedback.** Retune Hollowbrook's synthetic generating rates (Task 10) so its headline differs from Ridgeline's on history alone, with clear margin: the winning strategy's median beats the runner-up by at least 10% at 400 futures, and any winning discount's mean cost is at most 70% of the default $1,000 budget. Re-measure with a scratch script and pin the outcome in a test at 200 runs. Classified feedback may sharpen the story but must not be needed for it.
+2. **Admin sign-in stays hidden in imported mode.** "Back to Ridgeline" restores it.
+3. **Hosted AI limits** (in `src/hosting/store.ts`; the "client" bucket is shared site-wide per decision 0005), sized to the Gemini free quota for `gemini-3.5-flash-lite` (15 RPM, 250K TPM, 500 requests/day):
+   - `agent`: client 10/hour, global 15/hour, global 30/day.
+   - new `classify` kind for `POST /api/import/classify` (Task 14): client 10/hour, global 15/hour, global 15/day. Classification never consumes agent runs.
+   - Update the hosting tests that pin these numbers. Measure one real agent run's HTTP request count (agent budget counters) during acceptance and record it in `docs/current-state.md`; lower the daily caps if 30 runs × measured requests + 15 classifications × measured requests exceeds ~420.
+
 ## File structure
 
 | File | Responsibility |
