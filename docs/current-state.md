@@ -139,12 +139,17 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
 - **Task 3 done (draft customer message).**
   - New pure `draftAnnualOfferMessage` builds the text an administrator copies and sends by hand: exact yearly price, the discount against twelve monthly payments, "nothing changes unless you agree in PayPal", the yearly price charged from the next renewal date, and the window close date in UTC.
   - It never claims the link stops working (decision 0008) and rejects an unparseable deadline with a `RangeError`. The text carries the secret approval link, so it is display-only and never logged.
-  - Verification: 909 tests pass, typecheck and lint clean.
+  - Verification: 909 tests pass at the time (915 after Task 4, 943 after Task 5), typecheck and lint clean.
 - **Task 4 done (shared approval-link check, revise status).**
   - `isPayPalApprovalUrl` moved to `src/paypal/approval-link.ts`, which does not import the PayPal SDK, so the importer and client code can use it. It accepts only https on `paypal.com` or `*.paypal.com`.
   - `reviseToPlan` now returns the real HTTP status of the revise call (`httpStatus`) for the execution record. The approval link is still never echoed in errors.
   - Verification: 915 tests pass, typecheck and lint clean.
-  - **Next:** Task 5, execution outcome module and the single definitive-failure rule.
+- **Task 5 done (execution outcome module, single definitive-failure rule).**
+  - New `src/execution/outcomes.ts` holds `TargetOutcome` (with an optional `offer` for annual offers), `ExecutionReport`, `ExecutionReconciliationRequired` and `isDefinitiveFailure`, so the annual executor can share them without an import cycle.
+  - `isDefinitiveFailure` is the only definitive-failure rule (HTTP 400, 401, 403, 404, 422; decision 0008); the executor now uses it. `execute.ts` re-exports the shared names, so existing importers are unchanged. No behaviour change.
+  - Follow-up to Task 4: `isPayPalApprovalUrl` now also rejects ports, userinfo and surrounding whitespace.
+  - Verification: 943 tests pass, typecheck and lint clean.
+  - **Next:** Task 6, offer tables and offer records.
 
 ## M5 complete and published
 
