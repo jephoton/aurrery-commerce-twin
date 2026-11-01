@@ -3,33 +3,25 @@ import {
   estimateAcquisition,
   estimateChurn,
   estimatePooledInvoluntary,
-  type AcquisitionRecord,
-  type SegmentMonthRecord,
 } from "@/twin/calibrate";
-import { Rng } from "@/twin/rng";
-import { SEGMENTS, type MerchantTwin, type Provenance, type SegmentId } from "@/twin/types";
+import type { HistoryRecord, TwinHistory } from "@/twin/history";
+import { generateSyntheticHistory, type SyntheticTruth } from "@/twin/synthetic-history";
+import type { MerchantTwin, Provenance, SegmentId } from "@/twin/types";
 
 // Ridgeline Roasters: a fictional specialty-coffee subscription used for the demo.
 // Its history is SYNTHETIC: generated once from fixed "true" rates with a fixed seed, then the
 // twin estimates its parameters from that history exactly as it would from real data.
 
-export interface DemoHistoryRow extends SegmentMonthRecord {
-  /** Subscribers who moved from this segment to another this month, by destination. */
-  movedTo: Partial<Record<SegmentId, number>>;
-}
-
-export interface DemoHistory {
-  segments: DemoHistoryRow[];
-  acquisition: AcquisitionRecord[];
-}
+export type DemoHistoryRow = HistoryRecord;
+export type DemoHistory = TwinHistory;
 
 const HISTORY_MONTHS = 18;
 const HISTORY_SEED = 4242;
 const AS_OF_MONTH = "2026-10";
 
 /** Hidden generating rates. The twin never reads these directly; tests use them to check recovery. */
-export const DEMO_TRUTH = {
-  churn: { new: 0.11, core: 0.028, price_sensitive: 0.062, at_risk: 0.16, cancel_intent: 0.35 } as Record<SegmentId, number>,
+export const DEMO_TRUTH: SyntheticTruth = {
+  churn: { new: 0.11, core: 0.028, price_sensitive: 0.062, at_risk: 0.16, cancel_intent: 0.35 },
   involuntary: 0.015,
   newGraduation: 0.33,
   newToPriceSensitive: 0.35,
@@ -44,60 +36,8 @@ export const DEMO_TRUTH = {
 
 const START_ACTIVE: Record<SegmentId, number> = { new: 380, core: 1180, price_sensitive: 470, at_risk: 230, cancel_intent: 70 };
 
-function monthLabel(offsetFromAsOf: number): string {
-  const [y, m] = AS_OF_MONTH.split("-").map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + offsetFromAsOf, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
 export function generateDemoHistory(): { history: DemoHistory; endActive: Record<SegmentId, number> } {
-  const rng = new Rng(HISTORY_SEED);
-  const t = DEMO_TRUTH;
-  const active = { ...START_ACTIVE };
-  const segments: DemoHistoryRow[] = [];
-  const acquisition: AcquisitionRecord[] = [];
-
-  for (let i = 0; i < HISTORY_MONTHS; i++) {
-    const month = monthLabel(i - HISTORY_MONTHS);
-    const signups = Math.max(0, Math.round(rng.normal(t.acquisitionMean, t.acquisitionSd)));
-    acquisition.push({ month, newSubscribers: signups });
-    active.new += signups;
-
-    const inflow = Object.fromEntries(SEGMENTS.map((s) => [s, 0])) as Record<SegmentId, number>;
-    for (const segment of SEGMENTS) {
-      const start = active[segment];
-      const voluntary = rng.binomial(start, t.churn[segment]);
-      const involuntary = rng.binomial(start - voluntary, t.involuntary);
-      const remaining = start - voluntary - involuntary;
-      const movedTo: Partial<Record<SegmentId, number>> = {};
-      if (segment === "new") {
-        const graduated = rng.binomial(remaining, t.newGraduation);
-        movedTo.price_sensitive = rng.binomial(graduated, t.newToPriceSensitive);
-        movedTo.core = graduated - movedTo.price_sensitive;
-      } else if (segment === "core") {
-        movedTo.at_risk = rng.binomial(remaining, t.coreToAtRisk);
-      } else if (segment === "price_sensitive") {
-        movedTo.at_risk = rng.binomial(remaining, t.priceSensitiveToAtRisk);
-      } else if (segment === "at_risk") {
-        movedTo.core = rng.binomial(remaining, t.atRiskRecovery);
-        movedTo.cancel_intent = rng.binomial(remaining - movedTo.core, t.atRiskToCancelIntent);
-      } else if (segment === "cancel_intent") {
-        movedTo.at_risk = rng.binomial(remaining, t.cancelIntentToAtRisk);
-      } else {
-        const unreachable: never = segment;
-        throw new Error(`Unhandled segment: ${unreachable}`);
-      }
-      let out = 0;
-      for (const [to, n] of Object.entries(movedTo) as [SegmentId, number][]) {
-        inflow[to] += n;
-        out += n;
-      }
-      segments.push({ month, segment, activeAtStart: start, voluntaryChurn: voluntary, involuntaryChurn: involuntary, movedTo });
-      active[segment] = remaining - out;
-    }
-    for (const segment of SEGMENTS) active[segment] += inflow[segment];
-  }
-  return { history: { segments, acquisition }, endActive: active };
+  return generateSyntheticHistory({ truth: DEMO_TRUTH, startActive: START_ACTIVE, months: HISTORY_MONTHS, seed: HISTORY_SEED, asOfMonth: AS_OF_MONTH });
 }
 
 const WEAK_RATE_PRIOR = { alpha: 1, beta: 19 };
