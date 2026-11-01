@@ -105,6 +105,15 @@ describe("offerView", () => {
     expect(offerView(record, [read("2026-11-08T07:00:00Z", "ACTIVE", "P-MONTHLY")], new Date("2026-11-08T08:00:00Z")))
       .toEqual({ ...record, status: "expired", outcome: "declined", resolvedAt: "2026-11-08T00:00:00.000Z", needsRead: false });
   });
+
+  it("exposes only explicit fields, never an extra key such as an approval link", () => {
+    const leaky = { ...record, approvalUrl: "https://www.sandbox.paypal.com/webapps/billing/subscriptions/update?ba_token=BA-TEST0000000001" };
+    const view = offerView(leaky, [], new Date("2026-11-02T00:00:00Z"));
+    expect(Object.keys(view).sort()).toEqual([
+      "annualPlanId", "expiresAt", "id", "needsRead", "offeredAt", "outcome", "proposalId", "resolvedAt", "segment", "status", "subscriptionId",
+    ]);
+    expect(JSON.stringify(view)).not.toContain("ba_token");
+  });
 });
 
 describe("offerOutcome and needsRead", () => {

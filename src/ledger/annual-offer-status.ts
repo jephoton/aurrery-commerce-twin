@@ -89,7 +89,11 @@ export interface AnnualOfferView extends OfferRecord {
 
 export function offerView(offer: OfferRecord, reads: OfferRead[], now: Date): AnnualOfferView {
   const { status, resolvedAt } = offerStatus(offer, reads, now);
-  return { ...offer, status, resolvedAt, outcome: offerOutcome(offer, reads, now), needsRead: needsRead(offer, reads, now) };
+  return {
+    id: offer.id, proposalId: offer.proposalId, subscriptionId: offer.subscriptionId, segment: offer.segment,
+    annualPlanId: offer.annualPlanId, offeredAt: offer.offeredAt, expiresAt: offer.expiresAt,
+    status, resolvedAt, outcome: offerOutcome(offer, reads, now), needsRead: needsRead(offer, reads, now),
+  };
 }
 
 /** Segments with no offers are omitted; consumers treat a missing segment as all zeros. */
