@@ -1,16 +1,12 @@
-import {
-  betaPosterior,
-  estimateAcquisition,
-  estimateChurn,
-  estimatePooledInvoluntary,
-} from "@/twin/calibrate";
+import { buildTwinFromHistory, type TwinEconomics } from "@/twin/build-twin";
 import type { HistoryRecord, TwinHistory } from "@/twin/history";
 import { generateSyntheticHistory, type SyntheticTruth } from "@/twin/synthetic-history";
-import type { MerchantTwin, Provenance, SegmentId } from "@/twin/types";
+import type { MerchantProfile, MerchantTwin, SegmentId } from "@/twin/types";
 
 // Ridgeline Roasters: a fictional specialty-coffee subscription used for the demo.
 // Its history is SYNTHETIC: generated once from fixed "true" rates with a fixed seed, then the
-// twin estimates its parameters from that history exactly as it would from real data.
+// twin estimates its parameters from that history exactly as it would from real data
+// (the same builder imported CSVs use).
 
 export type DemoHistoryRow = HistoryRecord;
 export type DemoHistory = TwinHistory;
@@ -36,117 +32,21 @@ export const DEMO_TRUTH: SyntheticTruth = {
 
 const START_ACTIVE: Record<SegmentId, number> = { new: 380, core: 1180, price_sensitive: 470, at_risk: 230, cancel_intent: 70 };
 
+export const RIDGELINE_PROFILE: MerchantProfile = {
+  id: "ridgeline-roasters",
+  name: "Ridgeline Roasters",
+  description: "Specialty coffee subscription: one 340g bag of single-origin coffee shipped monthly.",
+  planName: "Roaster's Choice (monthly)",
+};
+
+export const RIDGELINE_ECONOMICS: TwinEconomics = { listPrice: 24, unitCost: 9.2, shippingCost: 4.1, paymentFeeRate: 0.0349, paymentFeeFixed: 0.49 };
+
 export function generateDemoHistory(): { history: DemoHistory; endActive: Record<SegmentId, number> } {
   return generateSyntheticHistory({ truth: DEMO_TRUTH, startActive: START_ACTIVE, months: HISTORY_MONTHS, seed: HISTORY_SEED, asOfMonth: AS_OF_MONTH });
 }
 
-const WEAK_RATE_PRIOR = { alpha: 1, beta: 19 };
-const FLAT_PRIOR = { alpha: 1, beta: 1 };
-/** Prior share of price-driven leavers per segment, used until customer feedback is classified. */
-const PRICE_REASON_PRIOR: Record<SegmentId, number> = { new: 0.3, core: 0.2, price_sensitive: 0.65, at_risk: 0.45, cancel_intent: 0.6 };
-const reasonPrior = (segment: SegmentId) => ({ alpha: PRICE_REASON_PRIOR[segment] * 10, beta: (1 - PRICE_REASON_PRIOR[segment]) * 10 });
-
 export function buildDemoTwin(): { twin: MerchantTwin; history: DemoHistory } {
-  const { history, endActive } = generateDemoHistory();
-  const rows = history.segments;
-  const voluntary = estimateChurn(rows, WEAK_RATE_PRIOR, "voluntary");
-  const involuntary = estimatePooledInvoluntary(rows, WEAK_RATE_PRIOR);
-  const acquisition = estimateAcquisition(history.acquisition);
-
-  const segmentRows = (segment: SegmentId) => rows.filter((x) => x.segment === segment);
-  const survivedChurn = (segment: SegmentId) =>
-    segmentRows(segment).reduce((s, x) => s + x.activeAtStart - x.voluntaryChurn - x.involuntaryChurn, 0);
-  const moved = (from: SegmentId, to: SegmentId) => segmentRows(from).reduce((s, x) => s + (x.movedTo[to] ?? 0), 0);
-  const graduated = moved("new", "core") + moved("new", "price_sensitive");
-  const recovered = moved("at_risk", "core");
-
-  const est = (note: string, evidenceCount: number): Provenance => ({ source: "estimated", note, evidenceCount });
-  const assume = (note: string): Provenance => ({ source: "assumption", note });
-  const provenance: Record<string, Provenance> = {
-    monthlyChurn: est(`Beta posterior per segment from ${HISTORY_MONTHS} months of synthetic subscriber history.`, rows.reduce((s, r) => s + r.activeAtStart, 0)),
-    involuntaryChurn: est("Pooled Beta posterior of unrecovered failed payments.", involuntary.exposure),
-    monthlyAcquisition: est(`Mean and spread of ${acquisition.months} months of signups.`, acquisition.months),
-    transitions: est("Beta posteriors of observed segment moves.", rows.length),
-    churnPriceElasticity: assume("No price changes in history, so price sensitivity is a prior, not an estimate."),
-    acquisitionPriceElasticity: assume("Prior on how signups respond to list price."),
-    annualUptake: assume("Prior on annual-plan uptake when offered, per segment. Segments with resolved sandbox offers show their own observed row."),
-    "offerChurnRelativeRisk.price": assume("Prior that a retention discount cuts churn to ~45% of normal for price-driven leavers (wide); updated from observed outcomes. The modelled effect does not scale with discount depth: deeper discounts cost more without retaining more."),
-    "offerChurnRelativeRisk.other": assume("Prior that a retention discount cuts churn to ~85% of normal for other leavers (sd 0.10, allowing a small chance of no benefit); updated from observed outcomes. The modelled effect does not scale with discount depth: deeper discounts cost more without retaining more."),
-    priceReasonShare: assume("Prior share of price-driven leavers per segment; replaced by classified customer feedback when available. Sets the initial split and acquisitions; only cancel intent is re-split on entry, so other segments drift."),
-    postOfferChurnMultiplier: assume("Prior on extra churn in the month a discount expires."),
-    unitEconomics: assume("Merchant-entered costs. Payment fee approximates a standard PayPal rate; verify for your account."),
-  };
-
-  const twin: MerchantTwin = {
-    merchant: {
-      id: "ridgeline-roasters",
-      name: "Ridgeline Roasters",
-      description: "Specialty coffee subscription: one 340g bag of single-origin coffee shipped monthly.",
-      planName: "Roaster's Choice (monthly)",
-    },
-    asOfMonth: AS_OF_MONTH,
-    initialActive: endActive,
-    params: {
-      currency: "USD",
-      referencePrice: 24,
-      listPrice: 24,
-      unitCost: 9.2,
-      shippingCost: 4.1,
-      paymentFeeRate: 0.0349,
-      paymentFeeFixed: 0.49,
-      monthlyAcquisition: { mean: acquisition.mean, sd: acquisition.sd },
-      acquisitionPriceElasticity: { mean: 1.2, sd: 0.6 },
-      involuntaryChurn: involuntary.posterior,
-      transitions: {
-        newGraduation: betaPosterior(FLAT_PRIOR, graduated, survivedChurn("new")),
-        newToPriceSensitive: betaPosterior(FLAT_PRIOR, moved("new", "price_sensitive"), graduated),
-        coreToAtRisk: betaPosterior(FLAT_PRIOR, moved("core", "at_risk"), survivedChurn("core")),
-        priceSensitiveToAtRisk: betaPosterior(FLAT_PRIOR, moved("price_sensitive", "at_risk"), survivedChurn("price_sensitive")),
-        atRiskRecovery: betaPosterior(FLAT_PRIOR, recovered, survivedChurn("at_risk")),
-        atRiskToCancelIntent: betaPosterior(FLAT_PRIOR, moved("at_risk", "cancel_intent"), survivedChurn("at_risk") - recovered),
-        cancelIntentToAtRisk: betaPosterior(FLAT_PRIOR, moved("cancel_intent", "at_risk"), survivedChurn("cancel_intent")),
-      },
-      offerChurnRelativeRisk: { price: { shape: 9, rate: 20 }, other: { shape: 72.25, rate: 85 } },
-      postOfferChurnMultiplier: { mean: 1.25, sd: 0.15 },
-      segments: {
-        new: {
-          label: "New (first 3 months)",
-          monthlyChurn: voluntary.new.posterior,
-          churnPriceElasticity: { mean: 1.5, sd: 0.7 },
-          annualUptake: { alpha: 2, beta: 38 },
-          priceReasonShare: reasonPrior("new"),
-        },
-        core: {
-          label: "Core",
-          monthlyChurn: voluntary.core.posterior,
-          churnPriceElasticity: { mean: 1.0, sd: 0.5 },
-          annualUptake: { alpha: 3, beta: 22 },
-          priceReasonShare: reasonPrior("core"),
-        },
-        price_sensitive: {
-          label: "Price sensitive",
-          monthlyChurn: voluntary.price_sensitive.posterior,
-          churnPriceElasticity: { mean: 2.5, sd: 1.0 },
-          annualUptake: { alpha: 2, beta: 23 },
-          priceReasonShare: reasonPrior("price_sensitive"),
-        },
-        at_risk: {
-          label: "At risk (skipped or paused recently)",
-          monthlyChurn: voluntary.at_risk.posterior,
-          churnPriceElasticity: { mean: 1.8, sd: 0.8 },
-          annualUptake: { alpha: 1, beta: 39 },
-          priceReasonShare: reasonPrior("at_risk"),
-        },
-        cancel_intent: {
-          label: "Cancel intent (opened cancel flow)",
-          monthlyChurn: voluntary.cancel_intent.posterior,
-          churnPriceElasticity: { mean: 2.0, sd: 0.8 },
-          annualUptake: { alpha: 1, beta: 49 },
-          priceReasonShare: reasonPrior("cancel_intent"),
-        },
-      },
-    },
-    provenance,
-  };
+  const { history } = generateDemoHistory();
+  const twin = buildTwinFromHistory({ history, economics: RIDGELINE_ECONOMICS, profile: RIDGELINE_PROFILE, asOfMonth: AS_OF_MONTH, source: "synthetic" });
   return { twin, history };
 }
