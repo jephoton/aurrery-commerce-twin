@@ -181,7 +181,12 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - Any approval link, its `ba_token` value, or a `ba_token` / `ba%5ftoken` marker in any other cell of any table refuses the ledger (import and export). Ledgers without the annual tables still import.
   - New shared offline fixture `src/test/annual-offer-fixture.ts` (`seedAnnualOffer`, `fixtureLink`, fake `BA-FIXTURE` links) for Tasks 10, 12, 13 and 14.
   - Verification: 1059 tests pass, typecheck and lint clean.
-  - **Next:** Task 11, price changes and reset refuse annual subscribers by plan.
+- **Task 11 done (price changes and reset refuse annual subscribers by plan).**
+  - `executeProposalWith` reads the recorded yearly plan IDs (`listAnnualPlanIds`) once, after the claim's transaction has closed. A price override, revert or reset target whose live `planId` is one of them is refused before any PATCH with "On an annual plan by customer choice; the price was not changed.", recorded as a definitive per-target failure (not skipped, not a reconciliation). The check is by plan, so a captured price that matches the yearly read-back by cents can no longer PATCH a yearly plan. Failing to read the plan IDs throws `ExecutionReconciliationRequired` before any PayPal read.
+  - `previewDemoReset` skips such a pilot with reason `annual_plan`; the recovery panel shows every skip reason through `RESET_SKIP_TEXT`, which reports it as "switched to annual by customer choice; not reset". Non-annual subscribers behave exactly as before.
+  - Tests cover all three price actions, a non-annual plan still patching, an unreadable plan list, and wired ledger paths for both execute and reset preview using the shared fixture.
+  - Verification: 1072 tests pass at the code commit (1077 with the concurrent Task 10 follow-up), typecheck and lint clean.
+  - **Next:** Task 12, status refresh appends offer reads; public offer views without links.
 
 ## M5 complete and published
 
