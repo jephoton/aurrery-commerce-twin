@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { connection } from "next/server";
 import { listExecutions } from "@/execution/execute";
-import { proposeStrategy } from "@/execution/annual-proposal";
-import { listProposals } from "@/ledger/proposals";
+import { PAYPAL_NOT_CONFIGURED_MESSAGE, proposeStrategy } from "@/execution/annual-proposal";
+import { listProposals, ProposalError } from "@/ledger/proposals";
+import { paypalConfigured } from "@/paypal/client";
 import { observedMerchant } from "@/merchant/observed";
 import { StrategySchema } from "@/twin/interventions";
 import { runComparison, WorkerTaskError } from "@/twin/worker-client";
@@ -37,11 +38,13 @@ export async function POST(request: Request) {
   if (admission) return admission;
   try {
     const body = BodySchema.parse(await readBoundedJson(request));
+    // Annual offers need live PayPal reads; refuse before spending a simulation.
+    if (body.strategy.intervention.kind === "annual_plan" && !paypalConfigured()) throw new ProposalError(PAYPAL_NOT_CONFIGURED_MESSAGE, "NOT_EXECUTABLE");
     const { twin } = await observedMerchant();
     const comparison = await runComparison(twin, [body.strategy], { runs: simulationRuns() }, { signal: request.signal });
     if (request.signal.aborted) throw new WorkerTaskError("ABORTED");
     const result = comparison.strategies.find((s) => s.strategy.id === body.strategy.id)!;
-    const proposal = await proposeStrategy({ objective: body.objective, strategy: body.strategy, result, listPrice: twin.params.listPrice, offerWindowDays: body.offerWindowDays });
+    const proposal = await proposeStrategy({ objective: body.objective, strategy: body.strategy, result, listPrice: twin.params.listPrice, offerWindowDays: body.offerWindowDays }, request.signal);
     return Response.json({ proposal }, { status: 201 });
   } catch (e) {
     return errorResponse(e);

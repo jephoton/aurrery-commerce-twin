@@ -69,6 +69,19 @@ describe("proposal worker boundary", () => {
       expect(await listProposals()).toHaveLength(0);
     } finally { compare.mockRestore(); }
   });
+  it("refuses an annual strategy without PayPal before any simulation or persistence", async () => {
+    vi.stubEnv("PAYPAL_CLIENT_ID", ""); vi.stubEnv("PAYPAL_CLIENT_SECRET", "");
+    ledger().exec("DELETE FROM proposals;");
+    const compare = vi.spyOn(workerClient, "runComparison");
+    try {
+      const annual = { id: "annual-15", name: "Annual", intervention: { kind: "annual_plan", discountPct: 15, segments: ["core"] } };
+      const response = await POST(new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ strategy: annual, offerWindowDays: 7 }) }));
+      expect(response.status).toBe(422);
+      expect(await response.json()).toEqual({ error: "NOT_EXECUTABLE", message: "PayPal Sandbox is not configured; annual offers need live eligibility reads." });
+      expect(compare).not.toHaveBeenCalled();
+      expect(await listProposals()).toHaveLength(0);
+    } finally { compare.mockRestore(); vi.unstubAllEnvs(); }
+  });
   it("prepares an annual offer from live eligibility, binds its window into the hash and approves it through the hash-bound route", async () => {
     vi.stubEnv("HOSTED_DEMO", "false"); vi.stubEnv("RENDER", "false");
     vi.stubEnv("PAYPAL_CLIENT_ID", "offline-test-id"); vi.stubEnv("PAYPAL_CLIENT_SECRET", "offline-test-secret");
@@ -116,6 +129,15 @@ describe("proposal worker boundary", () => {
       const none = await POST(new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ strategy: annual }) }));
       expect(none.status).toBe(422);
       expect(await none.json()).toMatchObject({ error: "NO_TARGETS" });
+
+      // A request cancelled during the PayPal reads stores nothing.
+      const stored = (await listProposals()).length;
+      const controller = new AbortController();
+      read.mockImplementation(async (id) => { controller.abort(); return { ok: true, debugId: null, value: { id, status: "ACTIVE", planId: "P-MONTHLY000000000000000001",
+        planOverridden: false, regularPrice: listPrice.toFixed(2), nextBillingTime: null, lastPayment: null, raw: {} } }; });
+      const cancelled = await POST(new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ strategy: annual }), signal: controller.signal }));
+      expect(cancelled.status).toBe(408);
+      expect(await listProposals()).toHaveLength(stored);
     } finally {
       for (const spy of [compare, plan, read, execute]) spy.mockRestore();
       vi.unstubAllEnvs();

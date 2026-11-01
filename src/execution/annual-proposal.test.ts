@@ -52,13 +52,35 @@ describe("annual offer preparation", () => {
     expect(d.create).toHaveBeenCalledWith(expect.objectContaining({ eligibleIds: ["I-PILOTE"] }));
   });
 
-  it("skips a subscriber whose live read fails or throws", async () => {
-    const d = deps({ read: vi.fn(async (id: string) => {
-      if (id === "I-PILOTD") return { ok: false as const, error: { name: "NotFound", message: "gone", httpStatus: 404, debugId: null, details: null } };
-      throw new Error("network");
-    }) as never });
-    await prepareAnnualOfferProposalWith(input, d);
-    expect(d.create).toHaveBeenCalledWith(expect.objectContaining({ eligibleIds: [] }));
+  it.each([
+    ["fails", async () => ({ ok: false as const, error: { name: "ServerError", message: "blip", httpStatus: 503, debugId: null, details: null } })],
+    ["throws", async () => { throw new Error("network"); }],
+  ])("proposes nothing when any pilot read %s", async (_name, failure) => {
+    const d = deps({ read: vi.fn(async (id: string) => (id === "I-PILOTE" ? failure() : live(id))) as never });
+    await expect(prepareAnnualOfferProposalWith(input, d)).rejects.toMatchObject({
+      code: "NOT_EXECUTABLE", message: "PayPal could not be read for 1 pilot(s); nothing was proposed. Try again." });
+    expect(d.create).not.toHaveBeenCalled();
+  });
+
+  it("reads pilots in parallel and keeps registry order for the targets", async () => {
+    const release: Record<string, () => void> = {};
+    const d = deps({ read: vi.fn((id: string) => new Promise((resolve) => { release[id] = () => resolve(live(id)); })) as never });
+    const pending = prepareAnnualOfferProposalWith(input, d);
+    await vi.waitFor(() => expect(Object.keys(release).sort()).toEqual(["I-PILOTD", "I-PILOTE"]));
+    release["I-PILOTE"](); release["I-PILOTD"]();
+    await pending;
+    expect(d.create).toHaveBeenCalledWith(expect.objectContaining({ eligibleIds: ["I-PILOTD", "I-PILOTE"] }));
+  });
+
+  it("stops before any read, or before creating, once the request is aborted", async () => {
+    const before = new AbortController(); before.abort();
+    const early = deps();
+    await expect(prepareAnnualOfferProposalWith(input, early, before.signal)).rejects.toMatchObject({ code: "ABORTED" });
+    expect(early.read).not.toHaveBeenCalled(); expect(early.create).not.toHaveBeenCalled();
+    const during = new AbortController();
+    const late = deps({ read: vi.fn(async (id: string) => { during.abort(); return live(id); }) as never });
+    await expect(prepareAnnualOfferProposalWith(input, late, during.signal)).rejects.toMatchObject({ code: "ABORTED" });
+    expect(late.create).not.toHaveBeenCalled();
   });
 
   it.each([
