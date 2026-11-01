@@ -8,6 +8,16 @@ it.each([
   ["https://notpaypal.com/approve", false],
   ["https://evil.example/approve", false],
   ["not a url", false],
+  ["https://paypal.com:8443/a", false],
+  ["https://www.paypal.com:443/a", true],
+  ["https://user:pw@www.paypal.com/a", false],
+  ["https://evil.com@paypal.com/a", false],
+  ["https://paypal.com@evil.com/a", false],
+  ["https://paypal.com.evil.com/a", false],
+  ["https://WWW.PAYPAL.COM/a", true],
+  ["https://www.paypal.com./a", false],
+  [" https://www.paypal.com/a", false],
+  ["https://www.paypal.com/a ", false],
 ])("treats %s as a PayPal approval link: %s", (href, expected) => {
   expect(isPayPalApprovalUrl(href)).toBe(expected);
 });
