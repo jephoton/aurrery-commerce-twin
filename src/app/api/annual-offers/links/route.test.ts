@@ -82,6 +82,21 @@ describe("hosted visitors", () => {
 });
 
 describe("administrators", () => {
+  it("get 403 with no link for a cross-site read, and the draft for a same-origin one", async () => {
+    await seedPending();
+    const cookie = await adminCookie();
+    for (const site of ["cross-site", "same-site", "none"]) {
+      const response = await GET(new Request(url, { headers: { cookie, "sec-fetch-site": site } }));
+      expect(response.status).toBe(403);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toEqual({ error: "CROSS_SITE_REQUEST" });
+    }
+    expect(mocks.calls).not.toContain("links");
+    const sameOrigin = await GET(new Request(url, { headers: { cookie, "sec-fetch-site": "same-origin" } }));
+    expect(sameOrigin.status).toBe(200);
+    expect((await sameOrigin.json()).offers[0].message).toContain(fixtureLink("I-PILOTD"));
+  });
+
   it("get an uncached draft carrying the link of each pending offer, after connection()", async () => {
     const { offerId, expiresAt } = await seedPending();
     const offers = await adminOffers();

@@ -17,6 +17,9 @@ export async function GET(request: Request) {
   await connection();
   const admission = await admitHostedRequest(request, { admin: true });
   if (admission) return admission;
+  // Browsers mark cross-site reads; refuse them before any link is read. Non-browser clients send no header.
+  const site = request.headers.get("sec-fetch-site");
+  if (site !== null && site !== "same-origin") return Response.json({ error: "CROSS_SITE_REQUEST" }, { status: 403, headers: NO_STORE });
   try {
     const { merchant } = currentMerchant().twin;
     const labels = new Map((await listSandboxSubscribers()).map((s) => [s.subscriptionId, s.label]));
@@ -29,6 +32,7 @@ export async function GET(request: Request) {
     }));
     return Response.json({ offers }, { headers: NO_STORE });
   } catch {
+    // Deliberately not errorResponse: it logs, and this route logs nothing. Fixed body, never cached.
     return Response.json({ error: "INTERNAL", message: "Request unavailable." }, { status: 500, headers: NO_STORE });
   }
 }
