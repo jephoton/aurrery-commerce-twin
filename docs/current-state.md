@@ -161,7 +161,14 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - Each issued offer goes to `recordOffer` with `outcome.offer { annualPlanId, expiresAt }` and `verified: false`; the approval link reaches nothing else. A PayPal error message containing a link is withheld from outcome text.
   - Not yet wired into production; Task 8 adds dispatch.
   - Verification: 980 tests pass, typecheck and lint clean.
-  - **Next:** Task 8, `annual_plan_offer` in the proposal union, claims and executor dispatch.
+- **Task 8 done (`annual_plan_offer` in the proposal union, claims and executor dispatch).**
+  - `annual_plan_offer` joins `ProposalAction` and uses the unchanged approve, claim and execute state machine and target claims. The claim parses it strictly and checks the stored hash, then refuses with `invalid_annual_action`, `monthly_plan_changed`, `registration_changed` (exact registration snapshot) or `open_annual_offer`. The open-offer check (anything short of a confirmed decline) runs on the claim's own transaction. The existing unresolved-target and claimed-target checks still apply.
+  - `validateTargetForExecution` re-checks the claim, registration snapshot, monthly-plan setting and open offers before each PayPal read and each `revise`. Approved and executing annual offers appear in the outstanding list. `finishExecution` still refuses a revert schedule for anything but a discount.
+  - `executeProposalWith` sends a claimed annual offer to `executeAnnualOfferWith` and never to the price PATCH path. A missing or misconfigured executor (including the return URL `annualReturnUrl`: the hosted origin, or local `APP_URL`, with `?paypal=annual`) throws `ExecutionReconciliationRequired`. Production wiring uses the PayPal plan, subscription and annual-offer ledger adapters.
+  - The recovery panel lists only approved or executing annual offers and resumes an approved one with fresh confirmation. It shows `$X/yr (N% off)`, and its report says how many offers were issued, never "verified". No approval link reaches proposals, audit entries, the outstanding list or the panel.
+  - `proposals.ts` now imports `RegistrationSnapshotSchema` from `annual-offer-action.ts`, so there is one source.
+  - Verification: 1010 tests pass, typecheck and lint clean.
+  - **Next:** Task 9, prepare annual offer proposals from live eligibility.
 
 ## M5 complete and published
 
