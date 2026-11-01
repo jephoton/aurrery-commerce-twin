@@ -7,7 +7,7 @@ import { paypalConfigured } from "@/paypal/client";
 import { observedMerchant } from "@/merchant/observed";
 import { StrategySchema } from "@/twin/interventions";
 import { runComparison, WorkerTaskError } from "@/twin/worker-client";
-import { errorResponse, readBoundedJson } from "../_lib/http";
+import { demoOnlyResponse, errorResponse, readBoundedJson } from "../_lib/http";
 import { admitHostedRequest } from "@/hosting/guard";
 import { simulationRuns } from "@/hosting/simulation-budget";
 
@@ -37,7 +37,10 @@ export async function POST(request: Request) {
   const admission = await admitHostedRequest(request, { limit: "preparation" });
   if (admission) return admission;
   try {
-    const body = BodySchema.parse(await readBoundedJson(request));
+    const raw = await readBoundedJson(request);
+    // Imported merchants are simulate only (M6): an import never becomes a proposal or an annual offer.
+    if (typeof raw === "object" && raw !== null && "import" in raw) return demoOnlyResponse();
+    const body = BodySchema.parse(raw);
     // Annual offers need live PayPal reads; refuse before spending a simulation.
     if (body.strategy.intervention.kind === "annual_plan" && !paypalConfigured()) throw new ProposalError(PAYPAL_NOT_CONFIGURED_MESSAGE, "NOT_EXECUTABLE");
     const { twin } = await observedMerchant();

@@ -10,6 +10,8 @@ import type { Strategy } from "@/twin/interventions";
 import { compareStrategies } from "@/twin/simulate";
 import * as workerClient from "@/twin/worker-client";
 import { POST as approve } from "./[id]/approve/route";
+import { STARTER_STRATEGIES } from "@/merchant/candidates";
+import { samplePayload } from "@/test/import-fixture";
 import { POST } from "./route";
 
 const strategy: Strategy = { id: "save", name: "Save", intervention: { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3, campaignMonths: 0 } };
@@ -147,5 +149,25 @@ describe("proposal worker boundary", () => {
   it("rejects an oversized body", async () => {
     const request = new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ objective: "x".repeat(70_000), strategy }) });
     expect((await POST(request)).status).toBe(413);
+  });
+});
+
+describe("imported merchants", () => {
+  it("never turn an import into a proposal or an annual offer", async () => {
+    ledger().exec("DELETE FROM proposals;");
+    const simulate = vi.spyOn(workerClient, "runComparison");
+    try {
+      for (const candidate of [STARTER_STRATEGIES[0], STARTER_STRATEGIES[2]]) {
+        for (const extra of [{ import: samplePayload() }, { import: null }, { import: { broken: true } }]) {
+          const response = await POST(new Request("http://localhost/api/proposals", { method: "POST", body: JSON.stringify({ objective: "Save", strategy: candidate, ...extra }) }));
+          expect(response.status).toBe(422);
+          expect(await response.json()).toEqual({ error: "DEMO_ONLY", message: "PayPal actions are available for the demo merchant only." });
+        }
+      }
+      expect(simulate).not.toHaveBeenCalled();
+      expect(await listProposals()).toHaveLength(0);
+    } finally {
+      simulate.mockRestore();
+    }
   });
 });

@@ -3,6 +3,7 @@ import { ProposalError } from "@/ledger/proposals";
 import { ExecutionReconciliationRequired } from "@/execution/execute";
 import { WorkerTaskError } from "@/twin/worker-client";
 import { capErrors, type RowError } from "@/import/row-error";
+import { DEMO_ONLY_MESSAGE, REASON_UNAVAILABLE_MESSAGE } from "@/import/messages";
 
 const MAX_JSON_BYTES = 64 * 1024;
 export class RequestBodyError extends Error {
@@ -71,4 +72,14 @@ export function errorResponse(error: unknown): Response {
 /** Per-row import errors (M6). Nothing was stored, so the browser's current twin stays as it was. */
 export function invalidImportResponse(errors: RowError[]): Response {
   return Response.json({ error: "INVALID_IMPORT", message: "The import has errors. Nothing was changed.", errors: capErrors(errors) }, { status: 400 });
+}
+
+/** A price-reason strategy for an import without classified feedback (decision 8). */
+export function reasonUnavailableResponse(): Response {
+  return Response.json({ error: "REASON_UNAVAILABLE", message: REASON_UNAVAILABLE_MESSAGE }, { status: 422 });
+}
+
+/** Any PayPal-bound request that carries an import (decision 19). */
+export function demoOnlyResponse(): Response {
+  return Response.json({ error: "DEMO_ONLY", message: DEMO_ONLY_MESSAGE }, { status: 422 });
 }
