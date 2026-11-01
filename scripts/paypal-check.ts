@@ -7,13 +7,15 @@
 // The default target is the loyal/core pilot (Pilot D), not a hero-demo subscription. The restore
 // re-sets the price, but PayPal likely leaves plan_overridden=true on that subscription afterwards.
 //
-// Pilots D and E receive annual-plan offers. The check refuses any target on a recorded yearly plan,
-// or whose plan PayPal did not report once annual plans exist, before any PATCH: a customer who
+// Pilots D and E receive annual-plan offers. Before any PATCH the check refuses a target on a yearly
+// plan recorded in this ledger, one whose plan PayPal did not report, and one whose plan PayPal does
+// not read back as monthly (yearly plans recorded elsewhere, such as hosted Turso): a customer who
 // switched to annual must never be re-priced. Pass a monthly subscription id explicitly instead.
 
 import { annualRefusal, REFUSAL_TEXT } from "@/execution/outcomes";
 import { listAnnualPlanIds } from "@/ledger/annual-offers";
 import { listSandboxSubscribers } from "@/ledger/proposals";
+import { getPlan } from "@/paypal/plans";
 import { getSubscription, overrideSubscriptionPrice, type PatchOperation } from "@/paypal/subscriptions";
 
 const TEST_PRICE = "23.45";
@@ -26,9 +28,16 @@ async function main() {
   if (!before.ok) throw new Error(`Read failed: ${JSON.stringify(before.error)}`);
   console.log("before", { status: before.value.status, regularPrice: before.value.regularPrice, overridden: before.value.planOverridden });
   const refused = annualRefusal(before.value.planId, await listAnnualPlanIds());
-  if (refused) {
-    throw new Error(`Refusing to PATCH ${id}: ${REFUSAL_TEXT[refused]} Pass a subscription on the monthly plan: npm run paypal:check -- I-XXXXXXXXXX`);
+  const monthlyHint = "Pass a subscription on the monthly plan: npm run paypal:check -- I-XXXXXXXXXX";
+  if (refused) throw new Error(`Refusing to PATCH ${id}: ${REFUSAL_TEXT[refused]} ${monthlyHint}`);
+  if (before.value.id !== id) throw new Error(`Refusing to PATCH ${id}: PayPal returned subscription ${before.value.id}.`);
+  const planId = before.value.planId;
+  if (planId === null) throw new Error(`Refusing to PATCH ${id}: PayPal did not report its plan. ${monthlyHint}`);
+  const plan = await getPlan(planId);
+  if (!plan.ok || plan.value.intervalUnit !== "MONTH") {
+    throw new Error(`Refusing to PATCH ${id}: plan ${planId} is not confirmed monthly by PayPal. ${monthlyHint}`);
   }
+  // A customer could still approve an annual switch between this read and the PATCH below.
   if (before.value.status !== "ACTIVE" && before.value.status !== "SUSPENDED") {
     throw new Error(`Subscription is ${before.value.status}; approve it as a sandbox buyer first.`);
   }
