@@ -166,7 +166,7 @@ export type CreateAnnualProposalInput = {
   eligibleIds: readonly string[];
 };
 
-const UNREADABLE_OFFERS = "Stored annual offers are unreadable (unreadable_annual_offers)";
+const UNREADABLE_OFFERS = "Stored annual offers are unreadable";
 
 function parseProposal(r: LedgerRow | undefined, id: string): Proposal {
   if (!r) throw new ProposalError(`Proposal ${id} not found.`, "NOT_FOUND");

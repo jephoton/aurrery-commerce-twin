@@ -115,7 +115,7 @@ describe("annual offer proposals", () => {
     await recordOpenOffer(c, ID(9), "I-PILOTE");
     await c.execute("PRAGMA ignore_check_constraints = ON");
     await c.execute("UPDATE annual_offers SET segment='bogus'");
-    await expect(repo.claimForExecution(ID(1))).rejects.toMatchObject({ name: "Error", code: "INVALID_STATE", message: expect.stringMatching(/unreadable_annual_offers/) });
+    await expect(repo.claimForExecution(ID(1))).rejects.toMatchObject({ name: "Error", code: "INVALID_STATE", message: expect.stringMatching(/^Stored annual offers are unreadable; [^_]*$/) });
     expect((await repo.getProposal(ID(1))).status).toBe("approved");
     expect(await c.query("SELECT * FROM active_target_claims")).toEqual([]);
   }));
@@ -167,6 +167,6 @@ describe("annual offer proposal creation", () => {
     await recordOpenOffer(c, ID(9), "I-PILOTE");
     await c.execute("PRAGMA ignore_check_constraints = ON");
     await c.execute("UPDATE annual_offers SET segment='bogus'");
-    await expect(repo.createAnnualOfferProposal(input)).rejects.toMatchObject({ code: "INVALID_STATE", message: expect.stringMatching(/unreadable_annual_offers/) });
+    await expect(repo.createAnnualOfferProposal(input)).rejects.toMatchObject({ code: "INVALID_STATE", message: expect.stringMatching(/^Stored annual offers are unreadable; [^_]*$/) });
   }));
 });
