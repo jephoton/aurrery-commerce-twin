@@ -205,7 +205,11 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - `annual` flows through `/api/simulate` snapshots, agent runs (`readMerchant`), `GET /api/twin` and the home page (`MerchantSummary.annualEvidence`, no UI yet). After a `GET /api/paypal/status` refresh appends reads, a client re-fetches `GET /api/twin` for updated annual evidence.
   - The group `annualUptake` assumption note in `src/merchant/demo.ts` no longer says no annual plan has been tried.
   - New `src/merchant/observed.test.ts` (3 tests). Verification: 1106 tests pass, typecheck and lint clean.
-  - **Next:** Task 15, the "Annual offers" evidence block.
+- **Task 15 done ("Annual offers" evidence block).**
+  - `EvidencePanel` shows a separate "Annual offers" block: accepted, declined and awaiting decision or final check, in total and per segment, then the per-segment uptake changes and the annual-specific limitation. Annual changes never appear under "Measured sandbox outcomes" or with the discount limitation. No links are rendered.
+  - Review requirement: evidence must not lag the offers panel. After a successful PayPal status refresh (the button, a recovery action, an approval), `Lab` re-fetches `GET /api/twin` and keeps only its `annual` part as `liveAnnual`, which `EvidencePanel` prefers over the page-load or run-snapshot value. A displayed run's discount evidence and all other state are untouched; a failed or unusable response keeps the previous evidence, and a sequence counter drops out-of-order responses. `liveAnnualFromTwin` in `lab-state.ts` is the pure, tested parser; `AnnualEvidenceSchema` is now exported from `observed-snapshot.ts`.
+  - Tests: EvidencePanel (own block and limitation, no discount leakage, no links, live over page-load over run snapshot) and `liveAnnualFromTwin`. Verification: 1110 tests pass, typecheck and lint clean.
+  - **Next:** Task 16.
 
 ## M5 complete and published
 
