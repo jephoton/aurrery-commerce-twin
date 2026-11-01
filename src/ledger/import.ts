@@ -7,6 +7,10 @@ import { backup, DatabaseSync } from "node:sqlite";
 import { REASONS, SEGMENTS } from "@/twin/types";
 import { StrategySchema } from "@/twin/interventions";
 import { sameUsdAmount, usdCents } from "@/paypal/prices";
+import { isPayPalApprovalUrl } from "@/paypal/approval-link";
+import { AnnualOfferActionSchema, type AnnualOfferAction } from "./annual-offer-action";
+import { offerExpiry, parseIsoInstant } from "./annual-offer-status";
+import { ANNUAL_REVISE_OPERATION } from "./annual-offers";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow, type LedgerValue } from "./connection";
 import { LEDGER_SCHEMA } from "./db";
 import { authoritativeWrite } from "./operations";
@@ -76,12 +80,19 @@ export function validateRecords(tables: TableSnapshot[]): void {
     try {
       const raw = JSON.parse(String(row.action_json));
       action = raw.type === "subscription_price_revert" ? RevertActionSchema.parse(raw) :
-        raw.type === "subscription_price_reset" ? ResetActionSchema.parse(raw) : PriceOverrideActionSchema.parse(raw);
+        raw.type === "subscription_price_reset" ? ResetActionSchema.parse(raw) :
+        raw.type === "annual_plan_offer" ? AnnualOfferActionSchema.parse(raw) : PriceOverrideActionSchema.parse(raw);
       const strategy = JSON.parse(String(row.strategy_json));
       if (action.type === "subscription_price_reset") { if (strategy !== null) throw new Error("Invalid reset strategy"); }
-      else StrategySchema.parse(strategy);
+      else {
+        const { intervention } = StrategySchema.parse(strategy);
+        // The approved payload carries the strategy's discount and segments verbatim.
+        if (action.type === "annual_plan_offer" && (intervention.kind !== "annual_plan" || intervention.discountPct !== action.discountPct ||
+          JSON.stringify(intervention.segments) !== JSON.stringify(action.segments))) throw new Error("Invalid annual strategy");
+      }
       const prediction = JSON.parse(String(row.simulation_json));
-      if (action.type !== "subscription_price_override" ? prediction !== null : prediction === null) throw new Error("Invalid prediction metadata");
+      const forecastless = action.type === "subscription_price_revert" || action.type === "subscription_price_reset";
+      if (forecastless ? prediction !== null : prediction === null) throw new Error("Invalid prediction metadata");
     } catch { throw new Error("Source proposal schema is invalid"); }
     if (!/^prop_[0-9a-f-]{36}$/.test(String(row.id)) || row.action_type !== action.type ||
       hash(String(row.action_json)) !== row.action_hash || hashAction(action) !== row.action_hash) throw new Error("Source proposal action hash is invalid");
@@ -113,6 +124,12 @@ export function validateRecords(tables: TableSnapshot[]): void {
         catch { throw new Error("Source recovery execution is invalid"); }
       }
     }
+    if (action.type === "annual_plan_offer") {
+      if (row.revert_after !== null) throw new Error("Source annual offer cannot schedule a recovery");
+      const approved = !["proposed", "rejected"].includes(String(row.status));
+      if (approved ? !Number.isFinite(Date.parse(String(row.approved_at))) || typeof row.approved_by !== "string" || !row.approved_by.trim()
+        : row.approved_at !== null || row.approved_by !== null) throw new Error("Source annual offer approval state is invalid");
+    }
   }
   for (const row of of("active_target_claims")) {
     const proposal = of("proposals").find((candidate) => candidate.id === row.proposal_id);
@@ -137,6 +154,71 @@ export function validateRecords(tables: TableSnapshot[]): void {
       Date.parse(String(row.ends_at)) !== start + action.months * 30 * 86_400_000 || row.discounted_price !== action.newPrice ||
       !sameUsdAmount(observation.regular_price, action.newPrice) || discountedCents === null || listCents === null || discountedCents >= listCents ||
       observation.source !== "paypal.get_subscription") throw new Error("Source discount episode is invalid");
+  }
+  validateAnnualOffers(tables, of);
+}
+
+const annualAction = (proposal: LedgerRow | undefined): AnnualOfferAction | null => {
+  if (proposal?.action_type !== "annual_plan_offer") return null;
+  try { return AnnualOfferActionSchema.parse(JSON.parse(String(proposal.action_json))); } catch { return null; }
+};
+const parseJson = (value: unknown): unknown => { try { return JSON.parse(String(value)); } catch { return undefined; } };
+const PLAN_ID = /^P-[A-Z0-9]+$/;
+const TOKEN_MARKER = /ba_token|ba%5ftoken/i;
+type RecordedOutcome = { ok?: unknown; subscriptionId?: unknown; offer?: { annualPlanId?: unknown; expiresAt?: unknown } };
+
+/** Annual offers, their reads and revise records; then decision 0008's rule that approval links live only in annual_offers.approval_url. */
+function validateAnnualOffers(tables: TableSnapshot[], of: (table: TableName) => LedgerRow[]): void {
+  const offers = of("annual_offers");
+  for (const row of offers) {
+    const proposal = of("proposals").find((candidate) => candidate.id === row.proposal_id);
+    const execution = of("executions").find((candidate) => candidate.id === row.execution_id);
+    const action = annualAction(proposal);
+    const target = action?.targets.find((candidate) => candidate.subscriptionId === row.subscription_id);
+    // offerExpiry accepts only a strict ISO instant, so `expected` also proves offered_at; equality then proves expires_at.
+    let expected: string | null = null;
+    try { expected = action && typeof row.offered_at === "string" ? offerExpiry(row.offered_at, action.offerWindowDays) : null; } catch { expected = null; }
+    const issued = (parseJson(execution?.response_json) ?? {}) as RecordedOutcome;
+    if (!proposal || !action || !target || !execution || expected === null || !["executing", "succeeded", "partially_failed"].includes(String(proposal.status)) ||
+      !SEGMENTS.includes(String(row.segment) as typeof SEGMENTS[number]) || row.segment !== target.registration.segment ||
+      !PLAN_ID.test(String(row.annual_plan_id)) || typeof row.approval_url !== "string" || !isPayPalApprovalUrl(row.approval_url) ||
+      row.expires_at !== expected || parseIsoInstant(String(row.expires_at)) === null ||
+      execution.proposal_id !== row.proposal_id || execution.target_id !== row.subscription_id || execution.operation !== ANNUAL_REVISE_OPERATION ||
+      Number(execution.ok) !== 1 || Number(execution.verified) !== 0 || execution.created_at !== row.offered_at ||
+      issued.ok !== true || issued.subscriptionId !== row.subscription_id ||
+      issued.offer?.annualPlanId !== row.annual_plan_id || issued.offer?.expiresAt !== row.expires_at) throw new Error("Source annual offer is invalid");
+  }
+  for (const row of of("annual_offer_reads")) {
+    if (!offers.some((offer) => offer.id === row.offer_id) || typeof row.observed_at !== "string" || parseIsoInstant(row.observed_at) === null ||
+      typeof row.status !== "string" || !row.status.trim() || (row.plan_id !== null && !PLAN_ID.test(String(row.plan_id))) ||
+      (row.debug_id !== null && typeof row.debug_id !== "string")) throw new Error("Source annual offer read is invalid");
+  }
+  for (const row of of("executions")) {
+    if (row.operation !== ANNUAL_REVISE_OPERATION) continue;
+    const action = annualAction(of("proposals").find((candidate) => candidate.id === row.proposal_id));
+    // An issued revise is written with its offer in one transaction; a refused one never carries an offer.
+    const offered = offers.some((offer) => offer.execution_id === row.id);
+    const outcome = parseJson(row.response_json) as RecordedOutcome | null | undefined;
+    if (!action || !action.targets.some((target) => target.subscriptionId === row.target_id) || Number(row.verified) !== 0 ||
+      typeof row.created_at !== "string" || parseIsoInstant(row.created_at) === null || !outcome || typeof outcome !== "object" ||
+      (Number(row.ok) === 1) !== offered || (!offered && outcome.offer !== undefined)) throw new Error("Source annual execution is invalid");
+  }
+  // Approval links are per-subscriber secrets: refuse any copy of a link, its token or a token marker anywhere else.
+  const secrets = new Set<string>();
+  for (const offer of offers) {
+    const link = String(offer.approval_url);
+    secrets.add(link);
+    try { const token = new URL(link).searchParams.get("ba_token"); if (token && token.length >= 8) secrets.add(token); } catch { /* checked above */ }
+  }
+  for (const { table, rows, columns } of tables) {
+    for (const row of rows) {
+      for (const column of columns) {
+        if (table === "annual_offers" && column === "approval_url") continue;
+        const value = row[column];
+        if (typeof value === "string" && (TOKEN_MARKER.test(value) || [...secrets].some((secret) => value.includes(secret))))
+          throw new Error("Source ledger stores an approval link outside annual offers");
+      }
+    }
   }
 }
 async function targetFingerprint(tx: LedgerExecutor, table: TableName, order: string, columns: string[]): Promise<{ count: number; sha256: string }> {

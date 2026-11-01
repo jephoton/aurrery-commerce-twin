@@ -9,6 +9,7 @@ import { createProposalRepository, hashAction, PriceOverrideActionSchema } from 
 import { importLedger, TABLES } from "./import";
 import { exportLedger, openExportSource, parseExportArguments } from "./export";
 import { PILOT_COHORT } from "@/paypal/pilot-cohort";
+import { fixtureLink, seedAnnualOffer } from "@/test/annual-offer-fixture";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { recordTarget } from "@/execution/execute";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -178,4 +179,34 @@ it("opens an existing remote export source without any schema or HTTP calls", as
     expect(fetch).not.toHaveBeenCalled(); source.close();
     await expect(openExportSource({ LEDGER_BACKEND: "sqlite" })).rejects.toThrow("Ledger export was not confirmed");
   } finally { fetch.mockRestore(); }
+});
+
+it("exports annual offers with their links in the private backup while the manifest carries only counts and hashes", async () => {
+  const client = createClient({ url: `file:${join(dir, "annual.sqlite")}` });
+  try {
+    const connection = createLibsqlConnection(client);
+    await seedAnnualOffer(connection, { switchedAt: "2026-11-01T00:10:00.000Z" });
+    const output = join(dir, "annual-backup.sqlite");
+    const manifest = await exportLedger({ outputPath: output, source: connection });
+    expect(manifest.tables.find((t) => t.table === "annual_offers")?.count).toBe(1);
+    expect(manifest.tables.find((t) => t.table === "annual_offer_reads")?.count).toBe(1);
+    expect(JSON.stringify(manifest)).not.toMatch(/ba_token|BA-FIXTURE|paypal\.com/);
+    const backup = new DatabaseSync(output, { readOnly: true });
+    try { expect(backup.prepare("SELECT approval_url FROM annual_offers").all()).toEqual([{ approval_url: fixtureLink("I-PILOTD") }]); }
+    finally { backup.close(); }
+    // The backup restores with identical row hashes.
+    expect(await importLedger({ sourcePath: output, dryRun: true })).toEqual(manifest);
+  } finally { client.close(); }
+});
+
+it("refuses to export a ledger that stores an approval link outside annual offers", async () => {
+  const client = createClient({ url: `file:${join(dir, "annual-leak.sqlite")}` });
+  try {
+    const connection = createLibsqlConnection(client);
+    await seedAnnualOffer(connection);
+    await connection.execute("INSERT INTO kv (key,value) VALUES ('note',?)", [fixtureLink("I-PILOTD")]);
+    const output = join(dir, "annual-leak-backup.sqlite");
+    await expect(exportLedger({ outputPath: output, source: connection })).rejects.toThrow("Ledger export was not confirmed");
+    expect(existsSync(output)).toBe(false);
+  } finally { client.close(); }
 });

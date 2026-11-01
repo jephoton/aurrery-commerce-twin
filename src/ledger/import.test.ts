@@ -12,6 +12,7 @@ import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { assertCanonicalTargetSchema, importLedger } from "./import";
 import { recordTarget } from "@/execution/execute";
 import { PILOT_COHORT } from "@/paypal/pilot-cohort";
+import { fixtureLink, seedAnnualOffer } from "@/test/annual-offer-fixture";
 
 it.each([false, true])("checks constraint enforcement through SQL introspection when direct PRAGMA is unavailable (disabled=%s)", async (disabled) => {
   const db = new DatabaseSync(":memory:");
@@ -457,4 +458,80 @@ it("accepts a legacy ledger without annual offer tables", async () => {
   const manifest = await importLedger({ sourcePath: path, dryRun: true });
   expect(manifest.tables.filter((row) => row.table.startsWith("annual_offer")).map((row) => [row.table, row.count]))
     .toEqual([["annual_offers", 0], ["annual_offer_reads", 0]]);
+});
+
+async function annualSource(path: string) {
+  const source = new DatabaseSync(path);
+  await seedAnnualOffer(createLocalConnection(source), { switchedAt: "2026-11-01T00:10:00.000Z" });
+  source.close();
+}
+
+it("round trips an annual offer, its link and reads through a checked libSQL target", async () => {
+  const path = join(dir, "annual-source.sqlite");
+  await annualSource(path);
+  const source = new DatabaseSync(path, { readOnly: true });
+  const offers = source.prepare("SELECT * FROM annual_offers").all();
+  const reads = source.prepare("SELECT * FROM annual_offer_reads").all();
+  source.close();
+  expect(offers).toHaveLength(1); expect(reads).toHaveLength(1);
+  const client = createClient({ url: `file:${join(dir, "annual-target.sqlite")}` });
+  try {
+    const target = createLibsqlConnection(client); await initializeLedgerSchema(target);
+    const manifest = await importLedger({ sourcePath: path, target });
+    expect(await target.query("SELECT * FROM annual_offers")).toEqual(offers);
+    expect(await target.query("SELECT * FROM annual_offer_reads")).toEqual(reads);
+    expect(JSON.stringify(manifest)).not.toMatch(/ba_token|BA-FIXTURE|paypal\.com/);
+  } finally { client.close(); }
+});
+
+it("prints only counts and hashes when the import CLI dry runs an annual offer ledger", async () => {
+  const path = join(dir, "annual-cli.sqlite");
+  await annualSource(path);
+  const output = execFileSync(process.execPath, ["--import=tsx", "--conditions=react-server", "scripts/import-ledger.ts", "--dry-run", "--source", path], { encoding: "utf8" });
+  const manifest = JSON.parse(output);
+  expect(manifest.tables.find((row: { table: string }) => row.table === "annual_offers").count).toBe(1);
+  expect(output).not.toMatch(/ba_token|BA-FIXTURE|paypal\.com/);
+});
+
+it("accepts a refused annual target that carries no offer", async () => {
+  const path = join(dir, "annual-refused.sqlite");
+  await annualSource(path);
+  const source = new DatabaseSync(path);
+  source.exec(`DELETE FROM annual_offer_reads; DELETE FROM annual_offers; UPDATE proposals SET status='failed';
+    UPDATE executions SET ok=0, response_json=json_remove(json_set(response_json,'$.ok',json('false'),'$.error','refused'),'$.offer')`);
+  source.close();
+  const manifest = await importLedger({ sourcePath: path, dryRun: true });
+  expect(manifest.tables.find((row) => row.table === "executions")?.count).toBe(1);
+});
+
+it.each([
+  ["a segment that differs from the registration", "UPDATE annual_offers SET segment='new'", /Source annual offer is invalid/],
+  ["an offer to a subscriber outside the approved targets", "UPDATE annual_offers SET subscription_id='I-OTHER'", /Source annual offer is invalid/],
+  ["an offer time that is not an instant", "UPDATE annual_offers SET offered_at='2026-11-01 00:00:00'; UPDATE executions SET created_at='2026-11-01 00:00:00'", /Source annual offer is invalid/],
+  ["a date-only deadline", "UPDATE annual_offers SET expires_at='2026-11-08'", /Source annual offer is invalid/],
+  ["a deadline outside the approved window", "UPDATE annual_offers SET expires_at='2026-11-09T00:00:00.000Z'", /Source annual offer is invalid/],
+  ["a non-PayPal link", "UPDATE annual_offers SET approval_url='https://evil.example/approve'", /Source annual offer is invalid/],
+  ["a PayPal link with a port", "UPDATE annual_offers SET approval_url='https://www.sandbox.paypal.com:8443/webapps/billing/subscriptions/update?ba_token=BA-FIXTUREPILOTD'", /Source annual offer is invalid/],
+  ["an unplanned annual plan ID", "UPDATE annual_offers SET annual_plan_id='plan'", /Source annual offer is invalid/],
+  ["a failed linked execution", "UPDATE executions SET ok=0", /Source annual offer is invalid/],
+  ["a verified linked execution", "UPDATE executions SET verified=1", /Source annual offer is invalid/],
+  ["an execution outcome for another plan", "UPDATE executions SET response_json=json_set(response_json,'$.offer.annualPlanId','P-OTHER0000000000000000001')", /Source annual offer is invalid/],
+  ["an issued annual execution without its offer", "DELETE FROM annual_offer_reads; DELETE FROM annual_offers", /Source annual execution is invalid/],
+  ["an unparseable read time", "UPDATE annual_offer_reads SET observed_at='yesterday'", /Source annual offer read is invalid/],
+  ["a read with an empty status", "UPDATE annual_offer_reads SET status=' '", /Source annual offer read is invalid/],
+  ["a link leaked into the audit log", `UPDATE audit_events SET detail_json='{"note":"${fixtureLink("I-PILOTD")}"}' WHERE id=(SELECT MAX(id) FROM audit_events)`, /approval link outside annual offers/],
+  ["a token leaked into an execution request", `UPDATE executions SET request_json='{"note":"ba_token"}'`, /approval link outside annual offers/],
+  ["an encoded token leaked into a read", "UPDATE annual_offer_reads SET debug_id='ba%5Ftoken'", /approval link outside annual offers/],
+  ["a bare approval token stored in settings", "INSERT INTO kv (key,value) VALUES ('note','BA-FIXTUREPILOTD')", /approval link outside annual offers/],
+  ["a missing forecast", "UPDATE proposals SET simulation_json='null'", /Source proposal schema is invalid/],
+  ["a strategy with another discount", "UPDATE proposals SET strategy_json=json_set(strategy_json,'$.intervention.discountPct',20)", /Source proposal schema is invalid/],
+  ["a scheduled revert", "UPDATE proposals SET revert_after='2027-01-01T00:00:00.000Z'", /annual offer cannot schedule a recovery/],
+  ["a missing approval", "UPDATE proposals SET approved_by=NULL", /annual offer approval state is invalid/],
+])("rejects an annual offer ledger with %s before target access", async (name, sql, message) => {
+  const path = join(dir, `annual-invalid-${name.replaceAll(" ", "-")}.sqlite`);
+  await annualSource(path);
+  const source = new DatabaseSync(path); source.exec(sql); source.close();
+  const openTarget = vi.fn();
+  await expect(importLedger({ sourcePath: path, openTarget })).rejects.toThrow(message);
+  expect(openTarget).not.toHaveBeenCalled();
 });
