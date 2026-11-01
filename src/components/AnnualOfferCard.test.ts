@@ -6,7 +6,7 @@ import { buildAnnualOfferAction } from "@/ledger/annual-offer-action";
 import type { Proposal } from "@/ledger/proposals";
 import type { TargetOutcome } from "@/execution/outcomes";
 import { AnnualOfferCard } from "./AnnualOfferCard";
-import { clampOfferWindowDays, formatUtc, outcomeCells, proposalBody } from "./annual-offers-view";
+import { clampOfferWindowDays, formatUtc, outcomeCells, proposalBody, reportColumns } from "./annual-offers-view";
 
 const action = buildAnnualOfferAction({ strategy: STARTER_STRATEGIES[2], listPrice: 24, productId: "PROD-RIDGELINE0000000001", monthlyPlanId: "P-MONTHLY000000000000000001",
   offerWindowDays: 7, eligible: [{ subscriptionId: "I-PILOTE", label: "Pilot E", segment: "core", reason: "other", createdAt: "2026-10-22T00:00:00.000Z" }] });
@@ -17,7 +17,7 @@ const render = (canReview: boolean, status = "proposed", paypalConfigured = true
 describe("AnnualOfferCard", () => {
   it("shows the exact yearly offer, consent statements, hash and an unchecked confirmation", () => {
     const html = render(true);
-    for (const text of ["$244.80/yr", "15% off $24.00/mo", "PROD-RIDGELINE0000000001", "P-MONTHLY000000000000000001", "7 day(s)", "Pilot E I-PILOTE", "c".repeat(64),
+    for (const text of ["$244.80/yr", "15% off $24.00/mo", "PROD-RIDGELINE0000000001", "P-MONTHLY000000000000000001", "Offered segments", "core, price sensitive", "7 day(s)", "Pilot E I-PILOTE", "c".repeat(64),
       "Each customer must agree in PayPal", "next renewal date", "can&#x27;t be moved back automatically", "Approve &amp; issue offers"]) expect(html).toContain(text);
     expect(html).toMatch(/type="checkbox"/);
     expect(html).not.toContain('checked=""');
@@ -63,7 +63,7 @@ describe("annual offer view helpers", () => {
   });
 
   it("reports an annual refusal by its reason rather than the read-back status", () => {
-    const cells = outcomeCells({ ...base, ok: false, httpStatus: null, error: "Subscription is not at the list price (for example an active discount); no offer was made.",
+    const cells = outcomeCells({ ...base, ok: false, httpStatus: null, debugId: null, error: "Subscription is not at the list price (for example an active discount); no offer was made.",
       observed: { ...base.observed!, regularPrice: "19.20" } }, true);
     expect(cells.status).toMatch(/no offer was made/);
     expect(cells.verified).toBe("no offer");
@@ -83,4 +83,15 @@ describe("annual offer view helpers", () => {
 it("never calls an ambiguous annual failure 'no offer'", () => {
   const cells = outcomeCells({ subscriptionId: "I-PILOTE", ok: false, httpStatus: 503, debugId: null, verified: false, observed: null, error: "ServerError: blip" }, true);
   expect(cells.verified).toBe("unconfirmed");
+});
+
+it("does not infer 'no offer' from a missing HTTP status when PayPal returned a debug ID", () => {
+  const cells = outcomeCells({ subscriptionId: "I-PILOTE", ok: false, httpStatus: null, debugId: "dbg", verified: false, observed: null, error: "Unknown" }, true);
+  expect(cells.verified).toBe("unconfirmed");
+  expect(outcomeCells({ subscriptionId: "I-PILOTE", ok: false, httpStatus: 422, debugId: "dbg", verified: false, observed: null, error: "UNPROCESSABLE_ENTITY" }, true).verified).toBe("no offer");
+});
+
+it("labels annual report columns as pre-offer price and result", () => {
+  expect(reportColumns(true)).toEqual({ price: "Price before offer", result: "Result" });
+  expect(reportColumns(false)).toEqual({ price: "Price now (read back)", result: "Verified" });
 });

@@ -17,6 +17,7 @@ export function AnnualOfferCard({ proposal, action, confirmed, setConfirmed, bus
         <Row label="Yearly price" value={`$${action.annualPrice}/yr (${action.discountPct}% off $${action.listPrice}/mo × 12)`} />
         <Row label="Product and currency" value={`${action.productId} · ${action.currency}`} mono />
         <Row label="Switch" value={`From monthly plan ${action.monthlyPlanId} to a new yearly plan created on approval`} />
+        <Row label="Offered segments" value={action.segments.map((s) => s.replaceAll("_", " ")).join(", ")} />
         <Row label="Offer window" value={`${action.offerWindowDays} day(s) from when each offer is issued`} />
         <Row label="Targets" value={action.targets.map((t) => `${t.registration.label} ${t.subscriptionId} (${t.registration.segment.replaceAll("_", " ")})`).join(", ")} />
         {d && <Row label="Simulated Δ value (median, 80% interval)" value={`${money(d.p50)} (${money(d.p10)} … ${money(d.p90)})`} />}

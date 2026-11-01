@@ -16,6 +16,10 @@ export function clampOfferWindowDays(raw: string): number {
 export const proposalBody = (objective: string, strategy: Strategy, offerWindowDays: number) =>
   ({ objective, strategy, ...(strategy.intervention.kind === "annual_plan" ? { offerWindowDays } : {}) });
 
+/** Report column headings: an annual row shows the price read before the offer and the offer result, not a verification. */
+export const reportColumns = (annual: boolean) =>
+  annual ? { price: "Price before offer", result: "Result" } : { price: "Price now (read back)", result: "Verified" };
+
 export interface OutcomeCells { price: string; status: string; verified: string; tone: "positive" | "negative" | "muted" }
 
 /**
@@ -27,7 +31,8 @@ export function outcomeCells(outcome: TargetOutcome, annual: boolean): OutcomeCe
   if (annual && outcome.offer)
     return { price: "—", status: `Offer issued · window closes ${formatUtc(outcome.offer.expiresAt)}`, verified: "customer decides", tone: "muted" };
   if (annual) {
-    const noOffer = outcome.httpStatus === null || isDefinitiveFailure(outcome.httpStatus);
+    // Only a definitive PayPal rejection, or a refusal before any PayPal call (no status, no debug ID), proves no offer exists.
+    const noOffer = isDefinitiveFailure(outcome.httpStatus) || (outcome.httpStatus === null && outcome.debugId === null);
     return { price, status: outcome.error ?? outcome.observed?.status ?? "—", verified: noOffer ? "no offer" : "unconfirmed", tone: "negative" };
   }
   return { price, status: outcomeStatusText(outcome) ?? "—", verified: outcome.verified ? "yes" : "no", tone: outcome.verified ? "positive" : "negative" };

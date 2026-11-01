@@ -17,13 +17,12 @@ import { DecisionSummary } from "./DecisionSummary";
 import { EvidencePanel } from "./EvidencePanel";
 import { MerchantOverview } from "./MerchantOverview";
 import { AdminAccess } from "./AdminAccess";
-import { RecoveryPanel } from "./RecoveryPanel";
+import { RecoveryPanel, reportSummary } from "./RecoveryPanel";
 import { canReviewAccess, type AccessState } from "./admin-access";
 import { DEFAULT_DECISION_RULES } from "@/agent/contracts";
 import { chooseHeadline, isExecutableIntervention } from "./headline";
 import { AnnualOfferCard } from "./AnnualOfferCard";
-import { clampOfferWindowDays, DEFAULT_OFFER_WINDOW_DAYS, outcomeCells, proposalBody } from "./annual-offers-view";
-import { reportSummary } from "./RecoveryPanel";
+import { clampOfferWindowDays, DEFAULT_OFFER_WINDOW_DAYS, outcomeCells, proposalBody, reportColumns } from "./annual-offers-view";
 
 export interface MerchantSummary {
   name: string;
@@ -72,7 +71,8 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
   const [liveAnnual, setLiveAnnual] = useState<LiveAnnual | null>(null);
   const [access, setAccess] = useState<AccessState | null>(null);
-  const [offerWindowDays, setOfferWindowDays] = useState(DEFAULT_OFFER_WINDOW_DAYS);
+  // Raw text while typing, so the field can be cleared and retyped; clamped on blur and when proposing.
+  const [offerWindowInput, setOfferWindowInput] = useState(String(DEFAULT_OFFER_WINDOW_DAYS));
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const setConfirmed = (value: boolean) => dispatch({ type: "confirmed", value });
@@ -120,6 +120,8 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
     setBusy("propose");
     setError(null);
     dispatch({ type: "clear-review" });
+    const offerWindowDays = clampOfferWindowDays(offerWindowInput);
+    setOfferWindowInput(String(offerWindowDays));
     try {
       const { proposal } = await api<{ proposal: Proposal }>("/api/proposals", {
         method: "POST",
@@ -264,13 +266,16 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
               <p className="mb-3 text-muted">Prepare the exact PayPal action for review. Nothing is sent to PayPal until you approve it.</p>
               {comparisonSource === "agent" && <p className="mb-3 text-sm text-muted">Manual preparation uses canonical twin estimates and registered pilots. The agent&apos;s classified pilot filter applies only to its own proposal.</p>}
               {selected.strategy.intervention.kind === "annual_plan" && (
-                <label className="mb-3 flex flex-wrap items-center gap-3 text-sm">
-                  Offer window (days, 1–30)
-                  <input type="number" min={1} max={30} step={1} value={offerWindowDays} disabled={busy !== null}
-                    onChange={(e) => setOfferWindowDays(clampOfferWindowDays(e.target.value))}
-                    className="min-h-10 w-20 rounded-lg border border-border bg-background px-3" />
-                  <span className="text-muted">Bound into the approved payload. Each customer decides in PayPal within this window.</span>
-                </label>
+                <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+                  <label className="flex items-center gap-3">
+                    Offer window (days, 1–30)
+                    <input type="number" min={1} max={30} step={1} value={offerWindowInput} disabled={busy !== null} aria-describedby="offer-window-help"
+                      onChange={(e) => setOfferWindowInput(e.target.value)}
+                      onBlur={(e) => setOfferWindowInput(String(clampOfferWindowDays(e.target.value)))}
+                      className="min-h-10 w-20 rounded-lg border border-border bg-background px-3" />
+                  </label>
+                  <span id="offer-window-help" className="text-muted">Bound into the approved payload. Each customer decides in PayPal within this window.</span>
+                </div>
               )}
               <button
                 onClick={propose}
@@ -307,9 +312,9 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
               <tr>
                 <th className="py-1">Subscription</th>
                 <th>HTTP</th>
-                <th>Price now (read back)</th>
+                <th>{reportColumns(annualReport).price}</th>
                 <th>Status</th>
-                <th>Verified</th>
+                <th>{reportColumns(annualReport).result}</th>
                 <th>PayPal debug ID</th>
               </tr>
             </thead>
