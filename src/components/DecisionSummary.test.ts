@@ -108,3 +108,19 @@ it("presents a recommended annual offer as executable with consent and renewal t
   expect(html).toContain("Price-driven cancel save");
   expect(html).toContain("+$147 median");
 });
+
+it("describes an annual strategy as sendable, never as executable, when nothing meets the decision rules", () => {
+  const annual = { ...selected, strategy: STARTER_STRATEGIES[2] };
+  const html = render({ ...baseProps, selected: annual, noQualifyingAction: true });
+  expect(html).toContain("No executable strategy meets the decision rules");
+  expect(html).not.toContain("Executable as an offer");
+  expect(html).toContain("Can be sent as an offer: each customer must agree in PayPal");
+});
+
+it("shows simulated discount cost beside other executable discount options only", () => {
+  const discount = { ...selected, strategy: STARTER_STRATEGIES[0] };
+  const annual = { ...selected, strategy: STARTER_STRATEGIES[2], metrics: { ...selected.metrics, discountCost: { ...selected.metrics.discountCost, mean: 999 } } };
+  const html = render({ ...baseProps, selected: { ...selected, strategy: STARTER_STRATEGIES[1] }, recommended: true, alsoExecutable: [discount, annual] });
+  expect(html).toContain("$78 discount cost");
+  expect(html).not.toContain("$999 discount cost");
+});

@@ -66,7 +66,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
       )}
       {noQualifyingAction && <p className="mt-3 text-sm text-muted">No executable strategy meets the decision rules, so nothing is recommended. This is the highest simulated value, shown for context.</p>}
       {!isExecutableIntervention(selected.strategy.intervention) && <p className="mt-3 text-sm text-muted">Simulate only: {whyNotExecutable(selected.strategy.intervention) ?? "this strategy has no executable PayPal action in this build."}</p>}
-      {selected.strategy.intervention.kind === "annual_plan" && <p className="mt-3 text-sm text-muted">Executable as an offer: each customer must agree in PayPal, and the yearly price is charged from their next renewal date. The prepay discount is netted in value and does not count against the retention discount budget.</p>}
+      {selected.strategy.intervention.kind === "annual_plan" && <p className="mt-3 text-sm text-muted">Can be sent as an offer: each customer must agree in PayPal, and the yearly price is charged from their next renewal date. The prepay discount is netted in value and does not count against the retention discount budget.</p>}
       {recommended && alsoExecutable.length > 0 && (
         <div className="mt-5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
           <p className="font-semibold">Also executable within your rules</p>
@@ -77,6 +77,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
                   {option.strategy.name}
                 </button>{" "}
                 <span className="tabular-nums">{signedMoney(option.vsBaseline.totalValue.p50)} median</span>
+                {option.strategy.intervention.kind === "targeted_discount" && <span className="tabular-nums text-muted"> · {money(option.metrics.discountCost.mean)} discount cost</span>}
               </li>
             ))}
           </ul>
