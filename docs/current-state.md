@@ -168,7 +168,13 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - The recovery panel lists only approved or executing annual offers and resumes an approved one with fresh confirmation. It shows `$X/yr (N% off)`, and its report says how many offers were issued, never "verified". No approval link reaches proposals, audit entries, the outstanding list or the panel.
   - `proposals.ts` now imports `RegistrationSnapshotSchema` from `annual-offer-action.ts`, so there is one source.
   - Verification: 1010 tests pass, typecheck and lint clean.
-  - **Next:** Task 9, prepare annual offer proposals from live eligibility.
+- **Task 9 done (annual offer proposals from live eligibility).**
+  - Follow-ups to Task 8: an unreadable stored offer during the annual claim now refuses with `unreadable_annual_offers` and leaves the proposal approved (no reconciliation); `annualReturnUrl` is built with `new URL` and must be http or https; resuming an annual offer in the recovery panel no longer reads discount evidence.
+  - New `src/execution/annual-proposal.ts`: `prepareAnnualOfferProposalWith` refuses before any subscriber read unless PayPal is configured and the registered monthly plan reads back on the registered product, then reads each registered pilot in the offered segments live and keeps only those ACTIVE on the monthly plan at list price by cents (failed or thrown reads are skipped). `proposeStrategy` is the single entry point: annual strategies go there with a default 7-day window, everything else to the unchanged `createProposal`.
+  - `createAnnualOfferProposal` re-checks the monthly-plan setting, open offers and claims in one transaction and stores the exact hashed payload with its forecast. A window outside whole days 1 to 30 or a changed plan is `INVALID_STATE`, no remaining target is `NO_TARGETS`, and a payload that cannot be built (for example an out-of-range list price) is `NOT_EXECUTABLE`, so routes return a clean 4xx.
+  - `POST /api/proposals` accepts `offerWindowDays` (integer 1 to 30, annual strategies only) and validates it before any simulation; the window is bound into the hash. A route test approves an annual proposal created there through the existing hash-bound approve route. The agent still calls `createProposal` until its later task.
+  - Verification: 1032 tests pass, typecheck and lint clean.
+  - **Next:** Task 10, strict export and import of annual offers.
 
 ## M5 complete and published
 
