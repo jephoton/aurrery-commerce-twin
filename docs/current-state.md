@@ -222,7 +222,13 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - Execution report: `outcomeCells` (new `annual-offers-view.ts`, with `formatUtc` and `clampOfferWindowDays`) shows an issued offer as "Offer issued, window closes <UTC>" and "customer decides", never "verified: no"; a refused annual target shows its reason (error before read-back status) and "no offer" (or "unconfirmed" for a non-definitive HTTP status). Annual reports also show `reportSummary` (offers issued of targets). Discount rows are unchanged.
   - Task 16 review follow-up (separate commit): `DecisionSummary` now says "Can be sent as an offer..." so it cannot contradict "No executable strategy meets the decision rules", and the "Also executable" list shows simulated discount cost beside discount strategies only.
   - Verification: 1127 tests pass, typecheck and lint clean.
-  - **Next:** Task 18.
+- **Task 19 done (the agent may propose an annual offer).**
+  - `recommend` now accepts `annual_plan` as well as `targeted_discount` and creates the proposal through the single `proposeStrategy` entry point, so an annual offer gets live PayPal eligibility and the default 7-day window (decision 7). The agent still has no approve or execute tool; `TOOL_DEFINITIONS` only gains a clearer `recommend` description.
+  - The discount budget applies to retention discounts only; the chance-worse rule applies to every recommendation. A list price change is still `NOT_EXECUTABLE`.
+  - The run's abort signal (`budget.signal`) reaches `proposeStrategy`, so a cancelled or timed-out run stops preparation before a proposal is stored. An annual preparation refusal (for example a failed PayPal read) reaches the agent as its fixed, link-free message; discount refusals keep the generic message.
+  - `AGENT_INSTRUCTION` drops "annual plans are simulation only" and says an annual offer needs each subscriber's approval in PayPal. Recorded Gemini and Groq replays still parse and pass; annual agent tests inject `propose` (no PayPal).
+  - Verification: 1134 tests pass, typecheck and lint clean.
+  - **Next:** Task 18 (done after Task 19).
 
 ## M5 complete and published
 
