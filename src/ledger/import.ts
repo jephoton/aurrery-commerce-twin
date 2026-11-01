@@ -14,12 +14,14 @@ import { hashAction, PriceOverrideActionSchema, RevertActionSchema, ResetActionS
 
 export const TABLES = [
   ["sandbox_subscribers", "rowid"], ["proposals", "id"], ["executions", "id"], ["active_target_claims", "target_id"],
-  ["observations", "id"], ["paypal_webhook_events", "event_id"], ["discount_episodes", "execution_id"], ["kv", "key"], ["audit_events", "id"],
+  ["observations", "id"], ["paypal_webhook_events", "event_id"], ["discount_episodes", "execution_id"],
+  ["annual_offers", "id"], ["annual_offer_reads", "id"], ["kv", "key"], ["audit_events", "id"],
   ["feedback_prediction_cache", "cache_key"], ["hosted_sessions", "token_hash"], ["hosted_limits", "bucket_key"],
   ["sqlite_sequence", "name"],
 ] as const;
 type TableName = typeof TABLES[number][0];
-const OPTIONAL = new Set<TableName>(["active_target_claims", "discount_episodes", "paypal_webhook_events", "feedback_prediction_cache", "hosted_sessions", "hosted_limits"]);
+const OPTIONAL = new Set<TableName>(["active_target_claims", "discount_episodes", "paypal_webhook_events", "feedback_prediction_cache", "hosted_sessions", "hosted_limits",
+  "annual_offers", "annual_offer_reads"]);
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 export type TableSnapshot = { table: TableName; columns: string[]; rows: LedgerRow[]; count: number; sha256: string };
 export type ImportManifest = { schemaSha256: string; tables: { table: TableName; count: number; sha256: string }[]; totalRows: number };

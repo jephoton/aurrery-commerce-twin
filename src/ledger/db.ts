@@ -93,6 +93,26 @@ CREATE TABLE IF NOT EXISTS discount_episodes (
   discounted_price TEXT NOT NULL,
   CHECK (ends_at > started_at)
 );
+CREATE TABLE IF NOT EXISTS annual_offers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  proposal_id TEXT NOT NULL REFERENCES proposals(id),
+  execution_id INTEGER NOT NULL UNIQUE REFERENCES executions(id),
+  subscription_id TEXT NOT NULL,
+  segment TEXT NOT NULL CHECK (segment IN ('new','core','price_sensitive','at_risk','cancel_intent')),
+  annual_plan_id TEXT NOT NULL,
+  approval_url TEXT NOT NULL,
+  offered_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  UNIQUE (proposal_id, subscription_id)
+);
+CREATE TABLE IF NOT EXISTS annual_offer_reads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  offer_id INTEGER NOT NULL REFERENCES annual_offers(id),
+  observed_at TEXT NOT NULL,
+  status TEXT NOT NULL,
+  plan_id TEXT,
+  debug_id TEXT
+);
 CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

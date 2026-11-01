@@ -44,7 +44,7 @@ it.each(["proposed", "approved", "executing"] as const)("exports all authority i
     expect(await targetConnection.query("SELECT * FROM sqlite_sequence ORDER BY name")).toEqual(await connection.query("SELECT * FROM sqlite_sequence ORDER BY name"));
     expect(await targetConnection.query("SELECT subscription_id FROM sandbox_subscribers ORDER BY rowid")).toEqual(await connection.query("SELECT subscription_id FROM sandbox_subscribers ORDER BY rowid"));
     expect(await connection.query("SELECT * FROM proposals")).toEqual(sourceBefore);
-    expect(manifest.tables).toHaveLength(13);
+    expect(manifest.tables).toHaveLength(15);
   } finally { target.close(); client.close(); }
 });
 it("validates output/flags before opening source and never overwrites an existing output", async () => {

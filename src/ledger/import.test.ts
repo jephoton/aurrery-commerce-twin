@@ -447,3 +447,14 @@ it.each([
   source.close();
   await expect(importLedger({ sourcePath: path, dryRun: true })).rejects.toThrow(/schema/i);
 });
+
+it("accepts a legacy ledger without annual offer tables", async () => {
+  const path = join(dir, "legacy-annual.sqlite");
+  const source = new DatabaseSync(path);
+  source.exec(LEDGER_SCHEMA);
+  source.exec("DROP TABLE annual_offer_reads; DROP TABLE annual_offers;");
+  source.close();
+  const manifest = await importLedger({ sourcePath: path, dryRun: true });
+  expect(manifest.tables.filter((row) => row.table.startsWith("annual_offer")).map((row) => [row.table, row.count]))
+    .toEqual([["annual_offers", 0], ["annual_offer_reads", 0]]);
+});
