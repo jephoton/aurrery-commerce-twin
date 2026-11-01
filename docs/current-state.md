@@ -127,6 +127,7 @@ _Last material update: 2026-11-01. **M7 Phase 2 Tasks 1-21 (consent-based annual
 Plan: `docs/superpowers/plans/2026-11-01-m6-csv-import.md`. Local branch `feat/m6-csv-import` on post-M7 `main` (`01134fb`), not pushed.
 
 - Task 0: baseline 1155 tests, typecheck and lint pass; next: Task 1.
+- Task 1: Ridgeline twin and history pinned by a golden fixture (`src/merchant/fixtures/ridgeline-golden.json`, LF-pinned via `.gitattributes`); 1156 tests, typecheck and lint pass; next: Task 2.
 
 ## M7 Phase 2
 
