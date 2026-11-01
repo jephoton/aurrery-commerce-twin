@@ -1,0 +1,1248 @@
+{
+  "twin": {
+    "merchant": {
+      "id": "ridgeline-roasters",
+      "name": "Ridgeline Roasters",
+      "description": "Specialty coffee subscription: one 340g bag of single-origin coffee shipped monthly.",
+      "planName": "Roaster's Choice (monthly)"
+    },
+    "asOfMonth": "2026-10",
+    "initialActive": {
+      "new": 270,
+      "core": 1450,
+      "price_sensitive": 439,
+      "at_risk": 120,
+      "cancel_intent": 18
+    },
+    "params": {
+      "currency": "USD",
+      "referencePrice": 24,
+      "listPrice": 24,
+      "unitCost": 9.2,
+      "shippingCost": 4.1,
+      "paymentFeeRate": 0.0349,
+      "paymentFeeFixed": 0.49,
+      "monthlyAcquisition": {
+        "mean": 184.11111111111111,
+        "sd": 19.984961666474558
+      },
+      "acquisitionPriceElasticity": {
+        "mean": 1.2,
+        "sd": 0.6
+      },
+      "involuntaryChurn": {
+        "alpha": 648,
+        "beta": 41151
+      },
+      "transitions": {
+        "newGraduation": {
+          "alpha": 2382,
+          "beta": 4882
+        },
+        "newToPriceSensitive": {
+          "alpha": 863,
+          "beta": 1520
+        },
+        "coreToAtRisk": {
+          "alpha": 458,
+          "beta": 23365
+        },
+        "priceSensitiveToAtRisk": {
+          "alpha": 239,
+          "beta": 7329
+        },
+        "atRiskRecovery": {
+          "alpha": 270,
+          "beta": 1854
+        },
+        "atRiskToCancelIntent": {
+          "alpha": 189,
+          "beta": 1666
+        },
+        "cancelIntentToAtRisk": {
+          "alpha": 61,
+          "beta": 302
+        }
+      },
+      "offerChurnRelativeRisk": {
+        "price": {
+          "shape": 9,
+          "rate": 20
+        },
+        "other": {
+          "shape": 72.25,
+          "rate": 85
+        }
+      },
+      "postOfferChurnMultiplier": {
+        "mean": 1.25,
+        "sd": 0.15
+      },
+      "segments": {
+        "new": {
+          "label": "New (first 3 months)",
+          "monthlyChurn": {
+            "alpha": 923,
+            "beta": 7402
+          },
+          "churnPriceElasticity": {
+            "mean": 1.5,
+            "sd": 0.7
+          },
+          "annualUptake": {
+            "alpha": 2,
+            "beta": 38
+          },
+          "priceReasonShare": {
+            "alpha": 3,
+            "beta": 7
+          }
+        },
+        "core": {
+          "label": "Core",
+          "monthlyChurn": {
+            "alpha": 686,
+            "beta": 24216
+          },
+          "churnPriceElasticity": {
+            "mean": 1,
+            "sd": 0.5
+          },
+          "annualUptake": {
+            "alpha": 3,
+            "beta": 22
+          },
+          "priceReasonShare": {
+            "alpha": 2,
+            "beta": 8
+          }
+        },
+        "price_sensitive": {
+          "label": "Price sensitive",
+          "monthlyChurn": {
+            "alpha": 536,
+            "beta": 7705
+          },
+          "churnPriceElasticity": {
+            "mean": 2.5,
+            "sd": 1
+          },
+          "annualUptake": {
+            "alpha": 2,
+            "beta": 23
+          },
+          "priceReasonShare": {
+            "alpha": 6.5,
+            "beta": 3.5
+          }
+        },
+        "at_risk": {
+          "label": "At risk (skipped or paused recently)",
+          "monthlyChurn": {
+            "alpha": 380,
+            "beta": 2170
+          },
+          "churnPriceElasticity": {
+            "mean": 1.8,
+            "sd": 0.8
+          },
+          "annualUptake": {
+            "alpha": 1,
+            "beta": 39
+          },
+          "priceReasonShare": {
+            "alpha": 4.5,
+            "beta": 5.5
+          }
+        },
+        "cancel_intent": {
+          "label": "Cancel intent (opened cancel flow)",
+          "monthlyChurn": {
+            "alpha": 180,
+            "beta": 381
+          },
+          "churnPriceElasticity": {
+            "mean": 2,
+            "sd": 0.8
+          },
+          "annualUptake": {
+            "alpha": 1,
+            "beta": 49
+          },
+          "priceReasonShare": {
+            "alpha": 6,
+            "beta": 4
+          }
+        }
+      }
+    },
+    "provenance": {
+      "monthlyChurn": {
+        "source": "estimated",
+        "note": "Beta posterior per segment from 18 months of synthetic subscriber history.",
+        "evidenceCount": 44479
+      },
+      "involuntaryChurn": {
+        "source": "estimated",
+        "note": "Pooled Beta posterior of unrecovered failed payments.",
+        "evidenceCount": 41779
+      },
+      "monthlyAcquisition": {
+        "source": "estimated",
+        "note": "Mean and spread of 18 months of signups.",
+        "evidenceCount": 18
+      },
+      "transitions": {
+        "source": "estimated",
+        "note": "Beta posteriors of observed segment moves.",
+        "evidenceCount": 90
+      },
+      "churnPriceElasticity": {
+        "source": "assumption",
+        "note": "No price changes in history, so price sensitivity is a prior, not an estimate."
+      },
+      "acquisitionPriceElasticity": {
+        "source": "assumption",
+        "note": "Prior on how signups respond to list price."
+      },
+      "annualUptake": {
+        "source": "assumption",
+        "note": "Prior on annual-plan uptake when offered, per segment. Segments with resolved sandbox offers show their own observed row."
+      },
+      "offerChurnRelativeRisk.price": {
+        "source": "assumption",
+        "note": "Prior that a retention discount cuts churn to ~45% of normal for price-driven leavers (wide); updated from observed outcomes. The modelled effect does not scale with discount depth: deeper discounts cost more without retaining more."
+      },
+      "offerChurnRelativeRisk.other": {
+        "source": "assumption",
+        "note": "Prior that a retention discount cuts churn to ~85% of normal for other leavers (sd 0.10, allowing a small chance of no benefit); updated from observed outcomes. The modelled effect does not scale with discount depth: deeper discounts cost more without retaining more."
+      },
+      "priceReasonShare": {
+        "source": "assumption",
+        "note": "Prior share of price-driven leavers per segment; replaced by classified customer feedback when available. Sets the initial split and acquisitions; only cancel intent is re-split on entry, so other segments drift."
+      },
+      "postOfferChurnMultiplier": {
+        "source": "assumption",
+        "note": "Prior on extra churn in the month a discount expires."
+      },
+      "unitEconomics": {
+        "source": "assumption",
+        "note": "Merchant-entered costs. Payment fee approximates a standard PayPal rate; verify for your account."
+      }
+    }
+  },
+  "history": {
+    "segments": [
+      {
+        "month": "2025-04",
+        "segment": "new",
+        "activeAtStart": 566,
+        "voluntaryChurn": 70,
+        "involuntaryChurn": 12,
+        "movedTo": {
+          "price_sensitive": 54,
+          "core": 111
+        }
+      },
+      {
+        "month": "2025-04",
+        "segment": "core",
+        "activeAtStart": 1180,
+        "voluntaryChurn": 27,
+        "involuntaryChurn": 12,
+        "movedTo": {
+          "at_risk": 27
+        }
+      },
+      {
+        "month": "2025-04",
+        "segment": "price_sensitive",
+        "activeAtStart": 470,
+        "voluntaryChurn": 39,
+        "involuntaryChurn": 3,
+        "movedTo": {
+          "at_risk": 8
+        }
+      },
+      {
+        "month": "2025-04",
+        "segment": "at_risk",
+        "activeAtStart": 230,
+        "voluntaryChurn": 40,
+        "involuntaryChurn": 4,
+        "movedTo": {
+          "core": 28,
+          "cancel_intent": 10
+        }
+      },
+      {
+        "month": "2025-04",
+        "segment": "cancel_intent",
+        "activeAtStart": 70,
+        "voluntaryChurn": 20,
+        "involuntaryChurn": 1,
+        "movedTo": {
+          "at_risk": 11
+        }
+      },
+      {
+        "month": "2025-05",
+        "segment": "new",
+        "activeAtStart": 467,
+        "voluntaryChurn": 54,
+        "involuntaryChurn": 6,
+        "movedTo": {
+          "price_sensitive": 50,
+          "core": 84
+        }
+      },
+      {
+        "month": "2025-05",
+        "segment": "core",
+        "activeAtStart": 1253,
+        "voluntaryChurn": 25,
+        "involuntaryChurn": 18,
+        "movedTo": {
+          "at_risk": 22
+        }
+      },
+      {
+        "month": "2025-05",
+        "segment": "price_sensitive",
+        "activeAtStart": 474,
+        "voluntaryChurn": 33,
+        "involuntaryChurn": 13,
+        "movedTo": {
+          "at_risk": 17
+        }
+      },
+      {
+        "month": "2025-05",
+        "segment": "at_risk",
+        "activeAtStart": 194,
+        "voluntaryChurn": 28,
+        "involuntaryChurn": 2,
+        "movedTo": {
+          "core": 14,
+          "cancel_intent": 12
+        }
+      },
+      {
+        "month": "2025-05",
+        "segment": "cancel_intent",
+        "activeAtStart": 48,
+        "voluntaryChurn": 18,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 6
+        }
+      },
+      {
+        "month": "2025-06",
+        "segment": "new",
+        "activeAtStart": 456,
+        "voluntaryChurn": 48,
+        "involuntaryChurn": 3,
+        "movedTo": {
+          "price_sensitive": 28,
+          "core": 97
+        }
+      },
+      {
+        "month": "2025-06",
+        "segment": "core",
+        "activeAtStart": 1286,
+        "voluntaryChurn": 38,
+        "involuntaryChurn": 17,
+        "movedTo": {
+          "at_risk": 20
+        }
+      },
+      {
+        "month": "2025-06",
+        "segment": "price_sensitive",
+        "activeAtStart": 461,
+        "voluntaryChurn": 28,
+        "involuntaryChurn": 8,
+        "movedTo": {
+          "at_risk": 10
+        }
+      },
+      {
+        "month": "2025-06",
+        "segment": "at_risk",
+        "activeAtStart": 183,
+        "voluntaryChurn": 30,
+        "involuntaryChurn": 3,
+        "movedTo": {
+          "core": 18,
+          "cancel_intent": 7
+        }
+      },
+      {
+        "month": "2025-06",
+        "segment": "cancel_intent",
+        "activeAtStart": 36,
+        "voluntaryChurn": 10,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 2
+        }
+      },
+      {
+        "month": "2025-07",
+        "segment": "new",
+        "activeAtStart": 475,
+        "voluntaryChurn": 37,
+        "involuntaryChurn": 4,
+        "movedTo": {
+          "price_sensitive": 60,
+          "core": 83
+        }
+      },
+      {
+        "month": "2025-07",
+        "segment": "core",
+        "activeAtStart": 1326,
+        "voluntaryChurn": 28,
+        "involuntaryChurn": 23,
+        "movedTo": {
+          "at_risk": 27
+        }
+      },
+      {
+        "month": "2025-07",
+        "segment": "price_sensitive",
+        "activeAtStart": 443,
+        "voluntaryChurn": 32,
+        "involuntaryChurn": 4,
+        "movedTo": {
+          "at_risk": 13
+        }
+      },
+      {
+        "month": "2025-07",
+        "segment": "at_risk",
+        "activeAtStart": 157,
+        "voluntaryChurn": 21,
+        "involuntaryChurn": 1,
+        "movedTo": {
+          "core": 16,
+          "cancel_intent": 16
+        }
+      },
+      {
+        "month": "2025-07",
+        "segment": "cancel_intent",
+        "activeAtStart": 31,
+        "voluntaryChurn": 10,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 3
+        }
+      },
+      {
+        "month": "2025-08",
+        "segment": "new",
+        "activeAtStart": 488,
+        "voluntaryChurn": 59,
+        "involuntaryChurn": 4,
+        "movedTo": {
+          "price_sensitive": 52,
+          "core": 92
+        }
+      },
+      {
+        "month": "2025-08",
+        "segment": "core",
+        "activeAtStart": 1347,
+        "voluntaryChurn": 28,
+        "involuntaryChurn": 24,
+        "movedTo": {
+          "at_risk": 29
+        }
+      },
+      {
+        "month": "2025-08",
+        "segment": "price_sensitive",
+        "activeAtStart": 454,
+        "voluntaryChurn": 27,
+        "involuntaryChurn": 10,
+        "movedTo": {
+          "at_risk": 12
+        }
+      },
+      {
+        "month": "2025-08",
+        "segment": "at_risk",
+        "activeAtStart": 146,
+        "voluntaryChurn": 20,
+        "involuntaryChurn": 1,
+        "movedTo": {
+          "core": 13,
+          "cancel_intent": 10
+        }
+      },
+      {
+        "month": "2025-08",
+        "segment": "cancel_intent",
+        "activeAtStart": 34,
+        "voluntaryChurn": 15,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 4
+        }
+      },
+      {
+        "month": "2025-09",
+        "segment": "new",
+        "activeAtStart": 436,
+        "voluntaryChurn": 51,
+        "involuntaryChurn": 6,
+        "movedTo": {
+          "price_sensitive": 53,
+          "core": 76
+        }
+      },
+      {
+        "month": "2025-09",
+        "segment": "core",
+        "activeAtStart": 1371,
+        "voluntaryChurn": 44,
+        "involuntaryChurn": 18,
+        "movedTo": {
+          "at_risk": 25
+        }
+      },
+      {
+        "month": "2025-09",
+        "segment": "price_sensitive",
+        "activeAtStart": 457,
+        "voluntaryChurn": 31,
+        "involuntaryChurn": 7,
+        "movedTo": {
+          "at_risk": 17
+        }
+      },
+      {
+        "month": "2025-09",
+        "segment": "at_risk",
+        "activeAtStart": 147,
+        "voluntaryChurn": 19,
+        "involuntaryChurn": 3,
+        "movedTo": {
+          "core": 15,
+          "cancel_intent": 11
+        }
+      },
+      {
+        "month": "2025-09",
+        "segment": "cancel_intent",
+        "activeAtStart": 25,
+        "voluntaryChurn": 9,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 4
+        }
+      },
+      {
+        "month": "2025-10",
+        "segment": "new",
+        "activeAtStart": 422,
+        "voluntaryChurn": 51,
+        "involuntaryChurn": 7,
+        "movedTo": {
+          "price_sensitive": 47,
+          "core": 72
+        }
+      },
+      {
+        "month": "2025-10",
+        "segment": "core",
+        "activeAtStart": 1375,
+        "voluntaryChurn": 39,
+        "involuntaryChurn": 25,
+        "movedTo": {
+          "at_risk": 21
+        }
+      },
+      {
+        "month": "2025-10",
+        "segment": "price_sensitive",
+        "activeAtStart": 455,
+        "voluntaryChurn": 25,
+        "involuntaryChurn": 6,
+        "movedTo": {
+          "at_risk": 9
+        }
+      },
+      {
+        "month": "2025-10",
+        "segment": "at_risk",
+        "activeAtStart": 145,
+        "voluntaryChurn": 22,
+        "involuntaryChurn": 1,
+        "movedTo": {
+          "core": 15,
+          "cancel_intent": 14
+        }
+      },
+      {
+        "month": "2025-10",
+        "segment": "cancel_intent",
+        "activeAtStart": 23,
+        "voluntaryChurn": 8,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 3
+        }
+      },
+      {
+        "month": "2025-11",
+        "segment": "new",
+        "activeAtStart": 468,
+        "voluntaryChurn": 54,
+        "involuntaryChurn": 4,
+        "movedTo": {
+          "price_sensitive": 49,
+          "core": 94
+        }
+      },
+      {
+        "month": "2025-11",
+        "segment": "core",
+        "activeAtStart": 1377,
+        "voluntaryChurn": 34,
+        "involuntaryChurn": 17,
+        "movedTo": {
+          "at_risk": 15
+        }
+      },
+      {
+        "month": "2025-11",
+        "segment": "price_sensitive",
+        "activeAtStart": 462,
+        "voluntaryChurn": 29,
+        "involuntaryChurn": 3,
+        "movedTo": {
+          "at_risk": 15
+        }
+      },
+      {
+        "month": "2025-11",
+        "segment": "at_risk",
+        "activeAtStart": 126,
+        "voluntaryChurn": 23,
+        "involuntaryChurn": 2,
+        "movedTo": {
+          "core": 15,
+          "cancel_intent": 9
+        }
+      },
+      {
+        "month": "2025-11",
+        "segment": "cancel_intent",
+        "activeAtStart": 26,
+        "voluntaryChurn": 7,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 2
+        }
+      },
+      {
+        "month": "2025-12",
+        "segment": "new",
+        "activeAtStart": 430,
+        "voluntaryChurn": 53,
+        "involuntaryChurn": 8,
+        "movedTo": {
+          "price_sensitive": 33,
+          "core": 85
+        }
+      },
+      {
+        "month": "2025-12",
+        "segment": "core",
+        "activeAtStart": 1420,
+        "voluntaryChurn": 37,
+        "involuntaryChurn": 24,
+        "movedTo": {
+          "at_risk": 25
+        }
+      },
+      {
+        "month": "2025-12",
+        "segment": "price_sensitive",
+        "activeAtStart": 464,
+        "voluntaryChurn": 28,
+        "involuntaryChurn": 5,
+        "movedTo": {
+          "at_risk": 13
+        }
+      },
+      {
+        "month": "2025-12",
+        "segment": "at_risk",
+        "activeAtStart": 109,
+        "voluntaryChurn": 17,
+        "involuntaryChurn": 1,
+        "movedTo": {
+          "core": 18,
+          "cancel_intent": 9
+        }
+      },
+      {
+        "month": "2025-12",
+        "segment": "cancel_intent",
+        "activeAtStart": 26,
+        "voluntaryChurn": 10,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 4
+        }
+      },
+      {
+        "month": "2026-01",
+        "segment": "new",
+        "activeAtStart": 455,
+        "voluntaryChurn": 51,
+        "involuntaryChurn": 7,
+        "movedTo": {
+          "price_sensitive": 47,
+          "core": 85
+        }
+      },
+      {
+        "month": "2026-01",
+        "segment": "core",
+        "activeAtStart": 1437,
+        "voluntaryChurn": 47,
+        "involuntaryChurn": 13,
+        "movedTo": {
+          "at_risk": 30
+        }
+      },
+      {
+        "month": "2026-01",
+        "segment": "price_sensitive",
+        "activeAtStart": 451,
+        "voluntaryChurn": 23,
+        "involuntaryChurn": 8,
+        "movedTo": {
+          "at_risk": 12
+        }
+      },
+      {
+        "month": "2026-01",
+        "segment": "at_risk",
+        "activeAtStart": 106,
+        "voluntaryChurn": 13,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "core": 13,
+          "cancel_intent": 5
+        }
+      },
+      {
+        "month": "2026-01",
+        "segment": "cancel_intent",
+        "activeAtStart": 21,
+        "voluntaryChurn": 8,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 0
+        }
+      },
+      {
+        "month": "2026-02",
+        "segment": "new",
+        "activeAtStart": 447,
+        "voluntaryChurn": 46,
+        "involuntaryChurn": 9,
+        "movedTo": {
+          "price_sensitive": 39,
+          "core": 78
+        }
+      },
+      {
+        "month": "2026-02",
+        "segment": "core",
+        "activeAtStart": 1445,
+        "voluntaryChurn": 45,
+        "involuntaryChurn": 28,
+        "movedTo": {
+          "at_risk": 28
+        }
+      },
+      {
+        "month": "2026-02",
+        "segment": "price_sensitive",
+        "activeAtStart": 455,
+        "voluntaryChurn": 28,
+        "involuntaryChurn": 6,
+        "movedTo": {
+          "at_risk": 14
+        }
+      },
+      {
+        "month": "2026-02",
+        "segment": "at_risk",
+        "activeAtStart": 117,
+        "voluntaryChurn": 17,
+        "involuntaryChurn": 3,
+        "movedTo": {
+          "core": 13,
+          "cancel_intent": 10
+        }
+      },
+      {
+        "month": "2026-02",
+        "segment": "cancel_intent",
+        "activeAtStart": 18,
+        "voluntaryChurn": 6,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 1
+        }
+      },
+      {
+        "month": "2026-03",
+        "segment": "new",
+        "activeAtStart": 491,
+        "voluntaryChurn": 53,
+        "involuntaryChurn": 8,
+        "movedTo": {
+          "price_sensitive": 66,
+          "core": 89
+        }
+      },
+      {
+        "month": "2026-03",
+        "segment": "core",
+        "activeAtStart": 1435,
+        "voluntaryChurn": 39,
+        "involuntaryChurn": 27,
+        "movedTo": {
+          "at_risk": 30
+        }
+      },
+      {
+        "month": "2026-03",
+        "segment": "price_sensitive",
+        "activeAtStart": 446,
+        "voluntaryChurn": 35,
+        "involuntaryChurn": 5,
+        "movedTo": {
+          "at_risk": 12
+        }
+      },
+      {
+        "month": "2026-03",
+        "segment": "at_risk",
+        "activeAtStart": 117,
+        "voluntaryChurn": 13,
+        "involuntaryChurn": 1,
+        "movedTo": {
+          "core": 10,
+          "cancel_intent": 14
+        }
+      },
+      {
+        "month": "2026-03",
+        "segment": "cancel_intent",
+        "activeAtStart": 21,
+        "voluntaryChurn": 5,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 1
+        }
+      },
+      {
+        "month": "2026-04",
+        "segment": "new",
+        "activeAtStart": 452,
+        "voluntaryChurn": 43,
+        "involuntaryChurn": 7,
+        "movedTo": {
+          "price_sensitive": 48,
+          "core": 75
+        }
+      },
+      {
+        "month": "2026-04",
+        "segment": "core",
+        "activeAtStart": 1438,
+        "voluntaryChurn": 43,
+        "involuntaryChurn": 25,
+        "movedTo": {
+          "at_risk": 20
+        }
+      },
+      {
+        "month": "2026-04",
+        "segment": "price_sensitive",
+        "activeAtStart": 460,
+        "voluntaryChurn": 28,
+        "involuntaryChurn": 8,
+        "movedTo": {
+          "at_risk": 15
+        }
+      },
+      {
+        "month": "2026-04",
+        "segment": "at_risk",
+        "activeAtStart": 122,
+        "voluntaryChurn": 15,
+        "involuntaryChurn": 2,
+        "movedTo": {
+          "core": 13,
+          "cancel_intent": 14
+        }
+      },
+      {
+        "month": "2026-04",
+        "segment": "cancel_intent",
+        "activeAtStart": 29,
+        "voluntaryChurn": 9,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 4
+        }
+      },
+      {
+        "month": "2026-05",
+        "segment": "new",
+        "activeAtStart": 462,
+        "voluntaryChurn": 61,
+        "involuntaryChurn": 5,
+        "movedTo": {
+          "price_sensitive": 44,
+          "core": 81
+        }
+      },
+      {
+        "month": "2026-05",
+        "segment": "core",
+        "activeAtStart": 1438,
+        "voluntaryChurn": 43,
+        "involuntaryChurn": 27,
+        "movedTo": {
+          "at_risk": 27
+        }
+      },
+      {
+        "month": "2026-05",
+        "segment": "price_sensitive",
+        "activeAtStart": 457,
+        "voluntaryChurn": 34,
+        "involuntaryChurn": 7,
+        "movedTo": {
+          "at_risk": 18
+        }
+      },
+      {
+        "month": "2026-05",
+        "segment": "at_risk",
+        "activeAtStart": 117,
+        "voluntaryChurn": 18,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "core": 12,
+          "cancel_intent": 5
+        }
+      },
+      {
+        "month": "2026-05",
+        "segment": "cancel_intent",
+        "activeAtStart": 30,
+        "voluntaryChurn": 12,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 1
+        }
+      },
+      {
+        "month": "2026-06",
+        "segment": "new",
+        "activeAtStart": 472,
+        "voluntaryChurn": 58,
+        "involuntaryChurn": 7,
+        "movedTo": {
+          "price_sensitive": 50,
+          "core": 81
+        }
+      },
+      {
+        "month": "2026-06",
+        "segment": "core",
+        "activeAtStart": 1434,
+        "voluntaryChurn": 37,
+        "involuntaryChurn": 21,
+        "movedTo": {
+          "at_risk": 31
+        }
+      },
+      {
+        "month": "2026-06",
+        "segment": "price_sensitive",
+        "activeAtStart": 442,
+        "voluntaryChurn": 24,
+        "involuntaryChurn": 4,
+        "movedTo": {
+          "at_risk": 12
+        }
+      },
+      {
+        "month": "2026-06",
+        "segment": "at_risk",
+        "activeAtStart": 128,
+        "voluntaryChurn": 16,
+        "involuntaryChurn": 3,
+        "movedTo": {
+          "core": 10,
+          "cancel_intent": 9
+        }
+      },
+      {
+        "month": "2026-06",
+        "segment": "cancel_intent",
+        "activeAtStart": 22,
+        "voluntaryChurn": 7,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 3
+        }
+      },
+      {
+        "month": "2026-07",
+        "segment": "new",
+        "activeAtStart": 460,
+        "voluntaryChurn": 44,
+        "involuntaryChurn": 7,
+        "movedTo": {
+          "price_sensitive": 62,
+          "core": 93
+        }
+      },
+      {
+        "month": "2026-07",
+        "segment": "core",
+        "activeAtStart": 1436,
+        "voluntaryChurn": 43,
+        "involuntaryChurn": 20,
+        "movedTo": {
+          "at_risk": 33
+        }
+      },
+      {
+        "month": "2026-07",
+        "segment": "price_sensitive",
+        "activeAtStart": 452,
+        "voluntaryChurn": 30,
+        "involuntaryChurn": 5,
+        "movedTo": {
+          "at_risk": 15
+        }
+      },
+      {
+        "month": "2026-07",
+        "segment": "at_risk",
+        "activeAtStart": 136,
+        "voluntaryChurn": 31,
+        "involuntaryChurn": 1,
+        "movedTo": {
+          "core": 15,
+          "cancel_intent": 17
+        }
+      },
+      {
+        "month": "2026-07",
+        "segment": "cancel_intent",
+        "activeAtStart": 21,
+        "voluntaryChurn": 6,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 3
+        }
+      },
+      {
+        "month": "2026-08",
+        "segment": "new",
+        "activeAtStart": 416,
+        "voluntaryChurn": 39,
+        "involuntaryChurn": 8,
+        "movedTo": {
+          "price_sensitive": 42,
+          "core": 68
+        }
+      },
+      {
+        "month": "2026-08",
+        "segment": "core",
+        "activeAtStart": 1448,
+        "voluntaryChurn": 42,
+        "involuntaryChurn": 20,
+        "movedTo": {
+          "at_risk": 31
+        }
+      },
+      {
+        "month": "2026-08",
+        "segment": "price_sensitive",
+        "activeAtStart": 464,
+        "voluntaryChurn": 33,
+        "involuntaryChurn": 7,
+        "movedTo": {
+          "at_risk": 12
+        }
+      },
+      {
+        "month": "2026-08",
+        "segment": "at_risk",
+        "activeAtStart": 123,
+        "voluntaryChurn": 19,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "core": 13,
+          "cancel_intent": 9
+        }
+      },
+      {
+        "month": "2026-08",
+        "segment": "cancel_intent",
+        "activeAtStart": 29,
+        "voluntaryChurn": 5,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 2
+        }
+      },
+      {
+        "month": "2026-09",
+        "segment": "new",
+        "activeAtStart": 442,
+        "voluntaryChurn": 50,
+        "involuntaryChurn": 9,
+        "movedTo": {
+          "price_sensitive": 38,
+          "core": 75
+        }
+      },
+      {
+        "month": "2026-09",
+        "segment": "core",
+        "activeAtStart": 1436,
+        "voluntaryChurn": 46,
+        "involuntaryChurn": 17,
+        "movedTo": {
+          "at_risk": 16
+        }
+      },
+      {
+        "month": "2026-09",
+        "segment": "price_sensitive",
+        "activeAtStart": 454,
+        "voluntaryChurn": 28,
+        "involuntaryChurn": 11,
+        "movedTo": {
+          "at_risk": 14
+        }
+      },
+      {
+        "month": "2026-09",
+        "segment": "at_risk",
+        "activeAtStart": 127,
+        "voluntaryChurn": 17,
+        "involuntaryChurn": 1,
+        "movedTo": {
+          "core": 18,
+          "cancel_intent": 7
+        }
+      },
+      {
+        "month": "2026-09",
+        "segment": "cancel_intent",
+        "activeAtStart": 31,
+        "voluntaryChurn": 14,
+        "involuntaryChurn": 0,
+        "movedTo": {
+          "at_risk": 6
+        }
+      }
+    ],
+    "acquisition": [
+      {
+        "month": "2025-04",
+        "newSubscribers": 186
+      },
+      {
+        "month": "2025-05",
+        "newSubscribers": 148
+      },
+      {
+        "month": "2025-06",
+        "newSubscribers": 183
+      },
+      {
+        "month": "2025-07",
+        "newSubscribers": 195
+      },
+      {
+        "month": "2025-08",
+        "newSubscribers": 197
+      },
+      {
+        "month": "2025-09",
+        "newSubscribers": 155
+      },
+      {
+        "month": "2025-10",
+        "newSubscribers": 172
+      },
+      {
+        "month": "2025-11",
+        "newSubscribers": 223
+      },
+      {
+        "month": "2025-12",
+        "newSubscribers": 163
+      },
+      {
+        "month": "2026-01",
+        "newSubscribers": 204
+      },
+      {
+        "month": "2026-02",
+        "newSubscribers": 182
+      },
+      {
+        "month": "2026-03",
+        "newSubscribers": 216
+      },
+      {
+        "month": "2026-04",
+        "newSubscribers": 177
+      },
+      {
+        "month": "2026-05",
+        "newSubscribers": 183
+      },
+      {
+        "month": "2026-06",
+        "newSubscribers": 201
+      },
+      {
+        "month": "2026-07",
+        "newSubscribers": 184
+      },
+      {
+        "month": "2026-08",
+        "newSubscribers": 162
+      },
+      {
+        "month": "2026-09",
+        "newSubscribers": 183
+      }
+    ]
+  }
+}
