@@ -84,6 +84,7 @@ it("previews only currently registered pilots, reports list-priced and inactive 
   expect(result).toMatchObject({ proposal: { id: "reset" }, skipped: [
     { subscriptionId: "I-B", reason: "already_list_price" }, { subscriptionId: "I-C", reason: "inactive" },
     { subscriptionId: null, reason: "unregistered", label: PILOT_COHORT[3].label },
+    { subscriptionId: null, reason: "unregistered", label: PILOT_COHORT[4].label },
   ] });
 });
 

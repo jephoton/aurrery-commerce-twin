@@ -49,7 +49,7 @@ it("runs Gemini HTTP through fresh classification, cache, real tools, pacing and
   const db = ledger();
   createPredictionCache();
   db.exec("DELETE FROM feedback_prediction_cache; DELETE FROM executions; DELETE FROM proposals; DELETE FROM sandbox_subscribers; DELETE FROM audit_events;");
-  for (const [index, pilot] of PILOT_COHORT.entries()) await registerSandboxSubscriber({ ...pilot, subscriptionId: `I-GEMINI${"ABCD"[index]}` });
+  for (const [index, pilot] of PILOT_COHORT.entries()) await registerSandboxSubscriber({ ...pilot, subscriptionId: `I-GEMINI${"ABCDE"[index]}` });
   const original = structuredClone(currentMerchant().twin);
   const candidate = STARTER_STRATEGIES[1];
   const steps: [string, unknown][] = [["get_merchant_state", {}], ["classify_feedback", {}], ["set_decision_rules", { discountBudget: 1000, maxProbWorse: .5, horizonMonths: 12 }], ["simulate_strategies", { strategies: STARTER_STRATEGIES.slice(0, 3) }], ["stress_test", { strategyId: candidate.id }], ["draft_customer_message", { strategyId: candidate.id, message: "A temporary offer for your review" }], ["recommend", { strategyId: candidate.id, rationale: "Supported by computed evidence", tradeoffs: "Costs and uncertainty remain" }]];

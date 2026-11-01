@@ -29,7 +29,7 @@ it.each([recording, geminiRecording])("replays the genuine $provider run through
   vi.stubGlobal("fetch", network);
   const db = ledger();
   db.exec("DELETE FROM executions; DELETE FROM proposals; DELETE FROM sandbox_subscribers; DELETE FROM audit_events;");
-  for (const [index, pilot] of PILOT_COHORT.entries()) await registerSandboxSubscriber({ ...pilot, subscriptionId: `I-REPLAY${"ABCD"[index]}` });
+  for (const [index, pilot] of PILOT_COHORT.entries()) await registerSandboxSubscriber({ ...pilot, subscriptionId: `I-REPLAY${"ABCDE"[index]}` });
   const cache = createPredictionCache();
   db.exec("DELETE FROM feedback_prediction_cache;");
   const predictions = recording.predictions.map((prediction) => PredictionSchema.parse(prediction));

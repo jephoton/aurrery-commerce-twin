@@ -36,7 +36,7 @@ it("reuses healthy pilots without POST and resumes pending approval links from G
   transport.read.mockImplementation(async (id: string) => snapshot(id, id === "I-OLD0" ? "ACTIVE" : "APPROVAL_PENDING"));
   const messages = await setupPilots(options);
   expect(transport.create).not.toHaveBeenCalled();
-  expect(transport.read).toHaveBeenCalledTimes(4);
+  expect(transport.read).toHaveBeenCalledTimes(PILOT_COHORT.length);
   expect(messages[0]).toContain("ACTIVE");
   expect(messages[0]).not.toMatch(/approve|personal account/i);
   expect(messages[1]).toContain(link);
@@ -66,7 +66,7 @@ it("replays an adopted pilot's active creation intent while retaining legacy int
       body: { planId: options.planId, customId: `pilot-${i}`, applicationContext: { brandName: "Ridgeline Roasters", returnUrl, cancelUrl: returnUrl } },
     };
   }));
-  expect(await listSandboxSubscribers()).toHaveLength(4);
+  expect(await listSandboxSubscribers()).toHaveLength(PILOT_COHORT.length);
 });
 
 it("never POSTs healthy pilots even when an active creation override exists", async () => {
@@ -142,7 +142,7 @@ it("uses the creation approval link only after successful readback", async () =>
   transport.read.mockImplementation(async (id: string) => snapshot(id, "APPROVAL_PENDING", null));
   const messages = await setupPilots(options);
   expect(messages[0]).toContain("https://example.test/create");
-  expect(await listSandboxSubscribers()).toHaveLength(4);
+  expect(await listSandboxSubscribers()).toHaveLength(PILOT_COHORT.length);
 });
 
 it("fails clearly when a pending pilot has no current approval link", async () => {
@@ -156,6 +156,22 @@ it("fails sync if any read fails while still observing healthy pilots", async ()
   await seed();
   transport.read.mockImplementation(async (id: string) => id === "I-OLD1" ? failure(404) : snapshot(id, "ACTIVE"));
   await expect(syncPilots()).rejects.toThrow(/1.*read.*failed/i);
-  expect(transport.read).toHaveBeenCalledTimes(4);
-  expect(ledger().prepare("SELECT COUNT(*) AS n FROM observations").get()?.n).toBe(3);
+  expect(transport.read).toHaveBeenCalledTimes(PILOT_COHORT.length);
+  expect(ledger().prepare("SELECT COUNT(*) AS n FROM observations").get()?.n).toBe(PILOT_COHORT.length - 1);
+});
+
+it("keeps Pilots A–D unchanged and adds Pilot E as a core, other-reason pilot", () => {
+  expect(PILOT_COHORT.map((p) => p.label.slice(0, 7))).toEqual(["Pilot A", "Pilot B", "Pilot C", "Pilot D", "Pilot E"]);
+  expect(PILOT_COHORT[3]).toEqual({ label: "Pilot D: loyal, 14 months", segment: "core", reason: "other" });
+  expect(PILOT_COHORT[4]).toEqual({ label: "Pilot E: loyal, 9 months", segment: "core", reason: "other" });
+});
+
+it("creates only Pilot E when Pilots A–D are already registered and healthy", async () => {
+  for (const [i, member] of PILOT_COHORT.slice(0, 4).entries()) await registerSandboxSubscriber({ ...member, subscriptionId: `I-OLD${i}` });
+  transport.read.mockImplementation(async (id: string) => snapshot(id, id.startsWith("I-OLD") ? "ACTIVE" : "APPROVAL_PENDING"));
+  const messages = await setupPilots(options);
+  expect(transport.create).toHaveBeenCalledExactlyOnceWith({ paypalRequestId: "aurrery-ridgeline-sub-4-v1", prefer: "return=representation",
+    body: { planId: options.planId, customId: "pilot-4", applicationContext: { brandName: "Ridgeline Roasters", returnUrl: options.returnUrl, cancelUrl: options.returnUrl } } });
+  expect((await listSandboxSubscribers()).map((s) => s.label)).toEqual(PILOT_COHORT.map((p) => p.label));
+  expect(messages[4]).toContain("APPROVAL_PENDING");
 });

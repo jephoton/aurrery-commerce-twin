@@ -4,4 +4,5 @@ export const PILOT_COHORT = [
   { label: "Pilot B: \"can't justify $24 a month anymore\"", segment: "cancel_intent", reason: "price" },
   { label: "Pilot C: \"moving abroad next month\"", segment: "cancel_intent", reason: "other" },
   { label: "Pilot D: loyal, 14 months", segment: "core", reason: "other" },
+  { label: "Pilot E: loyal, 9 months", segment: "core", reason: "other" },
 ] as const;
