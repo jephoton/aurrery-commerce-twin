@@ -1,0 +1,6 @@
+month,segment,active_start,voluntary_cancels,involuntary_cancels,moved_to_core,moved_to_price_sensitive,moved_to_at_risk,moved_to_cancel_intent,new_signups
+2026-09,new,120,14,2,25,20,0,0,60
+2026-09,core,900,25,9,0,0,30,0,60
+2026-09,price_sensitive,400,24,4,0,0,18,0,60
+2026-09,at_risk,150,30,2,20,0,0,15,60
+2026-09,cancel_intent,40,14,1,0,0,8,0,60

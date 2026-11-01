@@ -1,0 +1,41 @@
+segment,text
+new,The box is too expensive for us now. Twenty dollars a month adds up.
+new,My dog developed a chicken allergy and most of the treats contain chicken.
+new,We're moving overseas and you don't ship there.
+new,The last two boxes arrived crushed.
+new,Our dog passed away last month. Thank you for the treats.
+core,"Money is tight this month, so the treat box is the first thing to go."
+core,"My vet put her on a strict diet, so no more treats for now."
+core,Deliveries keep arriving late and sit outside in the rain.
+core,He just doesn't like the flavours lately.
+core,We already have too many treats piling up in the cupboard.
+price_sensitive,I love the treats but I can't justify the price anymore.
+price_sensitive,Found similar treats at the pet store for half the cost.
+price_sensitive,Please lower the price or I'll have to cancel.
+price_sensitive,We're cutting back on subscriptions to save money.
+price_sensitive,"It was good value at first, but lately it feels overpriced."
+price_sensitive,"The box is lovely, but my puppy is teething and can't chew these."
+at_risk,"Once I added up a year of boxes, it felt far too expensive."
+at_risk,"My budget changed after a job loss, so I need something cheaper."
+at_risk,A discount would keep me around; otherwise it's too pricey.
+at_risk,The treats are great. The cost is the problem.
+at_risk,Paying for this every month is hard on a pension.
+at_risk,Too much money for a handful of biscuits.
+at_risk,I'm skipping boxes because I can't afford them right now.
+at_risk,Cheaper options exist and my dog doesn't notice the difference.
+at_risk,If it were fifteen dollars I'd stay without thinking.
+at_risk,"Rent went up, so small luxuries like this have to go."
+at_risk,"I'd keep it if there were a smaller, cheaper box."
+at_risk,"Honestly, it's just not worth twenty dollars to me."
+at_risk,We need to trim expenses and this is an easy cut.
+at_risk,The value isn't there for the price.
+at_risk,"I paused because money is tight, and I may cancel."
+at_risk,"Love it, but I'm switching to a budget brand to save money."
+at_risk,Boxes keep going to my old flat after I moved.
+at_risk,Too much packaging for my taste; I'm trying to reduce waste.
+cancel_intent,Cost is the only reason I'm leaving.
+cancel_intent,My sister gives us treats from her shop now.
+cancel_intent,The treats are too hard for my senior dog's teeth.
+cancel_intent,Support never answered my email about a missing box.
+cancel_intent,We're travelling for three months and won't need deliveries.
+cancel_intent,I prefer to pick treats in person with my dog.
