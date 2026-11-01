@@ -10,6 +10,7 @@ import { currentMerchant } from "@/merchant";
 import { now } from "./db";
 import { runtimeLedgerConnection, type LedgerConnection, type LedgerExecutor, type LedgerRow } from "./connection";
 import { auditOn, authoritativeWrite } from "./operations";
+import { RegistrationSnapshotSchema } from "./annual-offer-action";
 
 // Action proposals: the only route from a recommendation to a PayPal call.
 // proposed → approved (explicit merchant approval of an exact payload) → executing → terminal.
@@ -34,7 +35,7 @@ const RevertTargetSchema = z.object({
   sourceExecutionId: z.number().int().positive(),
   expectedCurrentPrice: Money,
   listPrice: Money,
-  registration: z.object({ label: z.string().min(1), segment: z.enum(SEGMENTS), reason: z.enum(REASONS), createdAt: z.string().datetime() }).strict(),
+  registration: RegistrationSnapshotSchema,
 }).strict();
 export const RevertActionSchema = z.object({
   type: z.literal("subscription_price_revert"),

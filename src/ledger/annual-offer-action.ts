@@ -11,10 +11,10 @@ export const MAX_ANNUAL_TARGETS = 25;
 export const MAX_ANNUAL_LIST_CENTS = 20000; // matches the list_price_change max ($200)
 const Money = z.string().regex(/^(0|[1-9]\d*)\.\d{2}$/); // canonical, agrees with usdCents
 
-// The registration snapshot taken at approval time. MUST stay identical to the `registration`
-// object in RevertTargetSchema (src/ledger/proposals.ts); duplicated here only to keep this
-// module free of "server-only".
-const RegistrationSnapshotSchema = z.object({
+// The registration snapshot taken at approval time: the single source for every action target
+// that binds a pilot's registration (src/ledger/proposals.ts imports it). Kept here so this
+// module stays free of "server-only".
+export const RegistrationSnapshotSchema = z.object({
   label: z.string().min(1), segment: z.enum(SEGMENTS), reason: z.enum(REASONS), createdAt: z.string().datetime(),
 }).strict();
 
