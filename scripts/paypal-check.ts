@@ -6,7 +6,13 @@
 //
 // The default target is the loyal/core pilot (Pilot D), not a hero-demo subscription. The restore
 // re-sets the price, but PayPal likely leaves plan_overridden=true on that subscription afterwards.
+//
+// Pilots D and E receive annual-plan offers. The check refuses any target on a recorded yearly plan,
+// or whose plan PayPal did not report once annual plans exist, before any PATCH: a customer who
+// switched to annual must never be re-priced. Pass a monthly subscription id explicitly instead.
 
+import { annualRefusal, REFUSAL_TEXT } from "@/execution/outcomes";
+import { listAnnualPlanIds } from "@/ledger/annual-offers";
 import { listSandboxSubscribers } from "@/ledger/proposals";
 import { getSubscription, overrideSubscriptionPrice, type PatchOperation } from "@/paypal/subscriptions";
 
@@ -19,6 +25,10 @@ async function main() {
   const before = await getSubscription(id);
   if (!before.ok) throw new Error(`Read failed: ${JSON.stringify(before.error)}`);
   console.log("before", { status: before.value.status, regularPrice: before.value.regularPrice, overridden: before.value.planOverridden });
+  const refused = annualRefusal(before.value.planId, await listAnnualPlanIds());
+  if (refused) {
+    throw new Error(`Refusing to PATCH ${id}: ${REFUSAL_TEXT[refused]} Pass a subscription on the monthly plan: npm run paypal:check -- I-XXXXXXXXXX`);
+  }
   if (before.value.status !== "ACTIVE" && before.value.status !== "SUSPENDED") {
     throw new Error(`Subscription is ${before.value.status}; approve it as a sandbox buyer first.`);
   }
