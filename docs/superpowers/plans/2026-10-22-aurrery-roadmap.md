@@ -108,3 +108,9 @@ If time is short, cut M6 (CSV import). M7 (annual-plan execution) became part of
 - README with a hosted URL and local setup; Devpost text, including the tools-used explanation.
 - Video script, then record (under 3:00), upload to YouTube as public.
 - Final QA on the hosted build; submit with margin before the deadline.
+- **Review tidy-ups (folded in 2026-11-01):**
+  - Make `docs/current-state.md` concise: keep current status, verified commands, risks and next step; move milestone logs to their plans or decision records.
+  - Fix stale decision statuses and the duplicate decision 0007 numbering.
+  - Set the GitHub repository homepage URL (the hosted demo) and topics.
+  - Fix the flaky `src/ledger/import.test.ts` WAL test timeout (and note the load-sensitive `src/agent/run.test.ts` / `src/hosting/guard.test.ts` timeouts).
+  - Judge experience: keep the Render Free instance warm during judging, or warn about the ~50s cold start in the README and video.
