@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-10-31. **M7 Phase 1 is complete on local branch `feat/m7-annual-plan` (not pushed); Phase 2 planning is next.** Earlier: **M0–M5 are complete, merged and published on main. M5 is live at https://aurrery.onrender.com on Render Free/Singapore with authoritative Turso storage; Render now tracks main with manual deploys. Hosted Gemini, protected approvals, redeploy and natural sleep/wake persistence, genuine signed webhooks and verified duplicate handling pass. Parent/Linux CI pass 793 tests, typecheck, lint and build, with final spec and quality reviews passed. The disposable probe is verified CANCELLED; Pilots A–D remain unchanged. No price proposal was approved or executed. M6/M7 remain separate next milestones; UI iteration stays in M8.**_
+_Last material update: 2026-11-01. **M7 Phase 2 Tasks 1-21 (consent-based annual-plan offers, handoff docs) are implemented on local branch `feat/m7-annual-plan` (not pushed); Task 22, a human checkpoint (private backup, then Pilot E setup), is next.** Earlier: **M0–M5 are complete, merged and published on main. M5 is live at https://aurrery.onrender.com on Render Free/Singapore with authoritative Turso storage; Render now tracks main with manual deploys. Hosted Gemini, protected approvals, redeploy and natural sleep/wake persistence, genuine signed webhooks and verified duplicate handling pass. Parent/Linux CI pass 793 tests, typecheck, lint and build, with final spec and quality reviews passed. The disposable probe is verified CANCELLED; Pilots A–D remain unchanged. No price proposal was approved or executed. M6/M7 remain separate next milestones; UI iteration stays in M8.**_
 
 **Project:** **Aurrery**, a digital twin plus AI agent for subscription merchants that executes approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public). Hackathon deadline: 2026-11-13 04:00 SGT.
 
@@ -124,122 +124,26 @@ _Last material update: 2026-10-31. **M7 Phase 1 is complete on local branch `fea
 
 ## M7 Phase 2
 
-Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branch `feat/m7-annual-plan`, not pushed.
+Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branch `feat/m7-annual-plan`, not pushed. Decisions as built: `docs/decisions/0008-annual-plan-offers.md` (Phase 2 section). Flow: `docs/architecture.md`. Operations: `docs/runbooks/render-turso.md`, "Annual offers: unresolved targets and links".
 
-- **Task 1 done (exact annual price, expiry cleanup, offer views).**
-  - `annualPriceFor` gives the cents-based yearly price, and `describeIntervention` now shows it instead of a float-rounded figure that could differ from the hashed `annualPrice`.
-  - `offerExpiry(offeredAt, windowDays)` drops the unused PayPal expiry argument; the merchant's offer window is the only expiry.
-  - New pure `offerView` derives status, outcome, resolved time and read need from recorded reads, with no approval link.
-  - Verification: 888 tests pass, typecheck and lint clean.
-- **Task 2 done (live eligibility and plan read-back checks).**
-  - `annualIneligibility` accepts only the same subscription, ACTIVE, on the registered monthly plan and at list price by cents; `INELIGIBILITY_TEXT` gives each refusal a "no offer was made" message.
-  - `annualPlanMismatch` names the first field of a read-back yearly plan that differs from the approved offer (plan id, status, product, currency, price, interval, billing cycles).
-  - Follow-up: `offerView` now builds the public view from explicit fields, so an extra key such as an approval link cannot leak.
-  - Verification: 905 tests pass, typecheck and lint clean.
-- **Task 3 done (draft customer message).**
-  - New pure `draftAnnualOfferMessage` builds the text an administrator copies and sends by hand: exact yearly price, the discount against twelve monthly payments, "nothing changes unless you agree in PayPal", the yearly price charged from the next renewal date, and the window close date in UTC.
-  - It never claims the link stops working (decision 0008) and rejects an unparseable deadline with a `RangeError`. The text carries the secret approval link, so it is display-only and never logged.
-  - Verification: 909 tests pass at the time (915 after Task 4, 943 after Task 5), typecheck and lint clean.
-- **Task 4 done (shared approval-link check, revise status).**
-  - `isPayPalApprovalUrl` moved to `src/paypal/approval-link.ts`, which does not import the PayPal SDK, so the importer and client code can use it. It accepts only https on `paypal.com` or `*.paypal.com`.
-  - `reviseToPlan` now returns the real HTTP status of the revise call (`httpStatus`) for the execution record. The approval link is still never echoed in errors.
-  - Verification: 915 tests pass, typecheck and lint clean.
-- **Task 5 done (execution outcome module, single definitive-failure rule).**
-  - New `src/execution/outcomes.ts` holds `TargetOutcome` (with an optional `offer` for annual offers), `ExecutionReport`, `ExecutionReconciliationRequired` and `isDefinitiveFailure`, so the annual executor can share them without an import cycle.
-  - `isDefinitiveFailure` is the only definitive-failure rule (HTTP 400, 401, 403, 404, 422; decision 0008); the executor now uses it. `execute.ts` re-exports the shared names, so existing importers are unchanged. No behaviour change.
-  - Follow-up to Task 4: `isPayPalApprovalUrl` now also rejects ports, userinfo and surrounding whitespace.
-  - Verification: 943 tests pass, typecheck and lint clean.
-- **Task 6 done (offer tables and offer records).**
-  - The canonical schema gains `annual_offers` (one row per issued offer, the only place an approval link is stored) and the append-only `annual_offer_reads`. `CREATE TABLE IF NOT EXISTS` adds both to existing local and Turso ledgers on the next schema initialization; the importer lists both tables (optional, so older ledgers still import). Strict annual import validation is Task 10.
-  - New `src/ledger/annual-offers.ts`: `recordAnnualOffer` writes the execution (`POST subscription revise (annual plan)`, `verified = 0`), the offer and its audit entry in one transaction, and refuses a non-PayPal link, mismatched offer facts, or any link or `ba_token` in the request or outcome. `recordAnnualTarget` records a target without an offer. `appendOfferReads` appends one read per offer for each successful GET and requires a strict ISO instant.
-  - Status stays derived: `listAnnualOfferViews` (public, never a link), `listAnnualOfferLinks` (administrator only, pending offers with the approved price), `openOfferSubscriptionIds` (anything short of a confirmed decline), `listAnnualPlanIds` and `readAnnualOfferEvidence` (per-segment counts with the limitation text). Covered on real SQLite and a file-backed libSQL client.
-  - Verification: 954 tests pass, typecheck and lint clean.
-- **Task 7 done (annual offer executor, injected dependencies).**
-  - New `src/execution/annual-offer.ts`: `executeAnnualOfferWith` checks the registered monthly plan and its product, creates the yearly plan under `annualPlanRequestId(actionHash)` (the same PayPal request ID every time the same action executes) and accepts it only when the read-back is ACTIVE, YEAR x 1, same product, USD and the exact price by cents.
-  - Any failure before the first `revise` (changed monthly-plan setting, monthly plan on another product, refused creation, unreadable or mismatched read-back) finishes the proposal failed with one outcome per target ending "no offer was made".
-  - Per target it validates the ledger, reads the subscription live, re-checks eligibility, validates again and calls `revise` at most once. Only `isDefinitiveFailure` statuses continue to the next target; a failed pre-read, any other revise failure, a returned plan mismatch or any storage failure throws `ExecutionReconciliationRequired` (proposal stays executing, no retry).
-  - Each issued offer goes to `recordOffer` with `outcome.offer { annualPlanId, expiresAt }` and `verified: false`; the approval link reaches nothing else. A PayPal error message containing a link is withheld from outcome text.
-  - Not yet wired into production; Task 8 adds dispatch.
-  - Verification: 980 tests pass, typecheck and lint clean.
-- **Task 8 done (`annual_plan_offer` in the proposal union, claims and executor dispatch).**
-  - `annual_plan_offer` joins `ProposalAction` and uses the unchanged approve, claim and execute state machine and target claims. The claim parses it strictly and checks the stored hash, then refuses with `invalid_annual_action`, `monthly_plan_changed`, `registration_changed` (exact registration snapshot) or `open_annual_offer`. The open-offer check (anything short of a confirmed decline) runs on the claim's own transaction. The existing unresolved-target and claimed-target checks still apply.
-  - `validateTargetForExecution` re-checks the claim, registration snapshot, monthly-plan setting and open offers before each PayPal read and each `revise`. Approved and executing annual offers appear in the outstanding list. `finishExecution` still refuses a revert schedule for anything but a discount.
-  - `executeProposalWith` sends a claimed annual offer to `executeAnnualOfferWith` and never to the price PATCH path. A missing or misconfigured executor (including the return URL `annualReturnUrl`: the hosted origin, or local `APP_URL`, with `?paypal=annual`) throws `ExecutionReconciliationRequired`. Production wiring uses the PayPal plan, subscription and annual-offer ledger adapters.
-  - The recovery panel lists only approved or executing annual offers and resumes an approved one with fresh confirmation. It shows `$X/yr (N% off)`, and its report says how many offers were issued, never "verified". No approval link reaches proposals, audit entries, the outstanding list or the panel.
-  - `proposals.ts` now imports `RegistrationSnapshotSchema` from `annual-offer-action.ts`, so there is one source.
-  - Verification: 1010 tests pass, typecheck and lint clean.
-- **Task 9 done (annual offer proposals from live eligibility).**
-  - Follow-ups to Task 8: an unreadable stored offer during the annual claim now refuses with `unreadable_annual_offers` and leaves the proposal approved (no reconciliation); `annualReturnUrl` is built with `new URL` and must be http or https; resuming an annual offer in the recovery panel no longer reads discount evidence.
-  - New `src/execution/annual-proposal.ts`: `prepareAnnualOfferProposalWith` refuses before any subscriber read unless PayPal is configured and the registered monthly plan reads back on the registered product, then reads each registered pilot in the offered segments live and keeps only those ACTIVE on the monthly plan at list price by cents (failed or thrown reads are skipped). `proposeStrategy` is the single entry point: annual strategies go there with a default 7-day window, everything else to the unchanged `createProposal`.
-  - `createAnnualOfferProposal` re-checks the monthly-plan setting, open offers and claims in one transaction and stores the exact hashed payload with its forecast. A window outside whole days 1 to 30 or a changed plan is `INVALID_STATE`, no remaining target is `NO_TARGETS`, and a payload that cannot be built (for example an out-of-range list price) is `NOT_EXECUTABLE`, so routes return a clean 4xx.
-  - `POST /api/proposals` accepts `offerWindowDays` (integer 1 to 30, annual strategies only) and validates it before any simulation; the window is bound into the hash. A route test approves an annual proposal created there through the existing hash-bound approve route. The agent still calls `createProposal` until its later task.
-  - Verification: 1032 tests pass, typecheck and lint clean.
-- **Task 10 done (strict export and import of annual offers).**
-  - `ledger:export` keeps approval links in the private backup (decision 4); both CLIs still print only table counts and hashes, and a test checks the import CLI output and the manifest carry no link or token. An export restores with identical row hashes.
-  - `validateRecords` (`src/ledger/import.ts`, shared by import and export) now parses annual proposals strictly with `AnnualOfferActionSchema`, checks their hash, requires a forecast, a strategy whose discount and segments match the payload, an approval and no scheduled revert.
-  - Each offer must reference an executing, succeeded or partially failed annual proposal and one of its targets with the same segment, a `P-` plan ID, a link that passes `isPayPalApprovalUrl`, strict ISO `offered_at`, and `expires_at` exactly the approved window later. Its revise execution must match (same proposal, target and time, `ok = 1`, `verified = 0`, outcome offer facts equal). Reads need an existing offer, strict ISO `observed_at`, a status and a `P-` or null plan ID. An `ok` annual execution must have its offer and a refused one none.
-  - Any approval link, its `ba_token` value, or a `ba_token` / `ba%5ftoken` marker in any other cell of any table refuses the ledger (import and export). Ledgers without the annual tables still import.
-  - New shared offline fixture `src/test/annual-offer-fixture.ts` (`seedAnnualOffer`, `fixtureLink`, fake `BA-FIXTURE` links) for Tasks 10, 12, 13 and 14.
-  - Verification: 1059 tests pass, typecheck and lint clean.
-- **Task 11 done (price changes and reset refuse annual subscribers by plan).**
-  - `executeProposalWith` reads the recorded yearly plan IDs (`listAnnualPlanIds`) once, after the claim's transaction has closed. A price override, revert or reset target whose live `planId` is one of them is refused before any PATCH with "On an annual plan by customer choice; the price was not changed.", recorded as a definitive per-target failure (not skipped, not a reconciliation). The check is by plan, so a captured price that matches the yearly read-back by cents can no longer PATCH a yearly plan. Failing to read the plan IDs throws `ExecutionReconciliationRequired` before any PayPal read.
-  - `previewDemoReset` skips such a pilot with reason `annual_plan`; the recovery panel shows every skip reason through `RESET_SKIP_TEXT`, which reports it as "switched to annual by customer choice; not reset". Non-annual subscribers behave exactly as before.
-  - Tests cover all three price actions, a non-annual plan still patching, an unreadable plan list, and wired ledger paths for both execute and reset preview using the shared fixture.
-  - Verification: 1072 tests pass at the code commit (1077 with the concurrent Task 10 follow-up), typecheck and lint clean.
-- **Task 12 done (status refresh appends offer reads; public offer views without links).**
-  - `GET /api/paypal/status` (still `await connection()` first, hosted poll admission and quotas unchanged) appends one `annual_offer_reads` row per offer for every successful GET of a subscription that has offers, even after a confirmed decline, because a stale link can still be approved (decision 0008). `observed_at` is a strict ISO instant taken right after the GET; failed GETs record nothing.
-  - A subscriber with offers that has left the pilot registry is read only while one of its offers `needsRead`. Registered subscribers report `live.annualPlan` when PayPal shows them on an offered yearly plan.
-  - The payload gains `annualOffers` from `listAnnualOfferViews`: derived status, outcome, expiry and `needsRead` only, never an approval link (tests assert no `ba_token` or PayPal URL in the body, including when PayPal is not configured).
-  - New `src/app/api/paypal/status/route.test.ts` (6 tests, PayPal stubbed, fixture offer): two refreshes append two reads and show the switch; failed GET records nothing; confirmed decline still read when registered; unregistered open offer read; unregistered confirmed decline not read; unconfigured PayPal reads nothing.
-  - Verification: 1083 tests pass at the code commit (1090 with the concurrent Task 11 follow-up), typecheck and lint clean.
-- **Task 13 done (administrator-only draft messages with approval links).**
-  - New `GET /api/annual-offers/links` calls `await connection()` first, then the existing hosted admin guard (`admitHostedRequest(request, { admin: true })`). A hosted visitor without a valid administrator session gets the unchanged `401 ADMIN_REQUIRED` before any link is read. Local mode is unguarded, as for approve and reject.
-  - Administrators get `{ offers: [{ id, subscriptionId, label, expiresAt, message }] }` with `Cache-Control: no-store`: one `draftAnnualOfferMessage` per offer from `listAnnualOfferLinks`, so only `pending` offers carry a link (decision 5). Switched, expired (unconfirmed or declined) and invalid offers return none.
-  - Errors return a fixed `500 INTERNAL` body with `no-store` and log nothing (the route does not use `errorResponse`, which logs a line). The public status payload is unchanged and still carries no link.
-  - New `src/app/api/annual-offers/links/route.test.ts` (8 tests, hosted mode, fixture offer, PayPal stubbed): missing, malformed and unknown session cookies; public status payload without a link; admin draft after `connection()`; switched, closed and invalid offers; closed and open offers together; an error carrying a fake link returns the fixed body with no console output.
-  - Verification: 1098 tests pass at the code commit, typecheck and lint clean.
-- **Task 14 done (observed merchant learns annual uptake from resolved offers).**
-  - `observedMerchant` applies `updateAnnualUptake` to the request-owned copy after the discount update, using `readAnnualOfferEvidence` (per-segment `countResolvedOffers`). Only accepted offers and confirmed declines move `segments.<segment>.annualUptake`; unresolved offers are counted but ignored. The canonical twin is never mutated.
-  - Annual parameters get `ANNUAL_OFFER_LIMITATION` appended, never the discount `OUTCOME_LIMITATION`. The return value adds `annual: { offers, changes, limitation }`; discount `changes` are unchanged.
-  - `ObservedSnapshot` gains an optional `annual` field (decision 8), so earlier recorded agent streams still parse; the discount `changes` cap stays `.max(2)`. Snapshots carry counts only, no links.
-  - `annual` flows through `/api/simulate` snapshots, agent runs (`readMerchant`), `GET /api/twin` and the home page (`MerchantSummary.annualEvidence`, no UI yet). After a `GET /api/paypal/status` refresh appends reads, a client re-fetches `GET /api/twin` for updated annual evidence.
-  - The group `annualUptake` assumption note in `src/merchant/demo.ts` no longer says no annual plan has been tried.
-  - New `src/merchant/observed.test.ts` (3 tests). Verification: 1106 tests pass, typecheck and lint clean.
-- **Task 15 done ("Annual offers" evidence block).**
-  - `EvidencePanel` shows a separate "Annual offers" block: accepted, declined and awaiting decision or final check, in total and per segment, then the per-segment uptake changes and the annual-specific limitation. Annual changes never appear under "Measured sandbox outcomes" or with the discount limitation. No links are rendered.
-  - Freshness (review): evidence must not lag the offers panel. `GET /api/paypal/status` (already admission-guarded, limit `poll`, and the route that appends offer reads) now also returns `annualEvidence` (counts, per-segment uptake changes, limitation), built from `observedMerchant().annual` after those reads and carrying no links. It is omitted if it cannot be built, so the poll still succeeds. After a successful status refresh `Lab` keeps it as `liveAnnual`, which `EvidencePanel` prefers over the page-load or run-snapshot value. There is no separate `/api/twin` call. A missing or unusable field keeps the previous evidence. A displayed run's discount evidence and other state are untouched. `liveAnnualFromStatus` in `lab-state.ts` is the pure parser; `AnnualEvidenceSchema` is exported from `observed-snapshot.ts`.
-  - Labelling: live evidence is captioned "Current ledger, updated by the latest PayPal check.", plus "The displayed run used the evidence snapshot above." when a run is shown. The block is a labelled section and the counts line is `aria-live="polite"`.
-  - Tests: EvidencePanel (own block and limitation, mixed and two-segment awaiting counts, labels, no discount leakage, no links), `liveAnnualFromStatus`, and the status route payload. Verification: 1116 tests pass, typecheck and lint clean.
-- **Task 16 done (headline rules and "Also executable within your rules").**
-  - `isExecutableIntervention` (new) and `isExecutable` now include `annual_plan`, in step with `proposeStrategy`; `whyNotExecutable` returns null for annual plans. The scenario grid now marks the annual plan "Executable".
-  - The discount budget applies only to `targeted_discount` strategies (an annual prepay discount is netted in total value); the chance-worse rule still applies to every strategy. `chooseHeadline` also returns `alsoExecutable`: other executable strategies within the rules, best first.
-  - `DecisionSummary` drops "Simulate only" for annual plans, explains that each customer must agree in PayPal and the yearly price starts at their next renewal date, and lists "Also executable within your rules" for the headline pick (`Lab` passes the prop).
-  - Default verified against the real starter-strategy simulation (demo twin, default rules): the headline is the annual plan, the price-driven cancel save is also executable, and the list price rise is the only bigger lever. A headline test pins this.
-  - Verification: 1113 tests pass, typecheck and lint clean.
-- **Task 17 done (annual offer approval card, window input and execution report).**
-  - New `AnnualOfferCard` (rendered by `Lab`'s `ProposalCard` for `annual_plan_offer`): yearly price ("$X/yr, N% off $Y/mo x 12"), product and currency, monthly-to-yearly switch, offer window, targets with labels and segments, simulated value, status, payload hash, PayPal operation details, and the statements that each customer must agree in PayPal, the yearly price starts at each subscriber's next renewal date, switched customers can't be moved back automatically, and offers close only when their window ends. Unchecked confirmation; "Approve & issue offers" needs confirmation, administrator access and PayPal. No links are rendered.
-  - `Lab`: the approval panel now gates on `isExecutableIntervention` (was `targeted_discount` only). Annual strategies get an offer-window input (whole days 1-30, default 7); `proposalBody` sends `offerWindowDays` only for annual strategies.
-  - Execution report: `outcomeCells` (new `annual-offers-view.ts`, with `formatUtc` and `clampOfferWindowDays`) shows an issued offer as "Offer issued, window closes <UTC>" and "customer decides", never "verified: no"; a refused annual target shows its reason (error before read-back status) and "no offer" (or "unconfirmed" for a non-definitive HTTP status). Annual reports also show `reportSummary` (offers issued of targets). Discount rows are unchanged.
-  - Task 16 review follow-up (separate commit): `DecisionSummary` now says "Can be sent as an offer..." so it cannot contradict "No executable strategy meets the decision rules", and the "Also executable" list shows simulated discount cost beside discount strategies only.
-  - Verification: 1127 tests pass, typecheck and lint clean.
-- **Task 19 done (the agent may propose an annual offer).**
-  - `recommend` now accepts `annual_plan` as well as `targeted_discount` and creates the proposal through the single `proposeStrategy` entry point, so an annual offer gets live PayPal eligibility and the default 7-day window (decision 7). The agent still has no approve or execute tool; `TOOL_DEFINITIONS` only gains a clearer `recommend` description.
-  - The discount budget applies to retention discounts only; the chance-worse rule applies to every recommendation. A list price change is still `NOT_EXECUTABLE`.
-  - The run's abort signal (`budget.signal`) reaches `proposeStrategy`, so a cancelled or timed-out run stops preparation before a proposal is stored. An annual preparation refusal (for example a failed PayPal read) reaches the agent as its fixed, link-free message; discount refusals keep the generic message.
-  - `AGENT_INSTRUCTION` drops "annual plans are simulation only" and says an annual offer needs each subscriber's approval in PayPal. Recorded Gemini and Groq replays still parse and pass; annual agent tests inject `propose` (no PayPal).
-  - Verification: 1134 tests pass, typecheck and lint clean.
-  - **Next:** Task 18 (done after Task 19).
-- **Task 18 done ("Annual offers" panel and yearly pilots).**
-  - New `AnnualOffersPanel` (rendered by `Lab` above the recovery panel): per-target subscriber, segment, status and window close (UTC) for everyone, plus accepted/declined/awaiting counts. Status wording never calls a link dead: "Offer window closed · declined" or "· awaiting final check". Unregistered subscribers fall back to the subscription id.
-  - Administrators also see display-only draft customer messages (read-only textarea, Copy copies the raw message) fetched on the client from `GET /api/annual-offers/links`; nothing is server-rendered, and visitors never fetch. Drafts are keyed to the status refresh and pending set, so each refetch or failure hides previous links at once, only still-pending offers show, and each draft drops when its window closes. A 401 asks the administrator to sign in again.
-  - A failed or rate-limited status read shows "Offer status unavailable" instead of hiding the panel or showing stale rows. The pilot table now shows "/yr" for subscribers on the offered annual plan (`live.annualPlan`) and "/mo" otherwise.
-  - New `annual-offers-view.test.ts` (13 tests). Verification: 1147 tests pass, typecheck and lint clean.
-- **Task 20 done (Pilot E in the cohort).**
-  - `PILOT_COHORT` gains "Pilot E: loyal, 9 months" (core, reason other); Pilots A-D are unchanged. Feedback pilot indices stay 0-3, so classification and recorded fixtures are unaffected.
-  - `setupPilots` creates a missing E under `aurrery-ridgeline-sub-4-v1` (`customId` `pilot-4`) and leaves registered A-D alone; new tests cover this and the fixed A-D labels. Until E is created in the sandbox (Task 22), the reset preview lists it as "unregistered" (tested) and the status route and UI, which read registry rows, simply omit it. No PayPal call was made.
-  - Cohort-sized assertions now use `PILOT_COHORT.length`; the replay and Gemini integration fixtures register five pilots.
-  - Verification: 1149 tests pass, typecheck and lint clean.
-  - **Next:** Task 21.
+- **Done (Tasks 1-21):** consent-based annual-plan offers are implemented and documented.
+  - Executable `annual_plan_offer` proposals prepared from live PayPal eligibility, with one `revise` per target and the approval link stored only in `annual_offers`.
+  - Append-only `annual_offer_reads` on every status refresh, derived status and outcome, and `annualEvidence` on the status response.
+  - Observed `annualUptake` learning on a request-owned copy; strict export and import that keep links out of every other cell.
+  - Administrator-only draft messages (`GET /api/annual-offers/links`: `no-store`, cross-site reads refused, pending offers only, cleared on sign-out); "Annual offers" evidence block and panel; headline and approval card for annual offers.
+  - The agent may propose an offer (no approve or execute tool, abort signal passed through).
+  - Price changes, reverts, resets and `paypal:check` refuse annual subscribers; a `plan_unknown` refusal applies when PayPal omits the plan.
+  - Pilot E ("loyal, 9 months", core) is in the cohort in code; it is not yet created in the sandbox.
+- **Verification:** 1152 tests, typecheck and lint at the last full run. Known flaky: the deadline and BUSY tests in `src/agent/run.test.ts` can time out under heavy parallel load; they pass alone and on re-run.
+- **Next: Task 22 (human checkpoint).** Rollout order for Tasks 22-23:
+  1. Take the private backup from a `main` worktree **before** running Pilot E setup against Turso, because setup creates the new tables.
+  2. After that, `main`'s `ledger:export` refuses the hosted ledger (exact schema match) until this branch is deployed. An export refused for a stored link names the table and column.
+  3. Task 22: create Pilot E in the sandbox (one buyer approval). Task 23: live acceptance, then push, merge and deploy.
+- **Known limitations:**
+  - An ambiguous revise or an unstored issued offer leaves the proposal `executing` with its claims kept, and no tool finishes an `executing` proposal yet (manual reconciliation steps are in the runbook).
+  - A stale link may still be approved after the window; reads continue, so a late switch counts. Offers cannot be withdrawn.
+  - PayPal gives no link expiry and the real approval-token lifetime is untested; the demo approves Pilot E's link soon after issue.
+  - Pilot D's decline lands after the demo (window plus six hours).
 
 ## M5 complete and published
 
