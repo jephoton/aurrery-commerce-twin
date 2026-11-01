@@ -198,7 +198,14 @@ Plan: `docs/superpowers/plans/2026-10-31-m7-annual-plan-phase-2.md`. Local branc
   - Errors return a fixed `500 INTERNAL` body with `no-store` and log nothing (the route does not use `errorResponse`, which logs a line). The public status payload is unchanged and still carries no link.
   - New `src/app/api/annual-offers/links/route.test.ts` (8 tests, hosted mode, fixture offer, PayPal stubbed): missing, malformed and unknown session cookies; public status payload without a link; admin draft after `connection()`; switched, closed and invalid offers; closed and open offers together; an error carrying a fake link returns the fixed body with no console output.
   - Verification: 1098 tests pass at the code commit, typecheck and lint clean.
-  - **Next:** Task 14, learn annual uptake in the observed-merchant path.
+- **Task 14 done (observed merchant learns annual uptake from resolved offers).**
+  - `observedMerchant` applies `updateAnnualUptake` to the request-owned copy after the discount update, using `readAnnualOfferEvidence` (per-segment `countResolvedOffers`). Only accepted offers and confirmed declines move `segments.<segment>.annualUptake`; unresolved offers are counted but ignored. The canonical twin is never mutated.
+  - Annual parameters get `ANNUAL_OFFER_LIMITATION` appended, never the discount `OUTCOME_LIMITATION`. The return value adds `annual: { offers, changes, limitation }`; discount `changes` are unchanged.
+  - `ObservedSnapshot` gains an optional `annual` field (decision 8), so earlier recorded agent streams still parse; the discount `changes` cap stays `.max(2)`. Snapshots carry counts only, no links.
+  - `annual` flows through `/api/simulate` snapshots, agent runs (`readMerchant`), `GET /api/twin` and the home page (`MerchantSummary.annualEvidence`, no UI yet). After a `GET /api/paypal/status` refresh appends reads, a client re-fetches `GET /api/twin` for updated annual evidence.
+  - The group `annualUptake` assumption note in `src/merchant/demo.ts` no longer says no annual plan has been tried.
+  - New `src/merchant/observed.test.ts` (3 tests). Verification: 1106 tests pass, typecheck and lint clean.
+  - **Next:** Task 15, the "Annual offers" evidence block.
 
 ## M5 complete and published
 
