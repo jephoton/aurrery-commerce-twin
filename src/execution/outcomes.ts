@@ -23,6 +23,9 @@ export const REFUSAL_TEXT: Record<RefusalReason, string> = {
   annual_plan: "On an annual plan by customer choice; the price was not changed.",
   plan_unknown: "PayPal did not report the subscription's plan, so it may be on an annual plan; the price was not changed.",
 };
+/** Why a price change must be refused for a subscription on this plan, or null. Once any annual plan exists, a plan PayPal did not report cannot be proven monthly. */
+export const annualRefusal = (planId: string | null, annualPlans: ReadonlySet<string>): RefusalReason | null =>
+  annualPlans.size > 0 && !planId ? "plan_unknown" : planId && annualPlans.has(planId) ? "annual_plan" : null;
 /** The status column of an execution report: a refusal's reason, else the read-back status, else the error. */
 export const outcomeStatusText = (outcome: TargetOutcome): string | null =>
   outcome.refused ? REFUSAL_TEXT[outcome.refused] : outcome.observed?.status ?? outcome.error;

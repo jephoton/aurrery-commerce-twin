@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { ExecutionReconciliationRequired, REFUSAL_TEXT, isDefinitiveFailure, outcomeStatusText } from "./outcomes";
+import { ExecutionReconciliationRequired, REFUSAL_TEXT, annualRefusal, isDefinitiveFailure, outcomeStatusText } from "./outcomes";
 
 it.each([[400, true], [401, true], [403, true], [404, true], [422, true], [200, false], [409, false], [429, false], [500, false], [null, false]] as const)(
   "classifies HTTP %s as definitive: %s", (status, expected) => expect(isDefinitiveFailure(status)).toBe(expected));
@@ -18,4 +18,13 @@ it("shows the refusal reason instead of the observed status for a refused target
   expect(outcomeStatusText(outcome)).toBe("ACTIVE");
   expect(outcomeStatusText({ ...outcome, observed: null })).toBe("anything");
   expect(outcomeStatusText({ ...outcome, observed: null, error: null })).toBeNull();
+});
+
+it("refuses a price change by plan: an annual plan, or an unreported plan once annual plans exist", () => {
+  const annual = new Set(["P-ANNUAL"]);
+  expect(annualRefusal("P-ANNUAL", annual)).toBe("annual_plan");
+  expect(annualRefusal(null, annual)).toBe("plan_unknown");
+  expect(annualRefusal("P-MONTHLY", annual)).toBeNull();
+  expect(annualRefusal(null, new Set())).toBeNull();
+  expect(annualRefusal("P-ANNUAL", new Set())).toBeNull();
 });

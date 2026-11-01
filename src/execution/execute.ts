@@ -12,7 +12,7 @@ import { listAnnualPlanIds, recordAnnualOffer, recordAnnualPlan, recordAnnualTar
 import { getSetting } from "@/ledger/operations";
 import { createAnnualPlan, getPlan, reviseToPlan } from "@/paypal/plans";
 import { hostedConfig } from "@/hosting/config";
-import { ExecutionReconciliationRequired, REFUSAL_TEXT, isDefinitiveFailure, type ExecutionReport, type RefusalReason, type TargetOutcome } from "./outcomes";
+import { ExecutionReconciliationRequired, REFUSAL_TEXT, annualRefusal, isDefinitiveFailure, type ExecutionReport, type TargetOutcome } from "./outcomes";
 import { executeAnnualOfferWith, type AnnualDependencies } from "./annual-offer";
 export { ExecutionReconciliationRequired, type ExecutionReport, type TargetOutcome } from "./outcomes";
 
@@ -107,9 +107,7 @@ export async function executeProposalWith(id: string, deps: Dependencies): Promi
       if (deps.recordObservation) await deps.recordObservation(current, "paypal.execution_preread");
     } catch { throw new ExecutionReconciliationRequired(id); }
     // Refused by plan, not price: a switched subscriber's yearly price can coincide with a captured one.
-    // Once any annual plan exists, a subscription PayPal reports without a plan cannot be proven monthly.
-    const refused: RefusalReason | null = annualPlans.size > 0 && !current.planId ? "plan_unknown"
-      : current.planId && annualPlans.has(current.planId) ? "annual_plan" : null;
+    const refused = annualRefusal(current.planId, annualPlans);
     if (refused) {
       const outcome: TargetOutcome = { subscriptionId, ok: false, refused, httpStatus: null, debugId: null, verified: false,
         observed: { status: current.status, regularPrice: current.regularPrice, planOverridden: current.planOverridden, nextBillingTime: current.nextBillingTime },

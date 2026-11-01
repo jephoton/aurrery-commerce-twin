@@ -7,6 +7,7 @@ import { createResetProposal, ProposalError, ResetRegistrationSnapshotSchema } f
 import { runtimeLedgerConnection } from "@/ledger/connection";
 import { authoritativeWrite } from "@/ledger/operations";
 import { listAnnualPlanIds } from "@/ledger/annual-offers";
+import { annualRefusal } from "./outcomes";
 import { getSubscription } from "@/paypal/subscriptions";
 import { currentMerchant } from "@/merchant";
 
@@ -50,9 +51,8 @@ export async function previewDemoResetWith(deps: ResetDependencies): Promise<Res
     if (!pilot) { skipped.push({ label: member.label, subscriptionId: null, reason: "unregistered" }); continue; }
     const read = await deps.read(pilot.subscriptionId);
     if (!read.ok || read.value.id !== pilot.subscriptionId) throw new ProposalError("Pilot PayPal status could not be verified.", "INVALID_STATE");
-    // Once any annual plan exists, a pilot PayPal reports without a plan cannot be proven monthly.
-    if (annualPlans.size > 0 && !read.value.planId) { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "plan_unknown" }); continue; }
-    if (read.value.planId && annualPlans.has(read.value.planId)) { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "annual_plan" }); continue; }
+    const refused = annualRefusal(read.value.planId, annualPlans);
+    if (refused) { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: refused }); continue; }
     if (read.value.status !== "ACTIVE") { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "inactive" }); continue; }
     if (usdCents(read.value.regularPrice) === null) throw new ProposalError("Pilot price could not be verified.", "INVALID_STATE");
     if (sameUsdAmount(read.value.regularPrice, canonicalListPrice)) { skipped.push({ label: member.label, subscriptionId: pilot.subscriptionId, reason: "already_list_price" }); continue; }
