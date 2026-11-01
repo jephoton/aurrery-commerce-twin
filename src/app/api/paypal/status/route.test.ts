@@ -1,13 +1,23 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Result, SubscriptionSnapshot } from "@/paypal/subscriptions";
 
-const mocks = vi.hoisted(() => ({ getSubscription: vi.fn(), configured: vi.fn(() => true), calls: [] as string[] }));
+const mocks = vi.hoisted(() => ({ getSubscription: vi.fn(), configured: vi.fn(() => true), recordObservation: vi.fn(), calls: [] as string[] }));
 vi.mock("next/server", () => ({ connection: vi.fn(async () => { mocks.calls.push("connection"); }) }));
 vi.mock("@/paypal/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/paypal/client")>()), paypalConfigured: mocks.configured }));
+vi.mock("@/execution/execute", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/execution/execute")>();
+  mocks.recordObservation.mockImplementation(actual.recordObservation);
+  return { ...actual, recordObservation: mocks.recordObservation };
+});
 vi.mock("@/paypal/subscriptions", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/paypal/subscriptions")>()), getSubscription: mocks.getSubscription }));
 
 import { ledger } from "@/ledger/db";
-import { runtimeLedgerConnection } from "@/ledger/connection";
+import { createLocalConnection, runtimeLedgerConnection } from "@/ledger/connection";
+import { createProposalRepository } from "@/ledger/proposals";
+import { createHostingStore } from "@/hosting/store";
+import { PILOT_COHORT } from "@/paypal/pilot-cohort";
 import { appendOfferReads, listAnnualOfferViews } from "@/ledger/annual-offers";
 import { FIXTURE_ANNUAL_PLAN, FIXTURE_MONTHLY_PLAN, seedAnnualOffer } from "@/test/annual-offer-fixture";
 import { GET } from "./route";
@@ -28,11 +38,14 @@ const seedDeclined = async () => {
   expect(await listAnnualOfferViews()).toEqual([expect.objectContaining({ status: "expired", outcome: "declined", needsRead: false })]);
 };
 
+afterEach(() => { vi.unstubAllEnvs(); });
+
 beforeEach(async () => {
   clear();
   mocks.getSubscription.mockReset();
   mocks.configured.mockReturnValue(true);
   mocks.calls.length = 0;
+  mocks.recordObservation.mockClear();
   await seedAnnualOffer(await runtimeLedgerConnection(), { offeredAt: new Date(Date.now() - HOUR).toISOString() });
 });
 
@@ -92,4 +105,53 @@ it("reads nothing from PayPal when it is not configured, yet still reports offer
   expect(reads()).toEqual([]);
   expect(body).toMatchObject({ configured: false, annualOffers: [expect.objectContaining({ status: "pending" })] });
   expect(JSON.stringify(body)).not.toMatch(/ba_token|BA-FIXTURE/);
+});
+
+it("still records the offer read when the observation write fails after a successful GET", async () => {
+  mocks.getSubscription.mockImplementation(async (id: string) => live(id, FIXTURE_ANNUAL_PLAN));
+  mocks.recordObservation.mockRejectedValueOnce(new Error("observation storage failed"));
+  await GET(new Request("http://localhost/api/paypal/status"));
+  expect(reads()).toEqual([{ status: "ACTIVE", plan_id: FIXTURE_ANNUAL_PLAN, debug_id: "dbg-status" }]);
+});
+
+it("records nothing when PayPal returns a different subscription than the one requested", async () => {
+  mocks.getSubscription.mockImplementation(async () => live("I-SOMEONEELSE", FIXTURE_ANNUAL_PLAN));
+  const body = await status();
+  expect(reads()).toEqual([]);
+  expect(mocks.recordObservation).not.toHaveBeenCalled();
+  expect(body.subscriptions[0]).toMatchObject({ subscriptionId: "I-PILOTD", error: "Live status unavailable." });
+  expect(body.annualOffers[0]).toMatchObject({ status: "pending", needsRead: true });
+});
+
+it("reads registered and unregistered needs-read subscriptions in one PayPal round", async () => {
+  ledger().exec("DELETE FROM sandbox_subscribers;");
+  await createProposalRepository(await runtimeLedgerConnection()).registerSandboxSubscriber({ subscriptionId: "I-PILOTA", ...PILOT_COHORT[0] });
+  let inFlight = 0;
+  let maxInFlight = 0;
+  mocks.getSubscription.mockImplementation(async (id: string) => {
+    maxInFlight = Math.max(maxInFlight, ++inFlight);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    inFlight--;
+    return live(id, FIXTURE_MONTHLY_PLAN);
+  });
+  const body = await status();
+  expect(mocks.getSubscription.mock.calls.map(([id]) => id).sort()).toEqual(["I-PILOTA", "I-PILOTD"]);
+  expect(maxInFlight).toBe(2);
+  expect(body.subscriptions).toEqual([expect.objectContaining({ subscriptionId: "I-PILOTA" })]);
+  expect(reads()).toEqual([{ status: "ACTIVE", plan_id: FIXTURE_MONTHLY_PLAN, debug_id: "dbg-status" }]);
+});
+
+it("appends no reads when hosted admission rejects the poll", async () => {
+  const secret = "s".repeat(48);
+  vi.stubEnv("HOSTED_DEMO", "true"); vi.stubEnv("RENDER", "false"); vi.stubEnv("APP_URL", "https://example.test");
+  vi.stubEnv("HOSTED_SECRET", secret); vi.stubEnv("ADMIN_PASSWORD", "p".repeat(40));
+  // Satisfies hosted configuration only: the in-memory ledger is already open and stays in use.
+  vi.stubEnv("LEDGER_PATH", join(tmpdir(), "aurrery-status-route-unused.sqlite"));
+  const store = createHostingStore(createLocalConnection(ledger()), secret);
+  for (let i = 0; i < 30; i++) expect((await store.admit("poll", "unverified-proxy-client")).allowed).toBe(true);
+  mocks.getSubscription.mockImplementation(async (id: string) => live(id, FIXTURE_ANNUAL_PLAN));
+  const response = await GET(new Request("https://example.test/api/paypal/status"));
+  expect(response.status).toBe(429);
+  expect(mocks.getSubscription).not.toHaveBeenCalled();
+  expect(reads()).toEqual([]);
 });
