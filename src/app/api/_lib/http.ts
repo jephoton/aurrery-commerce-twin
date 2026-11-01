@@ -2,16 +2,18 @@ import { ZodError } from "zod";
 import { ProposalError } from "@/ledger/proposals";
 import { ExecutionReconciliationRequired } from "@/execution/execute";
 import { WorkerTaskError } from "@/twin/worker-client";
+import { capErrors, type RowError } from "@/import/row-error";
 
 const MAX_JSON_BYTES = 64 * 1024;
 export class RequestBodyError extends Error {
   constructor(readonly code: "BODY_TOO_LARGE" | "INVALID_JSON") { super(code); }
 }
 
-/** Read at most the admitted bytes, including when Content-Length is absent or false. */
-export async function readBoundedJson(request: Request): Promise<unknown> {
+/** Read at most `maxBytes` (default 64 KiB), including when Content-Length is absent or false. */
+export async function readBoundedJson(request: Request, options: { maxBytes?: number } = {}): Promise<unknown> {
+  const maxBytes = options.maxBytes ?? MAX_JSON_BYTES;
   const declared = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > MAX_JSON_BYTES) throw new RequestBodyError("BODY_TOO_LARGE");
+  if (Number.isFinite(declared) && declared > maxBytes) throw new RequestBodyError("BODY_TOO_LARGE");
   if (!request.body) throw new RequestBodyError("INVALID_JSON");
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -25,7 +27,7 @@ export async function readBoundedJson(request: Request): Promise<unknown> {
       if (request.signal.aborted) throw new WorkerTaskError("ABORTED");
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_JSON_BYTES) throw new RequestBodyError("BODY_TOO_LARGE");
+      if (size > maxBytes) throw new RequestBodyError("BODY_TOO_LARGE");
       chunks.push(value);
     }
   } finally {
@@ -64,4 +66,9 @@ export function errorResponse(error: unknown): Response {
   }
   console.error("API request failed: INTERNAL");
   return Response.json({ error: "INTERNAL", message: "Request unavailable." }, { status: 500 });
+}
+
+/** Per-row import errors (M6). Nothing was stored, so the browser's current twin stays as it was. */
+export function invalidImportResponse(errors: RowError[]): Response {
+  return Response.json({ error: "INVALID_IMPORT", message: "The import has errors. Nothing was changed.", errors: capErrors(errors) }, { status: 400 });
 }

@@ -9,6 +9,7 @@ import { POST as prepare } from "@/app/api/proposals/route";
 import { POST as approve } from "@/app/api/proposals/[id]/approve/route";
 import { POST as reject } from "@/app/api/proposals/[id]/reject/route";
 import { GET as poll } from "@/app/api/paypal/status/route";
+import { POST as validateImport } from "@/app/api/import/validate/route";
 import { createHostingStore } from "./store";
 import { createLocalConnection } from "@/ledger/connection";
 
@@ -43,6 +44,7 @@ describe("direct hosted API admission", () => {
     expect((await simulate(request("/api/simulate"))).status).toBe(403);
     expect((await prepare(request("/api/proposals", "https://evil.test"))).status).toBe(403);
     expect((await createAgentHandler({ run: vi.fn() })(request("/api/agent"))).status).toBe(403);
+    expect((await validateImport(request("/api/import/validate"))).status).toBe(403);
   });
   it("bounds live PayPal polling even if request host varies", async () => {
     const bad = new Request("https://another-host.test/api/paypal/status");
@@ -51,6 +53,13 @@ describe("direct hosted API admission", () => {
     const store = createHostingStore(createLocalConnection(ledger()), "s".repeat(48));
     for (let i = 0; i < 30; i++) expect((await store.admit("poll", "unverified-proxy-client")).allowed).toBe(true);
     const response = await poll(bad);
+    expect(response.status).toBe(429);
+    expect(Number(response.headers.get("retry-after"))).toBeGreaterThan(0);
+  });
+  it("admits import validation under the preparation limit", async () => {
+    const store = createHostingStore(createLocalConnection(ledger()), "s".repeat(48));
+    for (let i = 0; i < 30; i++) await store.admit("preparation", "unverified-proxy-client");
+    const response = await validateImport(request("/api/import/validate", origin));
     expect(response.status).toBe(429);
     expect(Number(response.headers.get("retry-after"))).toBeGreaterThan(0);
   });

@@ -2,7 +2,8 @@ import { z } from "zod";
 import { SEGMENTS } from "@/twin/types";
 import { EconomicsSchema } from "./economics";
 import { MAX_FEEDBACK_ROWS } from "./feedback-csv";
-import { MAX_COUNT, MAX_HISTORY_ROWS, MIN_HISTORY_MONTHS, MONTH_PATTERN, type HistoryRow } from "./history-csv";
+import { HISTORY_COLUMNS, MAX_COUNT, MAX_HISTORY_ROWS, MIN_HISTORY_MONTHS, MONTH_PATTERN, type HistoryRow } from "./history-csv";
+import { capErrors, type RowError } from "./row-error";
 
 // What the browser sends with validate, simulate and agent requests. The server parses it with this
 // strict, bounded schema first, then re-validates the cross-row rules (`validateHistoryRows`) and
@@ -32,4 +33,20 @@ export function toTuple(r: HistoryRow): HistoryTuple {
 
 export function fromTuple([month, segment, active_start, voluntary_cancels, involuntary_cancels, moved_to_core, moved_to_price_sensitive, moved_to_at_risk, moved_to_cancel_intent, new_signups]: HistoryTuple): HistoryRow {
   return { month, segment, active_start, voluntary_cancels, involuntary_cancels, moved_to_core, moved_to_price_sensitive, moved_to_at_risk, moved_to_cancel_intent, new_signups };
+}
+
+/**
+ * Schema issues as row errors: `rows[i][j]` is CSV row i + 2 and column j; other paths are named as dotted
+ * paths. Unknown keys get a fixed message, because Zod's default one would echo the key the client sent.
+ */
+export function payloadIssues(error: z.ZodError): RowError[] {
+  return capErrors(error.issues.map((issue): RowError => {
+    const message = issue.code === "unrecognized_keys" ? "unexpected field" : issue.message;
+    const [head, index, field] = issue.path;
+    if (head === "rows" && typeof index === "number") {
+      const column = typeof field === "number" ? HISTORY_COLUMNS[field] ?? null : null;
+      return { row: index + 2, column, message };
+    }
+    return { row: null, column: issue.path.map(String).join(".") || null, message };
+  }));
 }

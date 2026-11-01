@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { buildDemoTwin } from "@/merchant/demo";
 import { historyRowsFromTwin } from "./csv-write";
 import { DEFAULT_ECONOMICS } from "./economics";
-import { fromTuple, ImportPayloadSchema, toTuple, type HistoryTuple } from "./import-payload";
+import { fromTuple, ImportPayloadSchema, payloadIssues, toTuple, type HistoryTuple } from "./import-payload";
 
 const rows = historyRowsFromTwin(buildDemoTwin().history);
 const payload = { rows: rows.map(toTuple), economics: DEFAULT_ECONOMICS };
@@ -29,4 +29,29 @@ it("is strict and bounded", () => {
 it("keeps the largest legal payload well under the 64 KiB request cap", () => {
   const big: HistoryTuple = ["2026-09", "price_sensitive", 9_999_999, 9_999_999, 9_999_999, 9_999_999, 9_999_999, 9_999_999, 9_999_999, 9_999_999];
   expect(new TextEncoder().encode(JSON.stringify({ rows: Array(300).fill(big), economics: DEFAULT_ECONOMICS })).byteLength).toBeLessThan(40 * 1024);
+});
+
+it("maps schema issues to CSV rows and columns", () => {
+  const rows = structuredClone(payload.rows);
+  rows[12][3] = -1;
+  const parsed = ImportPayloadSchema.safeParse({ ...payload, rows, economics: { ...DEFAULT_ECONOMICS, merchantName: "" } });
+  expect(parsed.success).toBe(false);
+  if (parsed.success) return;
+  expect(payloadIssues(parsed.error).map(({ row, column }) => ({ row, column }))).toEqual([
+    { row: 14, column: "voluntary_cancels" },
+    { row: null, column: "economics.merchantName" },
+  ]);
+});
+it("never echoes unexpected field names", () => {
+  const secret = "customer-email@example.com";
+  const parsed = ImportPayloadSchema.safeParse({ ...payload, [secret]: 1, economics: { ...DEFAULT_ECONOMICS, [secret]: 2 } });
+  expect(parsed.success).toBe(false);
+  if (parsed.success) return;
+  const issues = payloadIssues(parsed.error);
+  expect(issues).toHaveLength(2);
+  expect(issues).toEqual(expect.arrayContaining([
+    { row: null, column: null, message: "unexpected field" },
+    { row: null, column: "economics", message: "unexpected field" },
+  ]));
+  expect(JSON.stringify(issues)).not.toContain(secret);
 });
