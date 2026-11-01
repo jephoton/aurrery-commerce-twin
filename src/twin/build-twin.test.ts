@@ -28,14 +28,35 @@ describe("buildTwinFromHistory", () => {
     }
     expect(provenance.unitEconomics.note).toContain("Merchant-entered assumptions");
   });
-  it("turns classified counts into reason-share posteriors and keeps the prior elsewhere", () => {
+  it("updates each segment's own reason prior with classified counts and keeps the prior elsewhere", () => {
     const withCounts = buildTwinFromHistory({ ...input, source: "csv", reasonCounts: counts });
     const without = buildTwinFromHistory({ ...input, source: "csv" });
-    expect(withCounts.params.segments.at_risk.priceReasonShare).toEqual({ alpha: 17, beta: 3 });
-    expect(withCounts.params.segments.core.priceReasonShare).toEqual({ alpha: 3, beta: 7 });
+    // Priors have strength 10: at risk Beta(4.5, 5.5), core Beta(2, 8).
+    expect(withCounts.params.segments.at_risk.priceReasonShare).toEqual({ alpha: 20.5, beta: 7.5 });
+    expect(withCounts.params.segments.core.priceReasonShare).toEqual({ alpha: 4, beta: 14 });
     expect(withCounts.params.segments.cancel_intent.priceReasonShare).toEqual(without.params.segments.cancel_intent.priceReasonShare);
     expect(betaMean(without.params.segments.cancel_intent.priceReasonShare)).toBeCloseTo(0.6);
     expect(withCounts.provenance.priceReasonShare).toMatchObject({ source: "estimated", evidenceCount: 26, note: expect.stringContaining("AI-classified from 26 feedback rows") });
+    expect(withCounts.provenance.priceReasonShare.note).toContain("Core 2 price / 6 other");
+    expect(withCounts.provenance.priceReasonShare.note).toContain("At risk (skipped or paused recently) 16 price / 2 other");
+  });
+  it("keeps one feedback row from swinging a segment far from its prior", () => {
+    const one = buildTwinFromHistory({ ...input, source: "csv", reasonCounts: { ...counts, core: { price: 1, other: 0 } } });
+    expect(betaMean(one.params.segments.core.priceReasonShare)).toBeCloseTo(3 / 11);
+  });
+  it("rejects empty history and invalid reason counts", () => {
+    expect(() => buildTwinFromHistory({ ...input, source: "csv", history: { ...history, segments: [] } })).toThrow(RangeError);
+    expect(() => buildTwinFromHistory({ ...input, source: "csv", history: { ...history, acquisition: [] } })).toThrow(RangeError);
+    for (const bad of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => buildTwinFromHistory({ ...input, source: "csv", reasonCounts: { ...counts, new: { price: bad, other: 0 } } })).toThrow(RangeError);
+      expect(() => buildTwinFromHistory({ ...input, source: "csv", reasonCounts: { ...counts, new: { price: 0, other: bad } } })).toThrow(RangeError);
+    }
+  });
+  it("says when a segment's churn falls back to the prior for lack of exposure", () => {
+    const segments = history.segments.map((r) => (r.segment === "cancel_intent" ? { ...r, activeAtStart: 0, voluntaryChurn: 0, involuntaryChurn: 0, movedTo: { at_risk: 0 } } : r));
+    const twin = buildTwinFromHistory({ ...input, source: "csv", history: { ...history, segments } });
+    expect(twin.provenance.monthlyChurn.note).toContain("Cancel intent (opened cancel flow) uses the prior because your CSV has no exposure for that segment.");
+    expect(buildTwinFromHistory({ ...input, source: "csv" }).provenance.monthlyChurn.note).not.toContain("uses the prior");
   });
   it("uses the entered list price as the reference price and copies the profile", () => {
     const twin = buildTwinFromHistory({ ...input, economics: { ...RIDGELINE_ECONOMICS, listPrice: 30 }, source: "csv" });

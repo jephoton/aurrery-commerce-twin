@@ -39,7 +39,7 @@ it("enables reason targeting only when classified feedback exists", () => {
   const none = buildImportedTwin({ ...payload(), reasonCounts: { new: zero, core: zero, price_sensitive: zero, at_risk: zero, cancel_intent: zero } });
   expect(none.ok && none.reasonTargeting).toBe(false);
   const some = buildImportedTwin({ ...payload(), reasonCounts: { new: zero, core: zero, price_sensitive: zero, at_risk: zero, cancel_intent: { price: 4, other: 1 } } });
-  expect(some.ok && [some.reasonTargeting, some.feedbackRows, some.twin.params.segments.cancel_intent.priceReasonShare]).toEqual([true, 5, { alpha: 5, beta: 2 }]);
+  expect(some.ok && [some.reasonTargeting, some.feedbackRows, some.twin.params.segments.cancel_intent.priceReasonShare]).toEqual([true, 5, { alpha: 10, beta: 5 }]);
 });
 it("writes CSV that parses back to the same rows", () => {
   const parsed = parseHistoryCsv(historyCsv(rows));

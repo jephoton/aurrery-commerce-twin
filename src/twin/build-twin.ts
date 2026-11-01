@@ -33,6 +33,26 @@ const FLAT_PRIOR = { alpha: 1, beta: 1 };
 /** Prior share of price-driven leavers per segment, used until customer feedback is classified. */
 const PRICE_REASON_PRIOR: Record<SegmentId, number> = { new: 0.3, core: 0.2, price_sensitive: 0.65, at_risk: 0.45, cancel_intent: 0.6 };
 const reasonPrior = (segment: SegmentId) => ({ alpha: PRICE_REASON_PRIOR[segment] * 10, beta: (1 - PRICE_REASON_PRIOR[segment]) * 10 });
+const SEGMENT_LABELS: Record<SegmentId, string> = {
+  new: "New (first 3 months)",
+  core: "Core",
+  price_sensitive: "Price sensitive",
+  at_risk: "At risk (skipped or paused recently)",
+  cancel_intent: "Cancel intent (opened cancel flow)",
+};
+
+const isCount = (n: number) => Number.isSafeInteger(n) && n >= 0;
+
+/** Backstop to the import payload schema: the builder never estimates from empty or malformed input. */
+function assertBuildable(history: TwinHistory, reasonCounts: ReasonCounts | undefined): void {
+  if (history.segments.length === 0) throw new RangeError("Twin history needs at least one segment-month row.");
+  if (history.acquisition.length === 0) throw new RangeError("Twin history needs at least one month of signups.");
+  if (!reasonCounts) return;
+  for (const segment of SEGMENTS) {
+    const c = reasonCounts[segment];
+    if (!c || !isCount(c.price) || !isCount(c.other)) throw new RangeError(`Reason counts for ${segment} must be non-negative integers.`);
+  }
+}
 
 /** Each segment's state after the last history month: start − cancels − moves out + moves in. */
 export function startingActives(rows: HistoryRecord[]): Record<SegmentId, number> {
@@ -48,6 +68,7 @@ export function startingActives(rows: HistoryRecord[]): Record<SegmentId, number
 
 export function buildTwinFromHistory(input: BuildTwinInput): MerchantTwin {
   const { history, economics, profile, asOfMonth, source, reasonCounts } = input;
+  assertBuildable(history, reasonCounts);
   const rows = history.segments;
   const voluntary = estimateChurn(rows, WEAK_RATE_PRIOR, "voluntary");
   const involuntary = estimatePooledInvoluntary(rows, WEAK_RATE_PRIOR);
@@ -64,10 +85,17 @@ export function buildTwinFromHistory(input: BuildTwinInput): MerchantTwin {
   const csv = source === "csv";
   const fromCsv = `estimated from your CSV (${months} months)`;
   const feedbackRows = reasonCounts ? SEGMENTS.reduce((s, seg) => s + reasonCounts[seg].price + reasonCounts[seg].other, 0) : 0;
+  const feedbackBySegment = SEGMENTS.flatMap((seg) => {
+    const c = reasonCounts?.[seg];
+    return c && c.price + c.other > 0 ? [`${SEGMENT_LABELS[seg]} ${c.price} price / ${c.other} other`] : [];
+  }).join("; ");
+  const noExposure = SEGMENTS.filter((seg) => voluntary[seg].exposure === 0)
+    .map((seg) => ` ${SEGMENT_LABELS[seg]} uses the prior because ${csv ? "your CSV" : "the history"} has no exposure for that segment.`)
+    .join("");
   const est = (note: string, evidenceCount: number): Provenance => ({ source: "estimated", note, evidenceCount });
   const assume = (note: string): Provenance => ({ source: "assumption", note });
   const provenance: Record<string, Provenance> = {
-    monthlyChurn: est(csv ? `Beta posterior per segment, ${fromCsv}.` : `Beta posterior per segment from ${months} months of synthetic subscriber history.`, rows.reduce((s, r) => s + r.activeAtStart, 0)),
+    monthlyChurn: est((csv ? `Beta posterior per segment, ${fromCsv}.` : `Beta posterior per segment from ${months} months of synthetic subscriber history.`) + noExposure, rows.reduce((s, r) => s + r.activeAtStart, 0)),
     involuntaryChurn: est(csv ? `Pooled Beta posterior of unrecovered failed payments, ${fromCsv}.` : "Pooled Beta posterior of unrecovered failed payments.", involuntary.exposure),
     monthlyAcquisition: est(csv ? `Mean and spread of monthly signups, ${fromCsv}.` : `Mean and spread of ${months} months of signups.`, months),
     transitions: est(csv ? `Beta posteriors of segment moves, ${fromCsv}.` : "Beta posteriors of observed segment moves.", rows.length),
@@ -77,14 +105,16 @@ export function buildTwinFromHistory(input: BuildTwinInput): MerchantTwin {
     "offerChurnRelativeRisk.price": assume("Prior that a retention discount cuts churn to ~45% of normal for price-driven leavers (wide); updated from observed outcomes. The modelled effect does not scale with discount depth: deeper discounts cost more without retaining more."),
     "offerChurnRelativeRisk.other": assume("Prior that a retention discount cuts churn to ~85% of normal for other leavers (sd 0.10, allowing a small chance of no benefit); updated from observed outcomes. The modelled effect does not scale with discount depth: deeper discounts cost more without retaining more."),
     priceReasonShare: feedbackRows > 0
-      ? est(`AI-classified from ${feedbackRows} feedback rows: reason counts within each segment, not cancellation rates or causal discount effects. Segments without feedback keep the prior.`, feedbackRows)
+      ? est(`AI-classified from ${feedbackRows} feedback rows (${feedbackBySegment}), each updating its segment's prior: reason counts within each segment, not cancellation rates or causal discount effects. Segments without feedback keep the prior.`, feedbackRows)
       : assume("Prior share of price-driven leavers per segment; replaced by classified customer feedback when available. Sets the initial split and acquisitions; only cancel intent is re-split on entry, so other segments drift."),
     postOfferChurnMultiplier: assume("Prior on extra churn in the month a discount expires."),
     unitEconomics: assume(csv ? "Merchant-entered assumptions from the import form (list price, unit and shipping cost, payment fees); verify them for your account." : "Merchant-entered costs. Payment fee approximates a standard PayPal rate; verify for your account."),
   };
+  // Classified counts update the segment's own prior (strength 10), so a handful of rows cannot swing it far.
   const priceReasonShare = (segment: SegmentId) => {
+    const prior = reasonPrior(segment);
     const c = reasonCounts?.[segment];
-    return c && c.price + c.other > 0 ? { alpha: 1 + c.price, beta: 1 + c.other } : reasonPrior(segment);
+    return c && c.price + c.other > 0 ? { alpha: prior.alpha + c.price, beta: prior.beta + c.other } : prior;
   };
 
   return {
@@ -114,11 +144,11 @@ export function buildTwinFromHistory(input: BuildTwinInput): MerchantTwin {
       offerChurnRelativeRisk: { price: { shape: 9, rate: 20 }, other: { shape: 72.25, rate: 85 } },
       postOfferChurnMultiplier: { mean: 1.25, sd: 0.15 },
       segments: {
-        new: { label: "New (first 3 months)", monthlyChurn: voluntary.new.posterior, churnPriceElasticity: { mean: 1.5, sd: 0.7 }, annualUptake: { alpha: 2, beta: 38 }, priceReasonShare: priceReasonShare("new") },
-        core: { label: "Core", monthlyChurn: voluntary.core.posterior, churnPriceElasticity: { mean: 1.0, sd: 0.5 }, annualUptake: { alpha: 3, beta: 22 }, priceReasonShare: priceReasonShare("core") },
-        price_sensitive: { label: "Price sensitive", monthlyChurn: voluntary.price_sensitive.posterior, churnPriceElasticity: { mean: 2.5, sd: 1.0 }, annualUptake: { alpha: 2, beta: 23 }, priceReasonShare: priceReasonShare("price_sensitive") },
-        at_risk: { label: "At risk (skipped or paused recently)", monthlyChurn: voluntary.at_risk.posterior, churnPriceElasticity: { mean: 1.8, sd: 0.8 }, annualUptake: { alpha: 1, beta: 39 }, priceReasonShare: priceReasonShare("at_risk") },
-        cancel_intent: { label: "Cancel intent (opened cancel flow)", monthlyChurn: voluntary.cancel_intent.posterior, churnPriceElasticity: { mean: 2.0, sd: 0.8 }, annualUptake: { alpha: 1, beta: 49 }, priceReasonShare: priceReasonShare("cancel_intent") },
+        new: { label: SEGMENT_LABELS.new, monthlyChurn: voluntary.new.posterior, churnPriceElasticity: { mean: 1.5, sd: 0.7 }, annualUptake: { alpha: 2, beta: 38 }, priceReasonShare: priceReasonShare("new") },
+        core: { label: SEGMENT_LABELS.core, monthlyChurn: voluntary.core.posterior, churnPriceElasticity: { mean: 1.0, sd: 0.5 }, annualUptake: { alpha: 3, beta: 22 }, priceReasonShare: priceReasonShare("core") },
+        price_sensitive: { label: SEGMENT_LABELS.price_sensitive, monthlyChurn: voluntary.price_sensitive.posterior, churnPriceElasticity: { mean: 2.5, sd: 1.0 }, annualUptake: { alpha: 2, beta: 23 }, priceReasonShare: priceReasonShare("price_sensitive") },
+        at_risk: { label: SEGMENT_LABELS.at_risk, monthlyChurn: voluntary.at_risk.posterior, churnPriceElasticity: { mean: 1.8, sd: 0.8 }, annualUptake: { alpha: 1, beta: 39 }, priceReasonShare: priceReasonShare("at_risk") },
+        cancel_intent: { label: SEGMENT_LABELS.cancel_intent, monthlyChurn: voluntary.cancel_intent.posterior, churnPriceElasticity: { mean: 2.0, sd: 0.8 }, annualUptake: { alpha: 1, beta: 49 }, priceReasonShare: priceReasonShare("cancel_intent") },
       },
     },
     provenance,
