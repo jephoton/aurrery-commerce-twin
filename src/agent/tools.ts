@@ -2,7 +2,7 @@ import "server-only";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { currentMerchant } from "@/merchant";
-import { STARTER_STRATEGIES } from "@/merchant/candidates";
+import { STARTER_STRATEGIES, starterStrategiesFor } from "@/merchant/candidates";
 import { listSandboxSubscribers, ProposalError, type CreateProposalInput, type Proposal, type SandboxSubscriber } from "@/ledger/proposals";
 import { PILOT_COHORT } from "@/paypal/setup";
 import { proposeStrategy } from "@/execution/annual-proposal";
@@ -14,7 +14,10 @@ import { StrategySchema, BASELINE, type Strategy } from "@/twin/interventions";
 import type { compareStrategies, ComparisonResult, StrategyResult } from "@/twin/simulate";
 import type { stressTest, StressResult } from "@/twin/stress";
 import { runComparison, runStress, WorkerTaskError } from "@/twin/worker-client";
-import { SEGMENTS, type MerchantTwin } from "@/twin/types";
+import { SEGMENTS, type MerchantTwin, type SegmentId } from "@/twin/types";
+import type { ReasonCounts } from "@/twin/build-twin";
+import { usesReasonTargeting } from "@/import/imported-twin";
+import { DEMO_ONLY_MESSAGE, REASON_UNAVAILABLE_MESSAGE } from "@/import/messages";
 import { DEFAULT_DECISION_RULES, DecisionRulesSchema, type AgentEvent, type ClassificationFailure, type ClassificationSummary, type DecisionRules, type ToolResult } from "./contracts";
 import { selectedProvider } from "./model";
 import { simulationRuns } from "@/hosting/simulation-budget";
@@ -55,6 +58,9 @@ class ToolFailure extends Error {
   constructor(readonly code: string, message: string, readonly terminal = false, readonly failure?: ClassificationFailure) { super(message); }
 }
 const safeClassificationFailure = z.object({ category: z.enum(["configuration", "auth", "model", "request", "quota", "network", "timeout", "server", "malformed_json", "envelope", "response_size"]), status: z.number().int().min(100).max(599).optional() });
+/** What the server knows about an imported merchant's feedback (M6). The twin itself arrives as `twin`. */
+export interface ImportedContext { reasonCounts?: ReasonCounts; feedbackRows: number; reasonTargeting: boolean }
+const IMPORTED_EVIDENCE_NOTE = "Your CSV history estimates churn, signups and segment moves; uploaded feedback classified before this run (if any) estimates leaving reasons. Price sensitivity, annual uptake and discount effects are assumptions. Simulate only: no PayPal action, offer or proposal exists for this merchant.";
 export interface ToolContextOptions {
   env?: Record<string, string | undefined>;
   objective?: string;
@@ -69,11 +75,15 @@ export interface ToolContextOptions {
   /** Receives the run's abort signal so a cancelled or timed-out run never leaves an orphan proposal. */
   propose?: (input: CreateProposalInput, signal?: AbortSignal) => Proposal | Promise<Proposal>;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  /** Imported merchant (M6): simulate only. Reads no pilot registry or observed evidence and creates no proposal or offer. */
+  imported?: ImportedContext;
 }
 export interface ToolState {
   twin: MerchantTwin; rules: DecisionRules; rulesExplicit: boolean; classified: boolean;
   revision: number; classification?: ClassificationSummary; comparison?: ComparisonResult;
   stresses: Record<string, StressResult>; proposal?: Proposal;
+  /** Imported merchants only: the simulate-only pick. */
+  recommendation?: { strategyId: string; rationale: string; tradeoffs: string };
   terminalFailure?: ClassificationFailure;
 }
 /** A context is owned by one runner. Model callers only receive dispatch results, never this state. */
@@ -82,6 +92,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
   const objective = text.parse(options.objective ?? "Improve subscription retention");
   const state: ToolState = { twin: structuredClone(original), rules: { ...DEFAULT_DECISION_RULES }, classified: false, rulesExplicit: false, revision: 0, stresses: {} };
   const emit = options.emit ?? (() => {});
+  const imported = options.imported;
   const registry = options.registry ?? listSandboxSubscribers;
   const labels = PILOT_COHORT.map(({ label }) => label);
   let accepted: ClassificationResult["accepted"] = [];
@@ -111,24 +122,39 @@ export function createToolContext(options: ToolContextOptions = {}) {
     checkAbort();
     if (state.terminalFailure && name !== "get_merchant_state") throw new ToolFailure("CLASSIFICATION_FAILED", "Classification failed; start a new run before recommending.", true, state.terminalFailure);
     if (state.proposal && name !== "get_merchant_state") throw new ToolFailure("PROPOSAL_EXISTS", "This run already created a proposal. Review that proposal or start a new run.");
+    if (state.recommendation && name !== "get_merchant_state") throw new ToolFailure("RECOMMENDATION_EXISTS", "This run already recorded its simulate-only recommendation. Start a new run to explore further.");
     switch (name) {
       case "get_merchant_state": {
         const active = Object.values(state.twin.initialActive).reduce((sum, count) => sum + count, 0);
+        const feedbackIn = (segment: SegmentId) => (imported?.reasonCounts?.[segment].price ?? 0) + (imported?.reasonCounts?.[segment].other ?? 0);
         return {
           merchant: state.twin.merchant, asOfMonth: state.twin.asOfMonth,
           metrics: { currency: state.twin.params.currency, listPrice: state.twin.params.listPrice, active, monthlyListRevenue: active * state.twin.params.listPrice, unitFulfilmentCost: state.twin.params.unitCost + state.twin.params.shippingCost },
           segments: SEGMENTS.map((segment) => {
             const p = state.twin.params.segments[segment];
-            return { segment, active: state.twin.initialActive[segment], monthlyChurnMean: p.monthlyChurn.alpha / (p.monthlyChurn.alpha + p.monthlyChurn.beta), priceReasonShareMean: p.priceReasonShare.alpha / (p.priceReasonShare.alpha + p.priceReasonShare.beta), reasonShareSource: state.twin.provenance[`segments.${segment}.priceReasonShare`]?.source ?? "assumption" };
+            // An import's provenance is pooled, so a segment's source follows its own classified feedback.
+            const reasonShareSource = imported ? (feedbackIn(segment) > 0 ? "estimated" : "assumption") : state.twin.provenance[`segments.${segment}.priceReasonShare`]?.source ?? "assumption";
+            return { segment, active: state.twin.initialActive[segment], monthlyChurnMean: p.monthlyChurn.alpha / (p.monthlyChurn.alpha + p.monthlyChurn.beta), priceReasonShareMean: p.priceReasonShare.alpha / (p.priceReasonShare.alpha + p.priceReasonShare.beta), reasonShareSource };
           }),
-          assumptions: assumptions(), evidenceNote: "Synthetic history estimates churn; classified feedback estimates leaving reasons. Intervention effects are uncertain and stress tested.",
-          starterStrategies: STARTER_STRATEGIES,
+          assumptions: assumptions(), evidenceNote: imported ? IMPORTED_EVIDENCE_NOTE : "Synthetic history estimates churn; classified feedback estimates leaving reasons. Intervention effects are uncertain and stress tested.",
+          // Same rule as importedStarterStrategies: scaled to list price, no reason targeting without feedback, no empty cancel-intent save.
+          starterStrategies: imported ? starterStrategiesFor(state.twin.params.listPrice, { reasonTargeting: imported.reasonTargeting, cancelIntentActive: state.twin.initialActive.cancel_intent }) : STARTER_STRATEGIES,
           baseline: { strategy: BASELINE, automaticallyIncluded: true },
           rules: state.rules, rulesExplicit: state.rulesExplicit, classified: state.classified, classification: state.classification, terminalFailure: state.terminalFailure, revision: state.revision, comparedStrategyIds: [...strategies.keys()], proposalId: state.proposal?.id,
+          ...(imported ? { simulateOnly: true, recommendedStrategyId: state.recommendation?.strategyId } : {}),
         };
       }
       case "classify_feedback": {
         state.classified = false; state.classification = undefined; invalidate();
+        if (imported) {
+          // Classified by POST /api/import/classify before this run; no model call, registry read or pilot mapping here.
+          state.classified = true;
+          return {
+            source: "AI-classified uploaded feedback, classified before this run (no model call now)",
+            feedbackRows: imported.feedbackRows, segments: imported.reasonCounts ?? null, reasonTargeting: imported.reasonTargeting,
+            note: imported.reasonTargeting ? "Reason counts within each segment, not cancellation rates or causal discount effects." : REASON_UNAVAILABLE_MESSAGE,
+          };
+        }
         let provider: ClassificationProvider;
         try {
           provider = options.provider ?? createProvider({ ...selectedProvider(options.env ?? process.env), env: options.env });
@@ -180,6 +206,7 @@ export function createToolContext(options: ToolContextOptions = {}) {
         const next = new Map(strategies);
         for (const raw of candidates) {
           const candidate = StrategySchema.parse(raw);
+          if (imported && !imported.reasonTargeting && usesReasonTargeting(candidate)) throw new ToolFailure("REASON_UNAVAILABLE", REASON_UNAVAILABLE_MESSAGE);
           if ((candidate.id === BASELINE.id || candidate.intervention.kind === "baseline") && JSON.stringify(candidate) !== JSON.stringify(BASELINE)) throw new ToolFailure("STRATEGY_CONFLICT", "Server adds do nothing automatically; submit intervention candidates only, or use the exact baseline from get_merchant_state.");
           const existing = next.get(candidate.id) ?? strategyDefinitions.get(candidate.id);
           if (existing && JSON.stringify(existing) !== JSON.stringify(candidate)) throw new ToolFailure("STRATEGY_CONFLICT", "Strategy IDs must retain the same definition in a run.");
@@ -214,10 +241,16 @@ export function createToolContext(options: ToolContextOptions = {}) {
         const result = currentResult(strategyId);
         if (!state.stresses[strategyId]) throw new ToolFailure("PREREQUISITE", "Stress test this strategy in the current context first.");
         const kind = result.strategy.intervention.kind;
-        if (kind !== "targeted_discount" && kind !== "annual_plan") throw new ToolFailure("NOT_EXECUTABLE", "Only retention discounts and annual-plan offers are executable in this build.");
+        if (kind !== "targeted_discount" && kind !== "annual_plan") throw new ToolFailure("NOT_EXECUTABLE", imported ? "Only retention discounts and annual-plan strategies can be recommended; a list-price change rests on an unobserved price-response assumption." : "Only retention discounts and annual-plan offers are executable in this build.");
         // The discount budget governs retention discounts only; an annual prepay discount is netted in total value.
         if ((kind === "targeted_discount" && result.metrics.discountCost.mean > state.rules.discountBudget) || result.probValueBelowBaseline > state.rules.maxProbWorse)
           throw new ToolFailure("RULE_VIOLATION", "The base simulation exceeds the decision rules.");
+        if (imported) {
+          // Simulate only: no registry read, no proposal, no annual offer, no PayPal.
+          state.recommendation = { strategyId, rationale, tradeoffs };
+          emit({ type: "recommendation", strategy: result.strategy, rationale, tradeoffs, simulateOnly: true });
+          return { strategyId, simulateOnly: true, message: DEMO_ONLY_MESSAGE, rationale, tradeoffs };
+        }
         // Discount targets come from classified evidence; annual targets come from live PayPal eligibility in preparation.
         const eligibleTargetIds = kind === "targeted_discount" ? pilotEligibility(feedbackCorpus, accepted, await registry(), labels).eligibleSubscriptionIds : undefined;
         checkAbort();
