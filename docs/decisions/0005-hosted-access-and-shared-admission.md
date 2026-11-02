@@ -2,6 +2,8 @@
 
 **Status:** accepted local M5 Task 2 checkpoint at `38e0a2a`, independently reviewed. Decision 0006 supersedes the Render persistent-disk assumption. The B2 async session/quota migration is an intermediate implementation awaiting review; hosted acceptance remains pending.
 
+**Superseded limits (M6):** the agent limits below are superseded by M6 (plan-review decision 3, sized to the hosted Gemini free quota): `agent` is 10/client/hour, 15/global/hour and 30/global/day. A new `classify` kind for `POST /api/import/classify` is 10/client/hour, 15/global/hour and 15/global/day, so classification never consumes agent runs. The shared client bucket is unchanged.
+
 ## Context
 
 M5 permits public synthetic exploration but keeps PayPal mutation under merchant control. Hosted requests can arrive through a proxy. A forwarded IP header is client-controlled unless the proxy's overwrite and hop semantics are verified; the available Render description does not establish enough detail to select one safely. The existing process-local agent lease and model pacing also disappear on restart, so they cannot replace a durable visit budget.

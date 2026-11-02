@@ -109,7 +109,7 @@ it("is unavailable without a configured classifier and busy while an agent run h
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it("answers a provider failure with a fixed error", async () => {
+it("returns partial, stopped counts without leaking the error when the provider keeps failing", async () => {
   let now = 0;
   const fetch = vi.fn(async () => { throw new Error("socket closed: Too expensive"); });
   const handler = createClassifyHandler({ env, fetch, cache: createMemoryPredictionCache(), window: createTokenWindow(), now: () => now, sleep: async (ms) => { now += ms; } });
@@ -119,5 +119,18 @@ it("answers a provider failure with a fixed error", async () => {
   const text = await response.text();
   expect(text).not.toContain("Too expensive");
   expect(text).not.toContain("socket");
+  expectLeaseFree();
+});
+
+it("answers an unexpected classification failure with a fixed 502 and frees the lease", async () => {
+  const logs = (["log", "info", "warn", "error", "debug"] as const).map((level) => vi.spyOn(console, level).mockImplementation(() => {}));
+  const fetch = vi.fn(async (_input: unknown, init?: RequestInit) => groq(init));
+  const cache = createMemoryPredictionCache();
+  vi.spyOn(cache, "get").mockImplementation(() => { throw new Error("cache broke on Too expensive"); });
+  const response = await post(createClassifyHandler({ env, fetch, cache, window: createTokenWindow() }), { rows });
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({ error: "CLASSIFICATION_FAILED", message: "Feedback classification failed. Import without feedback, or try again later." });
+  expect(fetch).not.toHaveBeenCalled();
+  for (const spy of logs) expect(spy).not.toHaveBeenCalled();
   expectLeaseFree();
 });
