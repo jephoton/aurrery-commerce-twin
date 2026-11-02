@@ -136,3 +136,12 @@ it("labels an imported pick simulate-only and never offers PayPal wording", () =
   expect(none).toContain("No strategy meets the decision rules");
   expect(none).not.toContain("No executable strategy");
 });
+
+it("labels bigger levers for an imported pick without repeating that nothing is executable", () => {
+  const rise = { ...selected, strategy: { id: "rise", name: "Raise list price to $23", intervention: { kind: "list_price_change" as const, newPrice: 23 } }, vsBaseline: { ...selected.vsBaseline, totalValue: { ...selected.vsBaseline.totalValue, p50: 5_261 } } };
+  const imported = render({ ...baseProps, selected: { ...selected, strategy: STARTER_STRATEGIES[0] }, recommended: true, simulateOnly: true, biggerLevers: [rise] });
+  expect(imported).toContain("Bigger simulated levers");
+  expect(imported).toContain("not recommended: price response is an assumption");
+  expect(imported).not.toContain("not executable here");
+  expect(render({ ...baseProps, recommended: true, biggerLevers: [rise] })).toContain("simulate only, not executable here");
+});

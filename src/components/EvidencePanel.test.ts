@@ -156,3 +156,9 @@ it("shows an imported twin's own provenance and feedback, never Ridgeline's meas
   const noFeedback = renderToStaticMarkup(createElement(EvidencePanel, { summary: { ...imported, imported: { ...imported.imported!, feedbackRows: 0, reasonCounts: undefined } }, evidence: null, source: null, snapshot: null }));
   expect(noFeedback).toContain("No feedback imported");
 });
+
+it("treats a segment missing from imported reason counts as zero instead of crashing", () => {
+  const imported = { ...summary, segments: [...summary.segments, { id: "core", label: "Core", active: 100, churn: 0.03 }], imported: { months: 12, firstMonth: "2025-10", lastMonth: "2026-09", feedbackRows: 5, reasonCounts: { cancel_intent: { price: 4, other: 1 } } } } as unknown as MerchantSummary;
+  const html = renderToStaticMarkup(createElement(EvidencePanel, { summary: imported, evidence: null, source: "manual", snapshot: null }));
+  expect(html).toMatch(/Core: 0 feedback rows · 0 price · 0 other/);
+});

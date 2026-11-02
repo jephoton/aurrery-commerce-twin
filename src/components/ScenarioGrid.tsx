@@ -43,12 +43,15 @@ export function ScenarioGrid({
   onSelect,
   disabled = false,
   horizonMonths = 12,
+  simulateOnly = false,
 }: {
   rows: ScenarioRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   disabled?: boolean;
   horizonMonths?: number;
+  /** An imported merchant (M6): the PayPal column explains that actions exist for the demo merchant only. */
+  simulateOnly?: boolean;
 }) {
   const api = useRef<GridApi<ScenarioRow> | null>(null);
   const [family, setFamily] = useState<Family | "All">("All");
@@ -120,7 +123,7 @@ export function ScenarioGrid({
       {
         field: "executable",
         headerName: "PayPal",
-        headerTooltip: "Whether this build can execute the strategy through the PayPal Sandbox",
+        headerTooltip: simulateOnly ? "Simulate only: PayPal actions are available for the demo merchant only" : "Whether this build can execute the strategy through the PayPal Sandbox",
         cellRenderer: (p: { data?: ScenarioRow }) =>
           p.data?.isBaseline ? (
             "—"
@@ -132,7 +135,7 @@ export function ScenarioGrid({
         minWidth: 120,
       },
     ],
-    [horizonMonths, domain],
+    [horizonMonths, domain, simulateOnly],
   );
 
   const onRowSelected = (event: RowSelectedEvent<ScenarioRow>) => {

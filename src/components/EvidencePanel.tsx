@@ -91,7 +91,7 @@ function ImportedFeedback({ imported, segments }: { imported: ImportedDetails; s
   return <>
     <p className="mt-1 text-muted">AI-classified from {imported.feedbackRows} uploaded feedback rows, before simulation</p>
     <ul className="mt-2 space-y-1">{segments.map((segment) => {
-      const c = counts[segment.id];
+      const c = counts[segment.id] ?? { price: 0, other: 0 };
       return <li key={segment.id}>{segment.label}: {c.price + c.other} feedback rows · {c.price} price · {c.other} other</li>;
     })}</ul>
     <p className="mt-2 text-muted">Feedback rows are a separate sample, not a share of the active population or proof that an offer caused retention.</p>

@@ -13,14 +13,14 @@ interface Props {
   horizonMonths: number | null;
   source: "manual" | "agent" | null;
   busy: boolean;
-  /** The selection is the best executable strategy within the decision rules. */
+  /** The selection is the best recommendable strategy within the decision rules (executable for the demo merchant). */
   recommended?: boolean;
-  /** No executable strategy met the rules; the selection is the highest simulated value, for context. */
+  /** No recommendable strategy met the rules; the selection is the highest simulated value, for context. */
   noQualifyingAction?: boolean;
   biggerLevers?: StrategyResult[];
   /** Other executable strategies that also meet the decision rules. */
   alsoExecutable?: StrategyResult[];
-  /** An imported merchant (M6): nothing is executable; the pick is simulate only. */
+  /** An imported merchant (M6): the pick is recommendable but simulate only; nothing is executable. */
   simulateOnly?: boolean;
   onSelect?: (id: string) => void;
 }
@@ -88,7 +88,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
       )}
       {recommended && biggerLevers.length > 0 && (
         <div className="mt-5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
-          <p className="font-semibold">Bigger simulated levers <span className="font-normal text-muted">· simulate only, not executable here</span></p>
+          <p className="font-semibold">Bigger simulated levers <span className="font-normal text-muted">· {simulateOnly ? "not recommended: price response is an assumption" : "simulate only, not executable here"}</span></p>
           <ul className="mt-2 space-y-2">
             {biggerLevers.map((lever) => (
               <li key={lever.strategy.id}>
