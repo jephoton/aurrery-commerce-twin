@@ -77,8 +77,8 @@ it.each(["sqlite", "libsql"])("admits only the allowed count across two %s conne
     await Promise.all(connections.map((connection) => connection.executeMultiple("PRAGMA busy_timeout = 5000;")));
     const stores = connections.map((connection) => createHostingStore(connection, secret));
     const attempts = [];
-    for (let i = 0; i < 12; i++) attempts.push(await stores[i % 2].admit("agent", `client-${i}`, 1_000));
-    expect(attempts.filter((result) => result.allowed)).toHaveLength(6);
+    for (let i = 0; i < 20; i++) attempts.push(await stores[i % 2].admit("agent", `client-${i}`, 1_000));
+    expect(attempts.filter((result) => result.allowed)).toHaveLength(15);
     const token = await stores[0].createSession(password, 1_000);
     expect(await stores[1].isSessionValid(token, password, 1_001)).toBe(true);
     await stores[0].revokeSession(token);
@@ -116,7 +116,7 @@ it.each(["sqlite", "libsql"])("fails closed under simultaneous %s file-client co
     if (backend === "sqlite") expect(outcomes.some((outcome) => outcome.status === "rejected")).toBe(true);
     firstAdmitted = outcomes.filter((outcome) => outcome.status === "fulfilled" && outcome.value.allowed).length;
     expect(firstAdmitted).toBeGreaterThan(0);
-    expect(firstAdmitted).toBeLessThanOrEqual(6);
+    expect(firstAdmitted).toBeLessThanOrEqual(15);
   } finally { for (const client of clients) client.close(); }
   const observer = new DatabaseSync(file);
   try {
@@ -129,10 +129,10 @@ it.each(["sqlite", "libsql"])("fails closed under simultaneous %s file-client co
     expect(Number(observer.prepare("SELECT count(*) AS n FROM hosted_limits").get()?.n)).toBe(firstAdmitted + 2);
     expect(Array.from({ length: 8 }, (_, i) => count(key("client", 3_600_000, `contender-${i}`))).reduce((sum, value) => sum + value, 0)).toBe(firstAdmitted);
     let laterAdmitted = 0;
-    for (let i = 0; i < 8; i++) if ((await store.admit("agent", `later-${i}`, 1_000)).allowed) laterAdmitted++;
-    expect(firstAdmitted + laterAdmitted).toBe(6);
-    expect(count(key("global", 3_600_000))).toBe(6);
-    expect(count(key("global", 86_400_000))).toBe(6);
+    for (let i = 0; i < 20; i++) if ((await store.admit("agent", `later-${i}`, 1_000)).allowed) laterAdmitted++;
+    expect(firstAdmitted + laterAdmitted).toBe(15);
+    expect(count(key("global", 3_600_000))).toBe(15);
+    expect(count(key("global", 86_400_000))).toBe(15);
     expect((await store.admit("agent", "one-more", 1_001)).allowed).toBe(false);
   } finally { observer.close(); }
 });

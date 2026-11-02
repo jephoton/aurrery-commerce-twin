@@ -60,15 +60,15 @@ describe("hosted request guard", () => {
   it("shares the unverified client bucket despite forged proxy headers or an administrator cookie", async () => {
     const token = await store.createSession(config.hosted ? config.adminPassword : "");
     const outcomes = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 11; i++) {
       const request = new Request("https://example.test/api/agent", { method: "POST", headers: {
         origin: "https://example.test", cookie: `__Host-aurrery-admin=${token}`,
         "x-forwarded-for": `203.0.113.${i + 1}`, "x-real-ip": `198.51.100.${i + 1}`,
       } });
       outcomes.push(await guardHostedRequest(request, { limit: "agent" }, config, store));
     }
-    expect(outcomes.slice(0, 3)).toEqual([null, null, null]);
-    expect(outcomes[3]?.status).toBe(429);
-    expect(Number(outcomes[3]?.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(outcomes.slice(0, 10)).toEqual(Array(10).fill(null));
+    expect(outcomes[10]?.status).toBe(429);
+    expect(Number(outcomes[10]?.headers.get("retry-after"))).toBeGreaterThan(0);
   });
 });

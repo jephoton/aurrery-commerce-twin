@@ -3,12 +3,15 @@ import type { LedgerConnection } from "@/ledger/connection";
 import { HOSTED_SCHEMA } from "@/ledger/db";
 import { authoritativeWrite } from "@/ledger/operations";
 
-export type LimitKind = "agent" | "preparation" | "poll" | "login" | "webhook";
+export type LimitKind = "agent" | "classify" | "preparation" | "poll" | "login" | "webhook";
 type Limit = { scope: "client" | "global"; max: number; windowMs: number };
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 const LIMITS: Record<LimitKind, Limit[]> = {
-  agent: [{ scope: "client", max: 3, windowMs: HOUR }, { scope: "global", max: 6, windowMs: HOUR }, { scope: "global", max: 20, windowMs: DAY }],
+  // Sized to the hosted Gemini free quota (15 RPM, 500 requests/day). Imported-feedback classification has its own
+  // kind, so it never consumes agent runs. The client bucket is shared site-wide (decision 0005).
+  agent: [{ scope: "client", max: 10, windowMs: HOUR }, { scope: "global", max: 15, windowMs: HOUR }, { scope: "global", max: 30, windowMs: DAY }],
+  classify: [{ scope: "client", max: 10, windowMs: HOUR }, { scope: "global", max: 15, windowMs: HOUR }, { scope: "global", max: 15, windowMs: DAY }],
   preparation: [{ scope: "client", max: 30, windowMs: HOUR }, { scope: "global", max: 60, windowMs: HOUR }],
   poll: [{ scope: "client", max: 30, windowMs: HOUR }, { scope: "global", max: 60, windowMs: HOUR }],
   login: [{ scope: "client", max: 5, windowMs: 15 * 60 * 1000 }, { scope: "global", max: 30, windowMs: 15 * 60 * 1000 }],

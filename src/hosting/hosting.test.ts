@@ -66,12 +66,14 @@ describe("durable hosted store", () => {
     const { db, store } = await fixture("limits");
     try {
       expect(limitsFor("login")).toEqual([{ scope: "client", max: 5, windowMs: 900_000 }, { scope: "global", max: 30, windowMs: 900_000 }]);
+      expect(limitsFor("agent")).toEqual([{ scope: "client", max: 10, windowMs: 3_600_000 }, { scope: "global", max: 15, windowMs: 3_600_000 }, { scope: "global", max: 30, windowMs: 86_400_000 }]);
+      expect(limitsFor("classify")).toEqual([{ scope: "client", max: 10, windowMs: 3_600_000 }, { scope: "global", max: 15, windowMs: 3_600_000 }, { scope: "global", max: 15, windowMs: 86_400_000 }]);
       let allowed = 0;
-      for (let hour = 0; hour < 4; hour++) for (let i = 0; i < 6; i++) {
+      for (let hour = 0; hour < 3; hour++) for (let i = 0; i < 16; i++) {
         if ((await store.admit("agent", `raw-client-${hour}-${i}`, hour * 3_600_000 + 1_000)).allowed) allowed++;
       }
-      expect(allowed).toBe(20);
-      const blocked = await store.admit("agent", "fresh-client", 4 * 3_600_000 + 1_000);
+      expect(allowed).toBe(30);
+      const blocked = await store.admit("agent", "fresh-client", 3 * 3_600_000 + 1_000);
       expect(blocked.allowed).toBe(false);
       expect(blocked.retryAfter).toBeGreaterThan(3_600);
       expect(JSON.stringify(db.prepare("SELECT bucket_key FROM hosted_limits").all())).not.toContain("raw-client");
