@@ -38,7 +38,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
     <section aria-labelledby="decision-title" className="decision-panel engraved-key mb-6 engraved border border-border bg-surface p-6 sm:p-8">
       <CornerTicks />
       <p className="eyebrow">Decision workspace · no comparison yet</p>
-      <h1 id="decision-title" className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">Simulate before you transact.</h1>
+      <h1 id="decision-title" className="mt-3 max-w-2xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-[3.5rem]">Simulate before you transact.</h1>
       <p className="mt-3 max-w-2xl text-muted">Run the agent or simulate strategies to compare possible outcomes for your business objective. Recommendations appear only after analysis.</p>
       {busy && <p role="status" className="mt-2 text-sm text-muted">Investigation in progress…</p>}
     </section>
@@ -53,7 +53,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
     <section aria-labelledby="decision-title" className="decision-panel mb-6 min-w-0 engraved border border-border bg-surface p-6 sm:p-8">
       <CornerTicks />
       <p className="eyebrow">{label} · simulated, not observed{simulateOnly ? " · simulate only" : ""}</p>
-      <h1 id="decision-title" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{selected.strategy.name}</h1>
+      <h1 id="decision-title" className="mt-3 text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-[3.5rem]">{selected.strategy.name}</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted">{horizonMonths}-month value = gross profit over the horizon plus discounted margin of the subscribers remaining at month {horizonMonths}. Changes are paired against do nothing.</p>
       <dl className="mt-6 grid grid-flow-row-dense grid-cols-2 gap-4 border-t border-dotted border-border pt-5 text-sm sm:grid-cols-3 xl:grid-cols-5">
         <div className="col-span-2 sm:col-span-1"><dt className="text-muted">Expected value change</dt><dd className="mt-1 text-3xl font-semibold tabular-nums text-brand-accent">{signedMoney(value.mean)}</dd><small className="text-muted">mean versus baseline</small></div>
