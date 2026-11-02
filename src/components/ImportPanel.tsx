@@ -1,17 +1,19 @@
 "use client";
 
-import { useId, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type Ref } from "react";
 import { DEFAULT_ECONOMICS, SAMPLE_ECONOMICS, type Economics } from "@/import/economics";
 import { MAX_FEEDBACK_BYTES } from "@/import/feedback-csv";
 import { MAX_HISTORY_BYTES } from "@/import/history-csv";
 import { DEMO_ONLY_MESSAGE } from "@/import/messages";
 import { SAMPLE_FILES } from "@/import/sample-files";
-import { buildImport, formatImportError, readLimitedFile, type ImportError, type ImportSession, type LoadedFile } from "./import-flow";
+import { buildImport, createReadGuard, formatImportError, readLimitedFile, type ImportError, type ImportSession, type LoadedFile } from "./import-flow";
 
 // "Use your own data" (M6): files are read in this tab only, checked locally for instant per-row errors and then re-checked
 // by the server. A failed build leaves the current twin unchanged; a successful one hands the session to `Lab`.
 
 type EconomicsForm = Record<keyof Economics, string>;
+type FileSource = "history" | "feedback";
+type BusyKind = "build" | "sample";
 const NUMBER_FIELDS = [
   ["listPrice", "List price (USD per month, 1–200)"],
   ["unitCost", "Unit cost (USD per box)"],
@@ -19,53 +21,128 @@ const NUMBER_FIELDS = [
   ["paymentFeeRate", "Payment fee rate (0–0.2)"],
   ["paymentFeeFixed", "Fixed payment fee (USD, 0–5)"],
 ] as const;
-const input = "mt-1 block min-h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3";
+const TEXT_FIELDS = [["merchantName", "Merchant name"], ["planName", "Plan name"]] as const;
+const input = "mt-1 block min-h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 aria-[invalid=true]:border-negative";
 const toForm = (e: Economics): EconomicsForm => ({ merchantName: e.merchantName, planName: e.planName, listPrice: String(e.listPrice), unitCost: String(e.unitCost), shippingCost: String(e.shippingCost), paymentFeeRate: String(e.paymentFeeRate), paymentFeeFixed: String(e.paymentFeeFixed) });
-/** Blank or non-numeric fields become NaN, which the schema reports per field. */
+/** Blank or non-numeric fields become NaN, which the flow reports as "must be a number". */
 const toNumber = (value: string) => (value.trim() === "" ? Number.NaN : Number(value));
 const fromForm = (f: EconomicsForm) => ({ merchantName: f.merchantName, planName: f.planName, listPrice: toNumber(f.listPrice), unitCost: toNumber(f.unitCost), shippingCost: toNumber(f.shippingCost), paymentFeeRate: toNumber(f.paymentFeeRate), paymentFeeFixed: toNumber(f.paymentFeeFixed) });
 const fileError = (source: ImportError["source"], message: string): ImportError => ({ source, row: null, column: null, message });
+const STATUS: Record<BusyKind, string> = { build: "Checking the import…", sample: "Loading the sample merchant…" };
 
-export function ImportPanel({ disabled, onImported }: { disabled: boolean; onImported(session: ImportSession): void }) {
+/** Economics errors by form field (first message wins), for aria-invalid and the message under the field. */
+export function economicsFieldErrors(errors: ImportError[]): Partial<Record<keyof Economics, string>> {
+  const out: Partial<Record<keyof Economics, string>> = {};
+  for (const e of errors) {
+    if (e.source === "economics" && e.column && Object.hasOwn(DEFAULT_ECONOMICS, e.column)) out[e.column as keyof Economics] ??= e.message;
+  }
+  return out;
+}
+
+export function ImportPanel({ disabled, onImported, onBusyChange }: {
+  disabled: boolean;
+  onImported(session: ImportSession): void;
+  /** True while a build or sample load runs, so the page can lock other work. */
+  onBusyChange?(busy: boolean): void;
+}) {
   const id = useId();
   const [history, setHistory] = useState<LoadedFile | null>(null);
   const [feedback, setFeedback] = useState<LoadedFile | null>(null);
   const [form, setForm] = useState<EconomicsForm>(() => toForm(DEFAULT_ECONOMICS));
   const [errors, setErrors] = useState<ImportError[]>([]);
-  const [busy, setBusy] = useState(false);
-  // Remounts the file inputs when the sample replaces their files or a file is removed, so they never show a stale name.
+  const [busyKind, setBusyKind] = useState<BusyKind | null>(null);
+  const [reading, setReading] = useState(0);
+  // Remounts the file inputs when the sample replaces their files, a file is removed or rejected, so they never show a stale name.
   const [inputsEpoch, setInputsEpoch] = useState(0);
-  const locked = disabled || busy;
+  // Read sequence per file: state, not a ref, because only handlers use it and it must survive renders.
+  const [reads] = useState(createReadGuard);
+  const controller = useRef<AbortController | null>(null);
+  const inFlight = useRef(false);
+  const errorBox = useRef<HTMLDivElement>(null);
+  const focusErrors = useRef(false);
+  const disabledNow = useRef(disabled);
+  const busyChange = useRef(onBusyChange);
+  const busy = busyKind !== null;
+  const locked = disabled || busy || reading > 0;
 
-  const pick = (source: "history" | "feedback") => async (event: ChangeEvent<HTMLInputElement>) => {
-    const set = source === "history" ? setHistory : setFeedback;
-    const file = event.target.files?.[0];
-    if (!file) { set(null); return; }
-    const loaded = await readLimitedFile(file, source === "history" ? MAX_HISTORY_BYTES : MAX_FEEDBACK_BYTES, source);
-    if ("text" in loaded) { set(loaded); setErrors([]); } else { set(null); setErrors([loaded]); }
+  useEffect(() => { disabledNow.current = disabled; busyChange.current = onBusyChange; });
+  useEffect(() => () => controller.current?.abort(), []);
+  // The cleanup also runs on unmount (a successful import remounts the workspace), so the page is never left locked.
+  useEffect(() => {
+    if (!busy) return;
+    busyChange.current?.(true);
+    return () => busyChange.current?.(false);
+  }, [busy]);
+  useEffect(() => {
+    if (focusErrors.current && errors.length) errorBox.current?.focus();
+    focusErrors.current = false;
+  }, [errors]);
+
+  /** Starts a build or sample load: one at a time, cancelling stale reads and any earlier request. */
+  const begin = (kind: BusyKind): AbortController | null => {
+    if (inFlight.current || disabled || reading > 0) return null;
+    inFlight.current = true;
+    reads.invalidate();
+    controller.current?.abort();
+    controller.current = new AbortController();
+    setBusyKind(kind); setErrors([]);
+    return controller.current;
   };
-  const removeFeedback = () => { setFeedback(null); setInputsEpoch((n) => n + 1); };
+  const end = () => { inFlight.current = false; setBusyKind(null); };
+  const showErrors = (list: ImportError[]) => { focusErrors.current = true; setErrors(list); };
+
+  const pick = async (source: FileSource, event: ChangeEvent<HTMLInputElement>) => {
+    const set = source === "history" ? setHistory : setFeedback;
+    const file = event.currentTarget.files?.[0];
+    const token = reads.begin(source);
+    if (!file) { set(null); return; }
+    setReading((n) => n + 1);
+    try {
+      const loaded = await readLimitedFile(file, source === "history" ? MAX_HISTORY_BYTES : MAX_FEEDBACK_BYTES, source);
+      if (!reads.isCurrent(token)) return;
+      if ("text" in loaded) { set(loaded); setErrors([]); } else { set(null); setInputsEpoch((n) => n + 1); setErrors([loaded]); }
+    } finally { setReading((n) => n - 1); }
+  };
+  const removeFeedback = () => { reads.invalidate("feedback"); setFeedback(null); setInputsEpoch((n) => n + 1); };
   const loadSample = async () => {
-    setBusy(true); setErrors([]);
+    if (locked || inFlight.current) return;
+    const run = begin("sample");
+    if (!run) return;
     try {
       const [h, f] = await Promise.all([SAMPLE_FILES.history, SAMPLE_FILES.feedback].map(async (path): Promise<LoadedFile> => {
-        const response = await fetch(`/${path}`);
+        const response = await fetch(`/${path}`, { signal: run.signal });
         if (!response.ok) throw new Error(path);
         return { name: path.split("/").pop() ?? path, text: await response.text() };
       }));
+      if (run.signal.aborted) return;
       setHistory(h); setFeedback(f); setForm(toForm(SAMPLE_ECONOMICS)); setInputsEpoch((n) => n + 1);
     } catch {
-      setErrors([fileError("server", "The sample files could not be loaded.")]);
-    } finally { setBusy(false); }
+      if (!run.signal.aborted) showErrors([fileError("server", "The sample files could not be loaded.")]);
+    } finally { end(); }
   };
   const build = async () => {
-    if (!history) { setErrors([fileError("history", "Choose a history CSV first.")]); return; }
-    setBusy(true); setErrors([]);
+    if (locked || inFlight.current) return;
+    if (!history) { showErrors([fileError("history", "Choose a history CSV first.")]); return; }
+    const run = begin("build");
+    if (!run) return;
     try {
-      const result = await buildImport({ history: history.text, feedback: feedback?.text ?? null, economics: fromForm(form) });
-      if (result.ok) onImported(result.session); else setErrors(result.errors);
-    } finally { setBusy(false); }
+      const result = await buildImport({ history: history.text, feedback: feedback?.text ?? null, economics: fromForm(form) }, fetch, { signal: run.signal });
+      if (run.signal.aborted) return;
+      if (!result.ok) { if (!result.aborted) showErrors(result.errors); return; }
+      if (disabledNow.current) { showErrors([fileError("import", "Other work started on the page, so the import was not applied. Build again when it finishes.")]); return; }
+      onImported(result.session);
+    } catch {
+      if (!run.signal.aborted) showErrors([fileError("import", "The import could not be checked. Nothing was changed.")]);
+    } finally { end(); }
   };
+
+  const fieldErrors = economicsFieldErrors(errors);
+  const field = (key: keyof Economics) => fieldErrors[key]
+    ? { "aria-invalid": true as const, "aria-describedby": `${id}-${key}-error` }
+    : {};
+  const fieldMessage = (key: keyof Economics) => fieldErrors[key] && <span id={`${id}-${key}-error`} className="mt-1 block text-negative">{fieldErrors[key]}</span>;
+  // Busy buttons stay focusable (aria-disabled plus an early return in the handlers), so focus is not lost mid-build.
+  const softDisabled = (off: boolean) => ({ "aria-disabled": off });
 
   return (
     <details className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
@@ -79,36 +156,37 @@ export function ImportPanel({ disabled, onImported }: { disabled: boolean; onImp
       <div className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2">
         <div className="min-w-0 text-sm">
           <label htmlFor={`${id}-history`}>History CSV (required: 6–60 months, up to 256 KiB)</label>
-          <input key={`history-${inputsEpoch}`} id={`${id}-history`} type="file" accept=".csv,text/csv" disabled={locked} onChange={pick("history")} className="mt-1 block w-full min-w-0 text-sm" />
+          <input key={`history-${inputsEpoch}`} id={`${id}-history`} type="file" accept=".csv,text/csv" disabled={disabled || busy} onChange={(event) => void pick("history", event)} className="mt-1 block w-full min-w-0 text-sm" />
           {history && <p className="mt-1 break-words text-muted">Using {history.name}</p>}
         </div>
         <div className="min-w-0 text-sm">
           <label htmlFor={`${id}-feedback`}>Feedback CSV (optional: up to 200 rows, classified by AI; text is not stored)</label>
-          <input key={`feedback-${inputsEpoch}`} id={`${id}-feedback`} type="file" accept=".csv,text/csv" disabled={locked} onChange={pick("feedback")} className="mt-1 block w-full min-w-0 text-sm" />
+          <input key={`feedback-${inputsEpoch}`} id={`${id}-feedback`} type="file" accept=".csv,text/csv" disabled={disabled || busy} onChange={(event) => void pick("feedback", event)} className="mt-1 block w-full min-w-0 text-sm" />
           {feedback && <p className="mt-1 break-words text-muted">Using {feedback.name} <button type="button" disabled={locked} onClick={removeFeedback} className="ml-2 min-h-10 text-brand-accent underline disabled:opacity-50">Remove</button></p>}
         </div>
       </div>
-      <fieldset disabled={locked} className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
+      <fieldset disabled={disabled || busy} className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
         <legend className="mb-2 text-sm font-medium">Unit economics: merchant-entered assumptions, prefilled with the demo merchant&apos;s numbers</legend>
-        <label className="min-w-0 text-sm">Merchant name<input value={form.merchantName} maxLength={80} onChange={(e) => setForm({ ...form, merchantName: e.target.value })} className={input} /></label>
-        <label className="min-w-0 text-sm">Plan name<input value={form.planName} maxLength={80} onChange={(e) => setForm({ ...form, planName: e.target.value })} className={input} /></label>
+        {TEXT_FIELDS.map(([key, label]) => (
+          <label key={key} className="min-w-0 text-sm">{label}<input value={form[key]} maxLength={80} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className={input} {...field(key)} />{fieldMessage(key)}</label>
+        ))}
         {NUMBER_FIELDS.map(([key, label]) => (
-          <label key={key} className="min-w-0 text-sm">{label}<input type="number" step="any" inputMode="decimal" value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className={input} /></label>
+          <label key={key} className="min-w-0 text-sm">{label}<input type="number" step="any" inputMode="decimal" value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className={input} {...field(key)} />{fieldMessage(key)}</label>
         ))}
       </fieldset>
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={build} disabled={locked || !history} className="min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background hover:bg-brand-accent disabled:opacity-50">{busy ? "Working…" : "Build twin"}</button>
-        <button type="button" onClick={loadSample} disabled={locked} className="min-h-10 rounded-lg border border-border px-4 py-2 hover:border-brand-accent disabled:opacity-50">Load sample merchant</button>
+        <button type="button" onClick={build} {...softDisabled(locked || !history)} className="min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background hover:bg-brand-accent aria-disabled:opacity-50">{busyKind === "build" ? "Checking…" : "Build twin"}</button>
+        <button type="button" onClick={loadSample} {...softDisabled(locked)} className="min-h-10 rounded-lg border border-border px-4 py-2 hover:border-brand-accent aria-disabled:opacity-50">{busyKind === "sample" ? "Loading…" : "Load sample merchant"}</button>
       </div>
-      <p role="status" className="sr-only">{busy ? "Checking the import…" : ""}</p>
-      {errors.length > 0 && <ImportErrors errors={errors} />}
+      <p role="status" className="sr-only">{busyKind ? STATUS[busyKind] : reading > 0 ? "Reading the file…" : ""}</p>
+      {errors.length > 0 && <ImportErrors ref={errorBox} errors={errors} />}
     </details>
   );
 }
 
-export function ImportErrors({ errors }: { errors: ImportError[] }) {
+export function ImportErrors({ errors, ref }: { errors: ImportError[]; ref?: Ref<HTMLDivElement> }) {
   return (
-    <div role="alert" className="mt-4 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">
+    <div ref={ref} tabIndex={-1} role="alert" className="mt-4 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">
       <p className="font-medium">The import was not applied; the current twin is unchanged. Fix these and build again.</p>
       <ul className="mt-2 list-inside list-disc space-y-1 break-words">{errors.map((error, i) => <li key={i}>{formatImportError(error)}</li>)}</ul>
     </div>

@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { SAMPLE_FILES } from "@/import/sample-files";
 import { samplePayload } from "@/test/import-fixture";
 import type { MerchantSummary } from "@/merchant/summary";
-import { DemoOnlyNotice, ImportedBanner, ImportErrors, ImportPanel } from "./ImportPanel";
+import { DemoOnlyNotice, economicsFieldErrors, ImportedBanner, ImportErrors, ImportPanel } from "./ImportPanel";
 import type { ImportSession } from "./import-flow";
 
 it("offers template and sample downloads, two labelled file inputs and the prefilled economics", () => {
@@ -28,8 +28,9 @@ it("locks every control while disabled", () => {
   const html = renderToStaticMarkup(createElement(ImportPanel, { disabled: true, onImported() {} }));
   expect(html.match(/<input[^>]*type="file"[^>]*disabled=""/g)).toHaveLength(2);
   expect(html).toMatch(/<fieldset disabled=""/);
-  expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Build twin/);
-  expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Load sample merchant/);
+  // Busy buttons stay focusable: aria-disabled, not disabled.
+  expect(html).toMatch(/<button type="button" aria-disabled="true"[^>]*>Build twin/);
+  expect(html).toMatch(/<button type="button" aria-disabled="true"[^>]*>Load sample merchant/);
 });
 
 it("shows the imported banner, notes and Back to Ridgeline, and the demo-only notice", () => {
@@ -60,4 +61,15 @@ it("lists every import error with its file, row and column, as escaped text", ()
   expect(html).not.toContain("<script>");
   expect(html).toContain("the current twin is unchanged");
   expect(html).toContain('role="alert"');
+  expect(html).toContain('tabindex="-1"');
+});
+
+it("maps economics errors to their form fields for aria-invalid", () => {
+  expect(economicsFieldErrors([
+    { source: "economics", row: null, column: "listPrice", message: "must be a number" },
+    { source: "economics", row: null, column: "listPrice", message: "second" },
+    { source: "economics", row: null, column: "unitCost", message: "unit cost plus shipping must be below the list price" },
+    { source: "history", row: 2, column: "month", message: "must be YYYY-MM" },
+    { source: "economics", row: null, column: "constructor", message: "odd" },
+  ])).toEqual({ listPrice: "must be a number", unitCost: "unit cost plus shipping must be below the list price" });
 });
