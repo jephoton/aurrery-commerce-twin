@@ -219,6 +219,10 @@ it.each([
   expect(opened).toBe(false);
 });
 
+// These tests block on real `node --import tsx` child processes (the WAL one starts two). Each cold start is about 0.5 s
+// idle but several times that on a busy Windows host, so the 5 s default flakes under parallel load. Genuine process I/O,
+// not a wait on anything the test controls; the assertions are unchanged.
+const CLI_TIMEOUT_MS = 30_000;
 it("dry runs from a consistent WAL snapshot without opening a remote target", async () => {
   const path = join(dir, "source.sqlite");
   const source = new DatabaseSync(path);
@@ -242,7 +246,7 @@ it("dry runs from a consistent WAL snapshot without opening a remote target", as
   expect(refused.stderr).toContain("not confirmed");
   expect(refused.stderr).not.toContain(path);
   source.close();
-});
+}, CLI_TIMEOUT_MS);
 
 it("imports into an empty libSQL target and refuses a second import", async () => {
   const path = join(dir, "source-two.sqlite");
@@ -499,7 +503,7 @@ it("prints only counts and hashes when the import CLI dry runs an annual offer l
   const manifest = JSON.parse(output);
   expect(manifest.tables.find((row: { table: string }) => row.table === "annual_offers").count).toBe(1);
   expect(output).not.toMatch(/ba_token|BA-FIXTURE|paypal\.com/);
-});
+}, CLI_TIMEOUT_MS);
 
 /** Removes the issued offer and fails the proposal, leaving only its annual revise record. */
 const REFUSED = "DELETE FROM annual_offer_reads; DELETE FROM annual_offers; UPDATE proposals SET status='failed'";
