@@ -68,12 +68,43 @@ h2 { font-size: 1.5rem; line-height: 1.2; }
 
 /* ——— Engraved panels: hairline border (from the border utilities) plus an inner rule a few px inside ——— */
 .engraved { border-radius: .6rem; box-shadow: inset 0 0 0 5px var(--surface), inset 0 0 0 6px var(--engrave), 0 18px 40px -28px #000a; }
-.decision-panel { position: relative; overflow: hidden; background: radial-gradient(circle at 88% 0%, #1d3d7c 0, transparent 42%), var(--surface); }
-.decision-panel::after { content: ""; position: absolute; width: 18rem; height: 18rem; top: -11rem; right: -6rem; border: 1px solid #e0b65e47; border-radius: 50%; pointer-events: none; }
+.engraved-key { position: relative; }
+.corner-ticks { position: absolute; inset: 2px; pointer-events: none; }
+.corner-ticks > span { position: absolute; width: .95rem; height: .95rem; border: 0 solid var(--brand); }
+.corner-ticks > span:nth-child(1) { top: 0; left: 0; border-top-width: 1.5px; border-left-width: 1.5px; border-top-left-radius: .45rem; }
+.corner-ticks > span:nth-child(2) { top: 0; right: 0; border-top-width: 1.5px; border-right-width: 1.5px; border-top-right-radius: .45rem; }
+.corner-ticks > span:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 1.5px; border-left-width: 1.5px; border-bottom-left-radius: .45rem; }
+.corner-ticks > span:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 1.5px; border-right-width: 1.5px; border-bottom-right-radius: .45rem; }
 
-.brand-mark { position: relative; display: grid; width: 2.65rem; height: 2.65rem; flex: none; place-items: center; border: 1px solid var(--brand); border-radius: 50%; }
-.brand-mark::before { content: ""; position: absolute; inset: .34rem; border: 1px solid #997e4b; border-radius: 50%; transform: rotate(-26deg) scaleX(1.3); }
-.brand-mark span { width: .42rem; height: .42rem; border-radius: 50%; background: var(--brand); box-shadow: 0 0 12px #e6bd6960; }
+.decision-panel { position: relative; overflow: hidden; background: radial-gradient(circle at 88% 0%, #1d3d7c 0, transparent 42%), var(--surface); }
+/* An engraved planisphere arc rising from the panel's top-right corner: a gold rim and a dotted inner ring. */
+.decision-panel::after { content: ""; position: absolute; width: 18rem; height: 18rem; top: -11rem; right: -6rem; border: 1px solid #e0b65e47; border-radius: 50%; pointer-events: none; }
+.decision-panel::before { content: ""; position: absolute; width: 14rem; height: 14rem; top: -9rem; right: -4rem; border: 1.5px dotted #ffffff38; border-radius: 50%; pointer-events: none; }
+
+/* ——— Brand mark, divider, planisphere ——— */
+.brand-mark { display: block; width: 2.9rem; height: 2.9rem; flex: none; filter: drop-shadow(0 0 10px #e0b65e33); }
+.celestial-divider { display: flex; align-items: center; gap: .75rem; color: #ffffff8c; pointer-events: none; }
+.celestial-divider svg { flex: none; }
+.celestial-divider-line { height: 1px; flex: 1; background: linear-gradient(90deg, transparent, #ffffff52); }
+.celestial-divider-line-end { background: linear-gradient(90deg, #ffffff52, transparent); }
+
+/* ——— Backdrop art: behind all content, never interactive ——— */
+.starfield { position: fixed; inset: 0; z-index: -2; width: 100%; height: 100%; pointer-events: none; }
+.page-frame { position: absolute; inset: 0 0 auto 0; z-index: -1; height: 0; color: #ffffff; pointer-events: none; }
+.page-frame svg { pointer-events: none; }
+.page-frame-band { position: absolute; top: .25rem; left: 50%; width: min(34rem, 44vw); transform: translateX(-50%); opacity: .3; }
+.page-frame-corner { position: fixed; width: clamp(9rem, 16vw, 16rem); height: auto; aspect-ratio: 1; opacity: .3; }
+.page-frame-corner-tl { top: 0; left: 0; }
+.page-frame-corner-tr { top: 0; right: 0; transform: scaleX(-1); }
+.page-frame-corner-bl { bottom: 0; left: 0; transform: scaleY(-1); }
+.page-frame-corner-br { bottom: 0; right: 0; transform: scale(-1, -1); }
+@media (max-width: 1023px) { .page-frame-band { display: none; } }
+/* Narrow screens: the corners collapse to small rose ornaments. */
+@media (max-width: 767px) {
+  .page-frame-corner { width: 6.5rem; opacity: .26; }
+  .page-frame-extended { display: none; }
+}
+
 .orbit-map { position: relative; min-width: 0; }
 .orbit-ring { position: absolute; aspect-ratio: 1; border: 1px solid #e6bd6933; border-radius: 50%; }
 .orbit-ring-outer { width: 12.4rem; }
@@ -85,7 +116,11 @@ h2 { font-size: 1.5rem; line-height: 1.2; }
 .orbit-point-0 { transform: translate(5.8rem,-2.5rem); }.orbit-point-1 { transform: translate(-4.4rem,-4.8rem); }.orbit-point-2 { transform: translate(3rem,4.8rem); }.orbit-point-3 { transform: translate(-3.5rem,2.8rem); }.orbit-point-4 { transform: translate(.5rem,-6rem); }
 @media (max-width: 640px) { .orbit-map { display: none; } }
 
+@keyframes twinkle { 0%, 100% { opacity: .85; } 50% { opacity: .25; } }
+.twinkle { animation: twinkle 9s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .twinkle { animation: none !important; }
 }

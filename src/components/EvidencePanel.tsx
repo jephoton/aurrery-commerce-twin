@@ -3,6 +3,7 @@ import type { MerchantSummary } from "./Lab";
 import type { LiveAnnual } from "./lab-state";
 import type { AnnualEvidence, ObservedSnapshot } from "@/merchant/observed-snapshot";
 import type { ImportedDetails } from "@/merchant/summary";
+import { CornerTicks } from "./art/CornerTicks";
 
 interface Props {
   summary: MerchantSummary;
@@ -22,7 +23,8 @@ export function EvidencePanel({ summary, evidence, source, snapshot, liveAnnual 
   const changes = imported ? undefined : snapshot?.changes ?? (source ? undefined : summary.parameterChanges);
   const annual = imported ? undefined : liveAnnual?.annual ?? (snapshot ? snapshot.annual : source ? undefined : summary.annualEvidence);
   return (
-    <aside className="min-w-0 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="evidence-title">
+    <aside className="engraved-key min-w-0 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="evidence-title">
+      <CornerTicks />
       <p className="eyebrow">Evidence record</p>
       <h3 id="evidence-title" className="display mb-4 mt-2 text-2xl font-semibold">What this rests on</h3>
       <div className="grid min-w-0 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">

@@ -25,6 +25,9 @@ import { AnnualOffersPanel } from "./AnnualOffersPanel";
 import { clampOfferWindowDays, DEFAULT_OFFER_WINDOW_DAYS, outcomeCells, proposalBody, reportColumns } from "./annual-offers-view";
 import { DemoOnlyNotice, ImportedBanner, ImportPanel } from "./ImportPanel";
 import type { ImportSession } from "./import-flow";
+import { BrandMark } from "./art/BrandMark";
+import { CelestialDivider } from "./art/CelestialDivider";
+import { CornerTicks } from "./art/CornerTicks";
 
 export type { MerchantSummary } from "@/merchant/summary";
 
@@ -210,7 +213,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
     <main className="mx-auto w-full min-w-0 max-w-[1440px] px-4 pb-12 pt-5 sm:px-7 lg:px-10">
       <header className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
         <div className="flex min-w-0 items-center gap-4">
-          <span className="brand-mark" aria-hidden="true"><span /></span>
+          <BrandMark />
           <div className="min-w-0">
             <p className="brand-name text-foreground">Aurrery <span className="ml-2 align-middle font-sans text-[10px] font-medium uppercase tracking-[.2em] text-brand-accent">Decision lab</span></p>
             <p ref={(node) => { if (!imported) focusTarget.current = node; }} tabIndex={-1} className="break-words text-sm text-muted">{summary.name} · {summary.planName} · {imported ? "imported CSV · simulate only" : "synthetic demo"}</p>
@@ -259,6 +262,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
         <AgentPanel objective={objective} disabled={locked} importPayload={imported?.payload ?? null} onStart={startAgent} onEvent={agentEvent} onFinish={finishAgent} />
       </section>
 
+      <CelestialDivider className="mb-6" />
       <div className="mb-6"><MerchantOverview summary={summary} /></div>
       {/* Stays available while an import is active, so a broken upload can be shown to leave the imported twin unchanged. */}
       <div className="mb-6"><ImportPanel disabled={busy !== null} onImported={onImported} onBusyChange={setImporting} /></div>
@@ -296,7 +300,8 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
       )}
 
       {!imported && selected && selected.strategy.id !== comparison?.baselineId && (
-        <section id="approval" aria-labelledby="approval-title" className="mb-6 min-w-0 scroll-mt-5 engraved border border-brand/50 bg-surface p-5 sm:p-6">
+        <section id="approval" aria-labelledby="approval-title" className="engraved-key mb-6 min-w-0 scroll-mt-5 engraved border border-brand/50 bg-surface p-5 sm:p-6">
+          <CornerTicks />
           <p className="eyebrow mb-2">Merchant confirmation boundary</p>
           <h2 id="approval-title" className="mb-1 text-xl font-semibold">Approval · review exact action</h2>
           {!executable ? (
@@ -379,6 +384,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
         </section>
       )}
 
+      <CelestialDivider className="mb-6" />
       {imported ? <DemoOnlyNotice /> : (<>
       <AnnualOffersPanel
         offers={paypal?.annualOffers ?? []}

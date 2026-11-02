@@ -3,6 +3,7 @@ import type { Proposal } from "@/ledger/proposals";
 import type { StrategyResult } from "@/twin/simulate";
 import { DEMO_ONLY_MESSAGE } from "@/import/messages";
 import { isExecutableIntervention, whyNotExecutable } from "./headline";
+import { CornerTicks } from "./art/CornerTicks";
 
 interface Props {
   selected: StrategyResult | null;
@@ -34,7 +35,8 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
   const matchingStress = selected && stress?.strategyId === selected.strategy.id ? stress : null;
   const manualActionAfterAgentComparison = !!currentProposal && proposalSource === "manual" && source === "agent";
   if (!selected) return (
-    <section aria-labelledby="decision-title" className="decision-panel mb-6 engraved border border-border bg-surface p-6 sm:p-8">
+    <section aria-labelledby="decision-title" className="decision-panel engraved-key mb-6 engraved border border-border bg-surface p-6 sm:p-8">
+      <CornerTicks />
       <p className="eyebrow">Decision workspace · no comparison yet</p>
       <h1 id="decision-title" className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">Simulate before you transact.</h1>
       <p className="mt-3 max-w-2xl text-muted">Run the agent or simulate strategies to compare possible outcomes for your business objective. Recommendations appear only after analysis.</p>
@@ -49,6 +51,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
     : recommended ? (simulateOnly ? "Best within your rules" : "Recommended now") : source === "manual" ? "Manual scenario" : "Selected scenario";
   return (
     <section aria-labelledby="decision-title" className="decision-panel mb-6 min-w-0 engraved border border-border bg-surface p-6 sm:p-8">
+      <CornerTicks />
       <p className="eyebrow">{label} · simulated, not observed{simulateOnly ? " · simulate only" : ""}</p>
       <h1 id="decision-title" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{selected.strategy.name}</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted">{horizonMonths}-month value = gross profit over the horizon plus discounted margin of the subscribers remaining at month {horizonMonths}. Changes are paired against do nothing.</p>
