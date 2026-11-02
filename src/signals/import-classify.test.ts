@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import type { FeedbackRow } from "@/import/feedback-csv";
 import type { ModelInput } from "./contracts";
+import { createPredictionCache } from "./cache";
 import { createMemoryPredictionCache } from "./memory-cache";
 import { classifyImportedFeedback } from "./import-classify";
 import { emptyMetrics, type ClassificationProvider, type ProviderResult } from "./providers";
@@ -45,7 +46,22 @@ it("reads the cache first, so the same rows make no second model call", async ()
   const again = await classifyImportedFeedback(rows.slice(0, 3), { provider, cache });
   expect(classify).toHaveBeenCalledTimes(1);
   expect(again).toMatchObject({ accepted: 3, cacheHits: 3 });
-  expect(again.notes).toContain("3 reused from this server's in-memory cache (labels only).");
+  // A cache hit would reveal that someone else sent identical text, so the notes never mention it.
+  expect(again.notes.join(" ")).not.toMatch(/cache|reused/i);
+});
+
+it("accepts only the memory cache, never the persistent ledger cache", () => {
+  const { provider } = fakeProvider();
+  const ledgerCache = () => createPredictionCache();
+  // @ts-expect-error The persistent ledger cache would store derived rows that travel in ledger exports.
+  const misuse = () => classifyImportedFeedback(rows, { provider, cache: ledgerCache() });
+  expect(typeof misuse).toBe("function");
+});
+
+it("describes the counts as feedback reasons", async () => {
+  const { provider } = fakeProvider();
+  const result = await classifyImportedFeedback(rows, { provider, cache: createMemoryPredictionCache() });
+  expect(result.notes).toContain("Counts are feedback reasons within each segment, not cancellation rates or causal discount effects.");
 });
 
 it("returns partial counts when classification stops early", async () => {
