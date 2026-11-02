@@ -2,13 +2,21 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { acquireAgentLease, RunLimitError } from "./limits";
-import { runAgent } from "./run";
+import { runAgent, type ImportedRun } from "./run";
 import type { AgentEvent } from "./contracts";
 import { MAX_FRAME_BYTES, type AgentFrame } from "./stream";
 import { admitHostedRequest } from "@/hosting/guard";
+import { ImportPayloadSchema, payloadIssues } from "@/import/import-payload";
+import { buildImportedTwin } from "@/import/imported-twin";
+import { invalidImportResponse } from "@/app/api/_lib/http";
 
-const bodySchema = z.strictObject({ objective: z.string().trim().min(1).max(2000) });
-const MAX_BODY_BYTES = 16384;
+/**
+ * `import` is an imported merchant (M6), parsed separately so its errors name rows and columns only, never
+ * client-sent keys.
+ */
+const bodySchema = z.strictObject({ objective: z.string().trim().min(1).max(2000), import: z.unknown().optional() });
+/** Room for the largest legal import payload (about 31 KiB, decision 4) beside the objective. */
+const MAX_BODY_BYTES = 64 * 1024;
 async function readBody(request: Request) {
   if (!request.body) throw new Error("BODY");
   const reader = request.body.getReader();
@@ -37,7 +45,16 @@ export function createAgentHandler(deps: { run?: typeof runAgent; acquire?: type
     if (admission) return admission;
     let body: z.infer<typeof bodySchema>;
     try { body = await readBody(request); }
-    catch (error) { return Response.json({ message: "Provide only an objective of 1–2000 characters." }, { status: request.signal.aborted ? 499 : error instanceof Error && error.message === "SIZE" ? 413 : 400 }); }
+    catch (error) { return Response.json({ message: "Provide an objective of 1–2000 characters and, optionally, an import." }, { status: request.signal.aborted ? 499 : error instanceof Error && error.message === "SIZE" ? 413 : 400 }); }
+    let imported: ImportedRun | undefined;
+    if (body.import !== undefined) {
+      // Rebuilt for this request only and never stored; an invalid import is refused before the lease.
+      const payload = ImportPayloadSchema.safeParse(body.import);
+      if (!payload.success) return invalidImportResponse(payloadIssues(payload.error));
+      const built = buildImportedTwin(payload.data);
+      if (!built.ok) return invalidImportResponse(built.errors);
+      imported = { twin: built.twin, feedbackRows: built.feedbackRows, reasonTargeting: built.reasonTargeting, ...(built.reasonTargeting && payload.data.reasonCounts ? { reasonCounts: payload.data.reasonCounts } : {}) };
+    }
     let lease: ReturnType<typeof acquireAgentLease>;
     try { lease = (deps.acquire ?? acquireAgentLease)(); }
     catch (error) { return Response.json({ message: error instanceof RunLimitError && error.code === "BUSY" ? "Another agent run is active." : "Agent unavailable." }, { status: error instanceof RunLimitError && error.code === "BUSY" ? 409 : 503 }); }
@@ -65,7 +82,7 @@ export function createAgentHandler(deps: { run?: typeof runAgent; acquire?: type
             emit({ type: "done", status: controller.signal.aborted ? "cancelled" : "incomplete", reason: controller.signal.aborted ? "CANCELLED" : "FAILED" });
           };
           void (async () => {
-            try { await (deps.run ?? runAgent)({ objective: body.objective, signal: controller.signal, emit, lease }); if (!terminal) fail(); }
+            try { await (deps.run ?? runAgent)({ objective: body.objective, signal: controller.signal, emit, lease, ...(imported ? { imported } : {}) }); if (!terminal) fail(); }
             catch { fail(); }
             finally {
               // Idempotent fallback also covers failure before the runner claims ownership.

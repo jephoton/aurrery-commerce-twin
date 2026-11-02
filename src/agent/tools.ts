@@ -50,10 +50,18 @@ const descriptions: Record<ToolName, string> = {
   draft_customer_message: "Display customer message copy for a simulated candidate. Does not send.",
   recommend: "Create one proposed action (a retention discount or an annual-plan offer) from a classified, simulated and stressed candidate within the rules. Merchant approval is separate.",
 };
-export const TOOL_DEFINITIONS = Object.entries(schemas).map(([name, schema]) => ({
+/** Imported merchants (M6): the same tools and schemas, described without synthetic feedback, proposals or PayPal. */
+const importedDescriptions: Record<ToolName, string> = {
+  ...descriptions,
+  classify_feedback: "Report the uploaded feedback that the server classified before this run; makes no model call. Required before analysis.",
+  recommend: "Record one simulate-only recommendation (a retention discount or an annual plan) from a classified, simulated and stressed candidate within the rules. Creates no proposal, offer or PayPal action.",
+};
+const definitionsFor = (text: Record<ToolName, string>) => Object.entries(schemas).map(([name, schema]) => ({
   type: "function" as const,
-  function: { name, description: descriptions[name as ToolName], parameters: z.toJSONSchema(schema) },
+  function: { name, description: text[name as ToolName], parameters: z.toJSONSchema(schema) },
 }));
+export const TOOL_DEFINITIONS = definitionsFor(descriptions);
+export const IMPORTED_TOOL_DEFINITIONS: typeof TOOL_DEFINITIONS = definitionsFor(importedDescriptions);
 class ToolFailure extends Error {
   constructor(readonly code: string, message: string, readonly terminal = false, readonly failure?: ClassificationFailure) { super(message); }
 }
@@ -290,5 +298,5 @@ export function createToolContext(options: ToolContextOptions = {}) {
     emit({ type: "tool_result", name: Object.hasOwn(schemas, name) ? name : "unknown", result });
     return result;
   }
-  return { dispatch, state, definitions: TOOL_DEFINITIONS };
+  return { dispatch, state, definitions: imported ? IMPORTED_TOOL_DEFINITIONS : TOOL_DEFINITIONS };
 }
