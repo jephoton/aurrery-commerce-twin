@@ -96,6 +96,8 @@ export interface ToolState {
 }
 /** A context is owned by one runner. Model callers only receive dispatch results, never this state. */
 export function createToolContext(options: ToolContextOptions = {}) {
+  // An imported context must bring its own twin; never fall back to Ridgeline's.
+  if (options.imported && !options.twin) throw new Error("An imported merchant needs its own twin.");
   const original = structuredClone(options.twin ?? currentMerchant().twin);
   const objective = text.parse(options.objective ?? "Improve subscription retention");
   const state: ToolState = { twin: structuredClone(original), rules: { ...DEFAULT_DECISION_RULES }, classified: false, rulesExplicit: false, revision: 0, stresses: {} };
@@ -136,7 +138,8 @@ export function createToolContext(options: ToolContextOptions = {}) {
         const active = Object.values(state.twin.initialActive).reduce((sum, count) => sum + count, 0);
         const feedbackIn = (segment: SegmentId) => (imported?.reasonCounts?.[segment].price ?? 0) + (imported?.reasonCounts?.[segment].other ?? 0);
         return {
-          merchant: state.twin.merchant, asOfMonth: state.twin.asOfMonth,
+          // Merchant-entered name and plan never reach the model for an import.
+          merchant: imported ? { id: state.twin.merchant.id, name: "Imported merchant", description: state.twin.merchant.description } : state.twin.merchant, asOfMonth: state.twin.asOfMonth,
           metrics: { currency: state.twin.params.currency, listPrice: state.twin.params.listPrice, active, monthlyListRevenue: active * state.twin.params.listPrice, unitFulfilmentCost: state.twin.params.unitCost + state.twin.params.shippingCost },
           segments: SEGMENTS.map((segment) => {
             const p = state.twin.params.segments[segment];
