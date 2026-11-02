@@ -17,6 +17,7 @@ _Last material update: 2026-11-02. Milestone-by-milestone history is archived in
 Per the M8 section of [docs/superpowers/plans/2026-10-22-aurrery-roadmap.md](superpowers/plans/2026-10-22-aurrery-roadmap.md):
 
 1. UI theme pass: implemented on `feat/m8-star-chart-theme` per [the M8 theme design](superpowers/specs/2026-11-02-m8-star-chart-theme-design.md): cobalt palette with gold accents and AA-checked text colours, Cormorant Garamond headings, engraved panels, inline-SVG line art in `src/components/art/` and a planisphere merchant overview (with a render test). Next: desktop and 375 px screenshots of Ridgeline and an imported merchant, then merge and a hosted check.
+   - Palette retuned to darker navy and burnished gold (`1a4b0d7`), then the UI review fixes landed: layered element CSS so heading utilities apply, a single-scroll AG Grid with a visible gold selection, themed file inputs, engraved banner and access panels, tidier metrics and tables, the top frame corners kept clear of the brand mark, and larger planisphere labels.
 2. Review tidy-ups: done on 2026-11-02 (merged branches deleted, decision 0007 duplicate renumbered to 0010 and statuses refreshed, this rewrite, GitHub homepage and topics, flaky-test fixes, README hosting line).
 3. Judge-facing README with the hosted URL and local setup; warn about the cold start or keep the instance warm during judging.
 4. Devpost text, video script and recording (under 3:00, public on YouTube).
