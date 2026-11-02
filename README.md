@@ -45,7 +45,7 @@ For a legacy cohort created with the old port-3000 default, preserve `APP_URL=ht
 
 ## Development
 
-The prepared [Render Free + Turso deployment and recovery runbook](docs/runbooks/render-turso.md) covers private runtime settings, existing-pilot import, administrator access and authoritative backups. `render.yaml` defines one free Node 24 service with manual deployment and no disk. Hosted state lives in Turso libSQL; Render's local filesystem is temporary. Free services sleep after 15 idle minutes and can take about a minute to wake. Deployment and genuine signed Sandbox webhook acceptance remain pending.
+The prepared [Render Free + Turso deployment and recovery runbook](docs/runbooks/render-turso.md) covers private runtime settings, existing-pilot import, administrator access and authoritative backups. `render.yaml` defines one free Node 24 service with manual deployment and no disk. Hosted state lives in Turso libSQL; Render's local filesystem is temporary. Free services sleep after 15 idle minutes and can take about a minute to wake. The service has been live since M5, with genuine signed Sandbox webhooks verified. For a demo or judging session, open the page a minute beforehand so the first visitor doesn't wait for the wake.
 
 GitHub Actions runs the Linux CI workflow on pushes, pull requests and manual dispatch. It installs from the lockfile, typechecks, lints without warnings, runs the serial test suite and builds without runtime credentials. The successful local checks do not replace the pending hosted M5 acceptance.
 
