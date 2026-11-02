@@ -55,10 +55,10 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
       <p className="eyebrow">{label} · simulated, not observed{simulateOnly ? " · simulate only" : ""}</p>
       <h1 id="decision-title" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{selected.strategy.name}</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted">{horizonMonths}-month value = gross profit over the horizon plus discounted margin of the subscribers remaining at month {horizonMonths}. Changes are paired against do nothing.</p>
-      <dl className="mt-6 grid gap-4 border-t border-dotted border-border pt-5 text-sm sm:grid-cols-2 lg:grid-cols-5">
-        <div className="lg:col-span-1"><dt className="text-muted">Expected value change</dt><dd className="mt-1 text-3xl font-semibold tabular-nums text-brand-accent">{signedMoney(value.mean)}</dd><small className="text-muted">mean versus baseline</small></div>
+      <dl className="mt-6 grid grid-flow-row-dense grid-cols-2 gap-4 border-t border-dotted border-border pt-5 text-sm sm:grid-cols-3 xl:grid-cols-5">
+        <div className="col-span-2 sm:col-span-1"><dt className="text-muted">Expected value change</dt><dd className="mt-1 text-3xl font-semibold tabular-nums text-brand-accent">{signedMoney(value.mean)}</dd><small className="text-muted">mean versus baseline</small></div>
         <div><dt className="text-muted">Median value change</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{signedMoney(value.p50)}</dd><small className="text-muted">p50 versus baseline</small></div>
-        <div><dt className="text-muted">80% value interval</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{signedMoney(value.p10)} … {signedMoney(value.p90)}</dd><small className="text-muted">p10–p90 versus baseline</small></div>
+        <div className="col-span-2 xl:col-span-1"><dt className="text-muted">80% value interval</dt><dd className="mt-1 whitespace-nowrap text-lg font-semibold tabular-nums">{signedMoney(value.p10)} … {signedMoney(value.p90)}</dd><small className="text-muted">p10–p90 versus baseline</small></div>
         <div><dt className="text-muted">Chance of worse value</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{percent(selected.probValueBelowBaseline)}</dd><small className="text-muted">versus baseline</small></div>
         <div><dt className="text-muted">Mean discount cost</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{money(selected.metrics.discountCost.mean)}</dd><small className="text-muted">simulated spend</small></div>
       </dl>
@@ -79,7 +79,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
           <ul className="mt-2 space-y-2">
             {alsoExecutable.map((option) => (
               <li key={option.strategy.id}>
-                <button type="button" disabled={busy || !onSelect} onClick={() => onSelect?.(option.strategy.id)} className="font-medium text-brand-accent underline-offset-2 hover:underline disabled:no-underline">
+                <button type="button" disabled={busy || !onSelect} onClick={() => onSelect?.(option.strategy.id)} className="text-left font-medium text-brand-accent underline-offset-2 hover:underline disabled:no-underline">
                   {option.strategy.name}
                 </button>{" "}
                 <span className="tabular-nums">{signedMoney(option.vsBaseline.totalValue.p50)} median</span>
@@ -95,7 +95,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
           <ul className="mt-2 space-y-2">
             {biggerLevers.map((lever) => (
               <li key={lever.strategy.id}>
-                <button type="button" disabled={busy || !onSelect} onClick={() => onSelect?.(lever.strategy.id)} className="font-medium text-brand-accent underline-offset-2 hover:underline disabled:no-underline">
+                <button type="button" disabled={busy || !onSelect} onClick={() => onSelect?.(lever.strategy.id)} className="text-left font-medium text-brand-accent underline-offset-2 hover:underline disabled:no-underline">
                   {lever.strategy.name}
                 </button>{" "}
                 <span className="tabular-nums">{signedMoney(lever.vsBaseline.totalValue.p50)} median</span>

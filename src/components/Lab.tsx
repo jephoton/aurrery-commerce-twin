@@ -274,7 +274,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
             <span className="source-badge">Simulated, not observed</span>
           </div>
           <ScenarioGrid rows={rows} selectedId={selectedId} disabled={busy !== null} horizonMonths={comparison.options.horizonMonths} simulateOnly={simulateOnly} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
-          <p className="mt-2 text-xs text-muted">
+          <p className="mt-2 max-w-3xl text-xs text-muted">
             Value = {comparison.options.horizonMonths}-month gross profit + discounted margin of the subscribers remaining at month {comparison.options.horizonMonths} (next 24 months, 1%/mo). Differences are paired
             against the baseline under common random numbers.
           </p>
@@ -282,8 +282,8 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
       )}
 
       {selected && baseline && (
-        <section className="mb-6 grid min-w-0 gap-6 lg:grid-cols-5">
-          <div className="min-w-0 engraved border border-border bg-surface p-5 sm:p-6 lg:col-span-3">
+        <section className="mb-6 grid min-w-0 items-start gap-6 lg:grid-cols-5">
+          <div className="min-w-0 engraved border border-border bg-surface p-5 sm:p-6 lg:sticky lg:top-5 lg:col-span-3">
             <h2 className="mb-1 text-lg font-semibold">{selected.strategy.name}</h2>
             <p className="mb-4 text-muted">{selected.description}</p>
             <FanChart
@@ -354,7 +354,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
             <span className="source-badge text-observed">{annualReport ? "Observed from PayPal Sandbox responses" : "Observed from PayPal Sandbox read-back"}</span>
           </div>
           {annualReport && <p className="mb-3 text-sm">{reportSummary(report)}</p>}
-          <div className="max-w-full overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm">
+          <div className="max-w-full overflow-x-auto"><table className="data-table w-full min-w-[720px] text-left text-sm">
             <thead className="text-muted">
               <tr>
                 <th className="py-1">Subscription</th>
@@ -371,8 +371,8 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
                 return (
                   <tr key={o.subscriptionId} className="border-t border-border">
                     <td className="max-w-48 break-all py-2 font-mono">{o.subscriptionId}</td>
-                    <td>{o.httpStatus ?? "—"}</td>
-                    <td>{cells.price}</td>
+                    <td className="tabular-nums">{o.httpStatus ?? "—"}</td>
+                    <td className="tabular-nums">{cells.price}</td>
                     <td className="break-words">{cells.status}</td>
                     <td className={cells.tone === "positive" ? "text-positive" : cells.tone === "negative" ? "text-negative" : "text-muted"}>{cells.verified}</td>
                     <td className="max-w-48 break-all font-mono text-xs">{o.debugId ?? "—"}</td>
@@ -409,7 +409,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
             No sandbox subscriptions registered yet. Run <code className="font-mono">npm run paypal:setup</code> and approve the links as a sandbox buyer.
           </p>
         ) : (
-          <div className="max-w-full overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm">
+          <div className="max-w-full overflow-x-auto"><table className="data-table w-full min-w-[680px] text-left text-sm">
             <thead className="text-muted">
               <tr>
                 <th className="py-1">Subscriber</th>
@@ -430,8 +430,8 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
                   </td>
                   <td className="max-w-48 break-all font-mono">{s.subscriptionId}</td>
                   <td>{s.live?.status ?? s.error ?? "—"}</td>
-                  <td>{s.live ? (s.live.regularPrice ? `$${s.live.regularPrice}${s.live.annualPlan ? "/yr" : "/mo"}${s.live.planOverridden ? " (override)" : ""}` : s.live.annualPlan ? "Annual plan" : `$${summary.listPrice.toFixed(2)}/mo (plan)`) : "—"}</td>
-                  <td>{s.live?.nextBillingTime?.slice(0, 10) ?? "—"}</td>
+                  <td className="tabular-nums">{s.live ? (s.live.regularPrice ? `$${s.live.regularPrice}${s.live.annualPlan ? "/yr" : "/mo"}${s.live.planOverridden ? " (override)" : ""}` : s.live.annualPlan ? "Annual plan" : `$${summary.listPrice.toFixed(2)}/mo (plan)`) : "—"}</td>
+                  <td className="tabular-nums">{s.live?.nextBillingTime?.slice(0, 10) ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

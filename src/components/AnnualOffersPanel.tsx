@@ -81,14 +81,14 @@ export function AnnualOffersPanel({ offers, labels, canReview, unavailable = fal
       ) : (
         <>
           <p className="mb-3 text-sm">{counts.accepted} accepted · {counts.declined} declined · {counts.awaiting} awaiting decision or final check</p>
-          <div className="max-w-full overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm">
+          <div className="max-w-full overflow-x-auto"><table className="data-table w-full min-w-[560px] text-left text-sm">
             <thead className="text-muted"><tr><th className="py-1">Subscriber</th><th>Segment</th><th>Status</th><th>Window closes</th></tr></thead>
             <tbody>{offers.map((offer) => (
               <tr key={offer.id} className="border-t border-border">
                 <td className="py-2">{labels[offer.subscriptionId] ?? offer.subscriptionId}</td>
                 <td>{offer.segment.replaceAll("_", " ")}</td>
                 <td>{offerStatusLabel(offer)}</td>
-                <td>{formatUtc(offer.expiresAt)}</td>
+                <td className="tabular-nums">{formatUtc(offer.expiresAt)}</td>
               </tr>
             ))}</tbody>
           </table></div>
