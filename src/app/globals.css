@@ -87,6 +87,8 @@ h2 { font-size: 1.5rem; line-height: 1.2; }
 .celestial-divider svg { flex: none; }
 .celestial-divider-line { height: 1px; flex: 1; background: linear-gradient(90deg, transparent, #ffffff52); }
 .celestial-divider-line-end { background: linear-gradient(90deg, #ffffff52, transparent); }
+.planisphere { display: block; width: 100%; height: auto; overflow: visible; }
+.planisphere-total { font-family: var(--font-display); font-size: 30px; font-weight: 600; }
 
 /* ——— Backdrop art: behind all content, never interactive ——— */
 .starfield { position: fixed; inset: 0; z-index: -2; width: 100%; height: 100%; pointer-events: none; }
@@ -104,17 +106,6 @@ h2 { font-size: 1.5rem; line-height: 1.2; }
   .page-frame-corner { width: 6.5rem; opacity: .26; }
   .page-frame-extended { display: none; }
 }
-
-.orbit-map { position: relative; min-width: 0; }
-.orbit-ring { position: absolute; aspect-ratio: 1; border: 1px solid #e6bd6933; border-radius: 50%; }
-.orbit-ring-outer { width: 12.4rem; }
-.orbit-ring-middle { width: 9rem; border-color: #aab9cb35; }
-.orbit-ring-inner { width: 5.7rem; border-color: #e6bd6950; }
-.orbit-core { display: grid; width: 4.5rem; height: 4.5rem; align-content: center; border-radius: 50%; background: var(--raised); text-align: center; color: var(--brand-accent); font-size: 1.25rem; font-weight: 650; }
-.orbit-core small { color: var(--muted); font-size: .58rem; font-weight: 400; }
-.orbit-point { position: absolute; width: .48rem; height: .48rem; border: 1px solid var(--background); border-radius: 50%; background: var(--brand); }
-.orbit-point-0 { transform: translate(5.8rem,-2.5rem); }.orbit-point-1 { transform: translate(-4.4rem,-4.8rem); }.orbit-point-2 { transform: translate(3rem,4.8rem); }.orbit-point-3 { transform: translate(-3.5rem,2.8rem); }.orbit-point-4 { transform: translate(.5rem,-6rem); }
-@media (max-width: 640px) { .orbit-map { display: none; } }
 
 @keyframes twinkle { 0%, 100% { opacity: .85; } 50% { opacity: .25; } }
 .twinkle { animation: twinkle 9s ease-in-out infinite; }
