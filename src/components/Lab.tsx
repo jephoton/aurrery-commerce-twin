@@ -233,7 +233,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
 
       <section className="mb-6 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="objective-title">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="objective-title" className="text-lg font-semibold">Set the objective</h2>
+          <h2 id="objective-title" className="text-xl font-semibold sm:text-2xl">Set the objective</h2>
           <span className="text-xs text-muted">Agent investigation or manual comparison</span>
         </div>
         <label htmlFor="objective" className="sr-only">Business objective</label>
@@ -270,7 +270,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
       {comparison && (
         <section className="mb-6 min-w-0 engraved border border-border bg-surface p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold">Scenario comparison</h2>
+            <h2 className="text-xl font-semibold sm:text-2xl">Scenario comparison</h2>
             <span className="source-badge">Simulated, not observed</span>
           </div>
           <ScenarioGrid rows={rows} selectedId={selectedId} disabled={busy !== null} horizonMonths={comparison.options.horizonMonths} simulateOnly={simulateOnly} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
@@ -303,7 +303,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
         <section id="approval" aria-labelledby="approval-title" className="engraved-key mb-6 min-w-0 scroll-mt-5 engraved border border-brand/50 bg-surface p-5 sm:p-6">
           <CornerTicks />
           <p className="eyebrow mb-2">Merchant confirmation boundary</p>
-          <h2 id="approval-title" className="mb-1 text-xl font-semibold">Approval · review exact action</h2>
+          <h2 id="approval-title" className="mb-1 text-xl font-semibold sm:text-2xl">Approval · review exact action</h2>
           {!executable ? (
             <p className="text-muted">
               This strategy is simulate-only in this build. PayPal route: <span className="font-mono text-sm">{selected.paypalAction}</span>
@@ -350,7 +350,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
       {!imported && report && (
         <section className="mb-6 min-w-0 engraved border border-observed/40 bg-surface p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold">PayPal execution: {report.proposal.status.replace("_", " ")}</h2>
+            <h2 className="text-xl font-semibold sm:text-2xl">PayPal execution: {report.proposal.status.replace("_", " ")}</h2>
             <span className="source-badge text-observed">{annualReport ? "Observed from PayPal Sandbox responses" : "Observed from PayPal Sandbox read-back"}</span>
           </div>
           {annualReport && <p className="mb-3 text-sm">{reportSummary(report)}</p>}
@@ -399,7 +399,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
 
       <section className="min-w-0 engraved border border-border bg-surface p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">Pilot cohort in PayPal Sandbox</h2>
+          <h2 className="text-xl font-semibold sm:text-2xl">Pilot cohort in PayPal Sandbox</h2>
           <button onClick={() => void refreshPayPal()} className="min-h-10 rounded-lg px-3 text-sm text-brand-accent hover:bg-background hover:underline">
             Refresh from PayPal
           </button>

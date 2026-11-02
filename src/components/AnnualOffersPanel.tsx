@@ -73,7 +73,7 @@ export function AnnualOffersPanel({ offers, labels, canReview, unavailable = fal
   return (
     <section className="mb-6 min-w-0 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="annual-offers-title">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="annual-offers-title" className="text-lg font-semibold">Annual offers</h2>
+        <h2 id="annual-offers-title" className="text-xl font-semibold sm:text-2xl">Annual offers</h2>
         <span className="source-badge text-observed">Status from PayPal Sandbox read-back</span>
       </div>
       {unavailable ? (

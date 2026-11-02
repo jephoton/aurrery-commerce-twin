@@ -3,6 +3,7 @@
 /* Star-chart theme (M8): midnight-navy ground, warm-ivory engraved line work, burnished gold as the brass accent.
    Text tokens are tuned for WCAG AA (≥ 4.5:1) on --surface, --background and --raised. */
 :root {
+  color-scheme: dark;
   --background: #06102b;
   --surface: #0a1a40;
   --raised: #11245a;
@@ -53,28 +54,42 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+/* Element defaults live in the base layer so Tailwind utilities (text sizes, weights) on the same elements win. */
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  button:not(:disabled), a, input[type="checkbox"] { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  textarea { resize: vertical; }
+  th, td { vertical-align: top; }
+  th { font-weight: 500; }
+  /* Cormorant Garamond for headings (sized by utilities where they are used); body, tables and numbers stay Geist. */
+  h1, h2 { font-family: var(--font-display); font-weight: 600; letter-spacing: .005em; line-height: 1.15; }
+  /* Number fields: no spinners, aligned digits. */
+  input[type="number"] { appearance: textfield; -moz-appearance: textfield; font-variant-numeric: tabular-nums; }
+  input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+}
+
+/* Kept outside the layers on purpose: the focus ring must survive utilities such as outline-none. */
 :focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 3px; }
-button:not(:disabled), a, input[type="checkbox"] { cursor: pointer; }
-button:disabled { cursor: not-allowed; }
-textarea { resize: vertical; }
-th, td { vertical-align: top; }
-th { font-weight: 500; }
 
-/* ——— Type: Cormorant Garamond for the brand and headings; body, tables and numbers stay Geist ——— */
-h1, h2, .display { font-family: var(--font-display); font-weight: 600; letter-spacing: .005em; }
-h1 { font-size: clamp(2.15rem, 1.7rem + 1.8vw, 2.85rem); line-height: 1.08; }
-h2 { font-size: 1.5rem; line-height: 1.2; }
-.brand-name { font-family: var(--font-display); font-size: 1.7rem; font-weight: 600; line-height: 1; letter-spacing: .01em; }
+@layer components {
+  .display { font-family: var(--font-display); font-weight: 600; letter-spacing: .005em; }
+  .brand-name { font-family: var(--font-display); font-size: 1.7rem; font-weight: 600; line-height: 1; letter-spacing: .01em; }
 
-.eyebrow { display: inline-flex; align-items: center; gap: .55em; color: var(--brand-accent); font-size: .7rem; font-weight: 650; letter-spacing: .17em; text-transform: uppercase; }
-/* A small four-point star before each eyebrow (no generated text, so nothing extra is announced). */
-.eyebrow::before { content: ""; width: .7em; height: .7em; flex: none; background: var(--brand); clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); }
-.source-badge { display: inline-flex; align-items: center; min-height: 2rem; border: 1px solid var(--border); border-radius: 999px; padding: .35rem .75rem; background: var(--raised); box-shadow: inset 0 0 0 2px var(--raised), inset 0 0 0 3px var(--engrave); color: var(--muted); font-size: .72rem; font-weight: 550; line-height: 1.3; }
+  /* A small four-point star before each eyebrow (no generated text, so nothing extra is announced), centred on the first line when the label wraps. */
+  .eyebrow { display: inline-flex; align-items: flex-start; gap: .55em; color: var(--brand-accent); font-size: .7rem; font-weight: 650; line-height: 1.5; letter-spacing: .17em; text-transform: uppercase; }
+  .eyebrow::before { content: ""; width: .7em; height: .7em; margin-top: .4em; flex: none; background: var(--brand); clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); }
+  .source-badge { display: inline-flex; align-items: center; min-height: 2rem; border: 1px solid var(--border); border-radius: 999px; padding: .35rem .75rem; background: var(--raised); box-shadow: inset 0 0 0 2px var(--raised), inset 0 0 0 3px var(--engrave); color: var(--muted); font-size: .72rem; font-weight: 550; line-height: 1.3; }
 
-/* ——— Engraved panels: hairline border (from the border utilities) plus an inner rule a few px inside ——— */
-.engraved { border-radius: .6rem; box-shadow: inset 0 0 0 5px var(--surface), inset 0 0 0 6px var(--engrave), 0 18px 40px -28px #000a; }
+  /* Engraved panels: hairline border (from the border utilities) plus an inner rule a few px inside. */
+  .engraved { border-radius: .6rem; box-shadow: inset 0 0 0 5px var(--surface), inset 0 0 0 6px var(--engrave), 0 18px 40px -28px #000a; }
+
+  /* Metallic gold, used sparingly: primary buttons (dark text stays >= 7:1 across the whole gradient). */
+  .btn-gold { background: var(--brand-metal); color: var(--background); }
+  .btn-gold:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--brand-accent); }
+}
+
 .engraved-key { position: relative; }
 .corner-ticks { position: absolute; inset: 2px; pointer-events: none; }
 .corner-ticks > span { position: absolute; width: .95rem; height: .95rem; border: 0 solid var(--brand); }
@@ -87,10 +102,6 @@ h2 { font-size: 1.5rem; line-height: 1.2; }
 /* An engraved planisphere arc rising from the panel's top-right corner: a gold rim and a dotted inner ring. */
 .decision-panel::after { content: ""; position: absolute; width: 18rem; height: 18rem; top: -11rem; right: -6rem; border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent); border-radius: 50%; pointer-events: none; }
 .decision-panel::before { content: ""; position: absolute; width: 14rem; height: 14rem; top: -9rem; right: -4rem; border: 1.5px dotted var(--engrave); border-radius: 50%; pointer-events: none; }
-
-/* ——— Metallic gold, used sparingly: primary buttons (dark text stays >= 7:1 across the whole gradient) ——— */
-.btn-gold { background: var(--brand-metal); color: var(--background); }
-.btn-gold:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--brand-accent); }
 
 /* ——— Brand mark, divider, planisphere ——— */
 .brand-mark { display: block; width: 2.9rem; height: 2.9rem; flex: none; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--brand) 22%, transparent)); }
@@ -125,4 +136,19 @@ h2 { font-size: 1.5rem; line-height: 1.2; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   .twinkle { animation: none !important; }
+}
+
+/* Print: no backdrop art or glow, light paper colours, flat panels. */
+@media print {
+  :root {
+    color-scheme: light;
+    --background: #ffffff; --surface: #ffffff; --raised: #f3f4f6; --foreground: #111827; --muted: #4b5563;
+    --border: #9ca3af; --engrave: transparent; --brand: #8a6418; --brand-accent: #7a5612; --brand-metal: #8a6418;
+    --positive: #17663e; --negative: #a3291c; --sim: #5b3fa0; --observed: #17663e;
+  }
+  body { background: #ffffff; }
+  .starfield, .page-frame { display: none; }
+  .engraved, .source-badge { box-shadow: none; }
+  .decision-panel { background: #ffffff; }
+  .decision-panel::before, .decision-panel::after { display: none; }
 }

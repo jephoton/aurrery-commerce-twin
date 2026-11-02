@@ -8,7 +8,7 @@ export function MerchantOverview({ summary }: { summary: MerchantSummary }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="eyebrow">Merchant snapshot</p>
-          <h2 id="merchant-overview-title" className="mt-2 text-xl font-semibold tracking-tight">Subscribers in orbit</h2>
+          <h2 id="merchant-overview-title" className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">Subscribers in orbit</h2>
         </div>
         <span className="source-badge">{summary.imported ? `Imported CSV · ${summary.imported.firstMonth} to ${summary.imported.lastMonth}` : `Synthetic demo history · ${summary.asOfMonth}`}</span>
       </div>

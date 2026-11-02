@@ -165,7 +165,7 @@ export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange, d
   };
   return (
     <section className="mb-6 min-w-0 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="recovery-title">
-      <h2 id="recovery-title" className="text-lg font-semibold">Restore a verified discount</h2>
+      <h2 id="recovery-title" className="text-xl font-semibold sm:text-2xl">Restore a verified discount</h2>
       <p className="mt-1 text-sm text-muted">Prepare a separate proposed action from a completed discount. Its exact targets and original list prices need a fresh merchant approval.</p>
       {canReview && <div className="mt-4 border-t border-border pt-4">
         <h3 className="font-medium">Administrator demo reset</h3>

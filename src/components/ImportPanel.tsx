@@ -210,7 +210,7 @@ export function ImportedBanner({ session, disabled, onBack, ref }: { session: Im
 export function DemoOnlyNotice() {
   return (
     <section aria-labelledby="demo-only-title" className="mb-6 min-w-0 engraved border border-border bg-surface p-5 text-sm sm:p-6">
-      <h2 id="demo-only-title" className="text-lg font-semibold">Approval, pilots, annual offers and recovery</h2>
+      <h2 id="demo-only-title" className="text-xl font-semibold sm:text-2xl">Approval, pilots, annual offers and recovery</h2>
       <p className="mt-2 text-muted">{DEMO_ONLY_MESSAGE} Go back to Ridgeline to prepare, approve or recover PayPal Sandbox actions.</p>
     </section>
   );
