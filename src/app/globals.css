@@ -118,7 +118,8 @@ body {
 /* Scenario grid: the selected strategy gets a gold bar on its name cell (the row background is gold-tinted via the grid theme). */
 .scenario-grid .ag-row-selected .ag-cell[col-id="name"] { box-shadow: inset 3px 0 0 var(--brand); }
 .planisphere { display: block; width: 100%; height: auto; overflow: visible; }
-.planisphere-total { font-family: var(--font-display); font-size: 30px; font-weight: 600; }
+.planisphere-total { font-family: var(--font-display); font-size: 25px; font-weight: 600; }
+.planisphere-label { font-family: var(--font-geist-sans), system-ui, sans-serif; }
 
 /* ——— Backdrop art: behind all content, never interactive ——— */
 .starfield { position: fixed; inset: 0; z-index: -2; width: 100%; height: 100%; pointer-events: none; }
@@ -131,9 +132,15 @@ body {
 .page-frame-corner-bl { bottom: 0; left: 0; transform: scaleY(-1); }
 .page-frame-corner-br { bottom: 0; right: 0; transform: scale(-1, -1); }
 @media (max-width: 1023px) { .page-frame-band { display: none; } }
-/* Narrow screens: the corners collapse to small rose ornaments. */
+/* Until the page margins are wide enough (1600px), the top corners slide outward and fade so the rose never sits behind the brand mark. */
+@media (max-width: 1599px) {
+  .page-frame-corner-tl { transform: translate(-24%, -24%); opacity: .16; }
+  .page-frame-corner-tr { transform: translate(24%, -24%) scaleX(-1); opacity: .16; }
+}
+/* Narrow screens: no top corners; the bottom ones collapse to small, faint rose ornaments. */
 @media (max-width: 767px) {
-  .page-frame-corner { width: 6.5rem; opacity: .26; }
+  .page-frame-corner { width: 6.5rem; opacity: .16; }
+  .page-frame-corner-tl, .page-frame-corner-tr { display: none; }
   .page-frame-extended { display: none; }
 }
 

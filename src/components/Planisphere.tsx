@@ -11,6 +11,7 @@ const SIZE = 340;
 const C = SIZE / 2;
 const OUTER = 158;
 const RINGS = [112, 80] as const;
+const CORE = 38;
 export const STAR_MIN = 4;
 export const STAR_MAX = 13;
 
@@ -33,11 +34,19 @@ export function Planisphere({ segments, total }: { segments: PlanisphereSegment[
   const stars = segments.map((segment, i) => {
     const deg = -90 + (i * 360) / Math.max(1, n);
     const [x, y] = polar(C, C, RINGS[i % 2], deg);
-    return { ...segment, x: r2(x), y: r2(y), size: starSize(segment.active, sum) };
+    const size = starSize(segment.active, sum);
+    // Labels sit under the star (over it in the lower half) and, on the sides, run inward from the star, so they stay
+    // clear of the tick ring and the centre disc.
+    const cos = Math.cos((deg * Math.PI) / 180);
+    const lower = Math.sin((deg * Math.PI) / 180) > 0.3;
+    const anchor: "start" | "end" | "middle" = cos < -0.35 ? "start" : cos > 0.35 ? "end" : "middle";
+    const lx = anchor === "start" ? x - 14 : anchor === "end" ? x + 14 : x;
+    const ly = lower ? y - size - 7 : y + size + 15;
+    return { ...segment, x: r2(x), y: r2(y), size, labelAt: { x: r2(lx), y: r2(ly), anchor } };
   });
   // Dotted rays converge on the centre between the ring marks; dots near a segment star are left out.
   const rayDots = Array.from({ length: 12 }, (_, k) => 15 + k * 30).flatMap((deg) =>
-    Array.from({ length: 9 }, (_, j) => 54 + j * 10.5).map((radius) => {
+    Array.from({ length: 9 }, (_, j) => 46 + j * 10.5).map((radius) => {
       const [x, y] = polar(C, C, radius, deg);
       return { x: r2(x), y: r2(y), r: r2(0.55 + (radius / 140) * 0.8), key: `${deg}-${radius}` };
     }),
@@ -67,16 +76,16 @@ export function Planisphere({ segments, total }: { segments: PlanisphereSegment[
           {n > 2 ? <polygon points={stars.map((s) => pt([s.x, s.y])).join(" ")} /> : <polyline points={stars.map((s) => pt([s.x, s.y])).join(" ")} />}
         </g>
       )}
-      <circle cx={C} cy={C} r={46} fill="var(--raised)" stroke="var(--brand)" strokeWidth="0.8" strokeOpacity="0.6" />
-      <circle cx={C} cy={C} r={41} fill="none" stroke="#ffffff" strokeWidth="0.5" strokeDasharray="0 3" strokeLinecap="round" opacity="0.5" />
-      <text x={C} y={C + 4} textAnchor="middle" className="planisphere-total" fill="var(--brand-accent)">{total.toLocaleString()}</text>
-      <text x={C} y={C + 20} textAnchor="middle" fontSize="9.5" letterSpacing="1.4" fill="var(--muted)">ACTIVE</text>
+      <circle cx={C} cy={C} r={CORE} fill="var(--raised)" stroke="var(--brand)" strokeWidth="0.8" strokeOpacity="0.6" />
+      <circle cx={C} cy={C} r={CORE - 5} fill="none" stroke="#ffffff" strokeWidth="0.5" strokeDasharray="0 3" strokeLinecap="round" opacity="0.5" />
+      <text x={C} y={C + 3} textAnchor="middle" className="planisphere-total" fill="var(--brand-accent)">{total.toLocaleString()}</text>
+      <text x={C} y={C + 18} textAnchor="middle" fontSize="11" letterSpacing="1" fill="var(--muted)" className="planisphere-label">ACTIVE</text>
       {stars.map((star) => (
         <g key={star.id} className="planisphere-star" data-segment={star.id} data-size={star.size}>
           <circle cx={star.x} cy={star.y} r={r2(star.size * 1.55)} fill="var(--brand)" opacity="0.13" />
           <path d={sparkle(star.x, star.y, star.size)} fill="var(--brand-accent)" />
           <circle cx={star.x} cy={star.y} r={r2(Math.max(1.2, star.size * 0.28))} fill="#ffffff" />
-          <text x={star.x} y={r2(star.y + star.size + 13)} textAnchor="middle" fontSize="10.5" fill="var(--foreground)" stroke="var(--surface)" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke">
+          <text x={star.labelAt.x} y={star.labelAt.y} textAnchor={star.labelAt.anchor} fontSize="12.5" fill="var(--foreground)" className="planisphere-label" stroke="var(--surface)" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke">
             {shortLabel(star.label)}
           </text>
         </g>
