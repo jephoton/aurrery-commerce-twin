@@ -6,6 +6,7 @@ import { MAX_FEEDBACK_BYTES } from "@/import/feedback-csv";
 import { MAX_HISTORY_BYTES } from "@/import/history-csv";
 import { DEMO_ONLY_MESSAGE } from "@/import/messages";
 import { SAMPLE_FILES } from "@/import/sample-files";
+import { CornerTicks } from "./art/CornerTicks";
 import { buildImport, createReadGuard, formatImportError, readLimitedFile, type ImportError, type ImportSession, type LoadedFile } from "./import-flow";
 
 // "Use your own data" (M6): files are read in this tab only, checked locally for instant per-row errors and then re-checked
@@ -145,8 +146,11 @@ export function ImportPanel({ disabled, onImported, onBusyChange }: {
   const softDisabled = (off: boolean) => ({ "aria-disabled": off });
 
   return (
-    <details className="min-w-0 engraved border border-border bg-surface p-5 sm:p-6">
-      <summary className="min-h-10 cursor-pointer pt-2 text-lg font-semibold">Use your own data</summary>
+    <details className="group min-w-0 engraved border border-border bg-surface p-5 sm:p-6">
+      <summary className="display flex min-h-10 cursor-pointer list-none items-center gap-3 pt-2 text-xl sm:text-2xl [&::-webkit-details-marker]:hidden">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" className="h-4 w-4 flex-none text-brand transition-transform group-open:rotate-90"><path d="M5 2.5 L11 8 L5 13.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        Use your own data
+      </summary>
       <p className="mt-2 text-sm text-muted">
         Upload monthly subscriber history and, optionally, cancellation feedback to build a separate twin for this browser tab. It is simulate only: {DEMO_ONLY_MESSAGE} Your files stay in this tab; the server re-checks them on each request and stores nothing. Reloading the page returns to Ridgeline.
       </p>
@@ -156,12 +160,12 @@ export function ImportPanel({ disabled, onImported, onBusyChange }: {
       <div className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2">
         <div className="min-w-0 text-sm">
           <label htmlFor={`${id}-history`}>History CSV (required: 6–60 months, up to 256 KiB)</label>
-          <input key={`history-${inputsEpoch}`} id={`${id}-history`} type="file" accept=".csv,text/csv" disabled={disabled || busy} onChange={(event) => void pick("history", event)} className="mt-1 block w-full min-w-0 text-sm" />
+          <input key={`history-${inputsEpoch}`} id={`${id}-history`} type="file" accept=".csv,text/csv" disabled={disabled || busy} onChange={(event) => void pick("history", event)} className="mt-1 block w-full min-w-0 text-sm text-muted file:mr-3 file:min-h-10 file:cursor-pointer file:rounded-lg file:border file:border-border file:bg-raised file:px-4 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:border-brand-accent" />
           {history && <p className="mt-1 break-words text-muted">Using {history.name}</p>}
         </div>
         <div className="min-w-0 text-sm">
           <label htmlFor={`${id}-feedback`}>Feedback CSV (optional: up to 200 rows, classified by AI; text is not stored)</label>
-          <input key={`feedback-${inputsEpoch}`} id={`${id}-feedback`} type="file" accept=".csv,text/csv" disabled={disabled || busy} onChange={(event) => void pick("feedback", event)} className="mt-1 block w-full min-w-0 text-sm" />
+          <input key={`feedback-${inputsEpoch}`} id={`${id}-feedback`} type="file" accept=".csv,text/csv" disabled={disabled || busy} onChange={(event) => void pick("feedback", event)} className="mt-1 block w-full min-w-0 text-sm text-muted file:mr-3 file:min-h-10 file:cursor-pointer file:rounded-lg file:border file:border-border file:bg-raised file:px-4 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:border-brand-accent" />
           {feedback && <p className="mt-1 break-words text-muted">Using {feedback.name} <button type="button" disabled={locked} onClick={removeFeedback} className="ml-2 min-h-10 text-brand-accent underline disabled:opacity-50">Remove</button></p>}
         </div>
       </div>
@@ -196,7 +200,8 @@ export function ImportErrors({ errors, ref }: { errors: ImportError[]; ref?: Ref
 /** `ref` lets the page move focus here after a merchant switch (`tabIndex -1`: focusable, not in the tab order). */
 export function ImportedBanner({ session, disabled, onBack, ref }: { session: ImportSession; disabled: boolean; onBack(): void; ref?: Ref<HTMLElement> }) {
   return (
-    <section ref={ref} aria-label="Imported merchant" tabIndex={-1} className="mb-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/50 bg-surface p-4 text-sm">
+    <section ref={ref} aria-label="Imported merchant" tabIndex={-1} className="engraved engraved-key mb-5 flex min-w-0 flex-wrap items-center justify-between gap-3 border border-brand/50 bg-surface p-4 text-sm sm:p-5">
+      <CornerTicks />
       <div className="min-w-0 break-words">
         <p className="font-semibold">Imported: {session.summary.name} · simulate only</p>
         <p className="text-muted">Built from your CSV in this browser tab. Nothing was stored; reloading the page also returns to Ridgeline.</p>

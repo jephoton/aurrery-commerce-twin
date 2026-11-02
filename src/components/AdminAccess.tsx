@@ -34,7 +34,7 @@ export function AdminAccess({ state, onChange, disabled = false }: { state: Acce
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   };
-  return <section aria-label="Administrator access" className="mb-5 rounded-xl border border-border bg-surface p-4 text-sm">
+  return <section aria-label="Administrator access" className="engraved mb-5 border border-border bg-surface p-4 text-sm sm:p-5">
     <p className="font-semibold">Administrator access</p>
     {!state ? <p role="status" className="text-muted">Checking access…</p> : state.authenticated ? <div className="mt-2 flex items-center gap-3"><span>Signed in for merchant decisions.</span><button type="button" disabled={busy} onClick={logout} className="min-h-10 rounded border border-border px-3 disabled:opacity-50">Sign out</button></div> : <>
       <p className="mt-1 text-muted">Visitors can explore this synthetic demo. Merchant approval and rejection require sign-in.</p>
