@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AgentEvent } from "@/agent/contracts";
+import type { ImportPayload } from "@/import/import-payload";
 import { DEMO_ONLY_MESSAGE } from "@/import/messages";
 import { AgentSession } from "./agent-session";
 
@@ -73,12 +74,14 @@ export function AgentActivity({ event }: { event: AgentEvent }) {
   }
 }
 
-export function AgentPanel({ objective, disabled, onStart, onEvent, onFinish }: {
+export function AgentPanel({ objective, disabled, importPayload = null, onStart, onEvent, onFinish }: {
   objective: string; disabled: boolean;
+  /** Imported merchant (M6): sent with each run; the run is simulate only. */
+  importPayload?: ImportPayload | null;
   onStart(): void; onEvent(event: AgentEvent): void; onFinish(): void;
 }) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
-  const [status, setStatus] = useState("Ready to investigate. Proposals require separate merchant approval.");
+  const [status, setStatus] = useState(importPayload ? "Ready to investigate. Imported merchant: simulate only, no PayPal action." : "Ready to investigate. Proposals require separate merchant approval.");
   const [running, setRunning] = useState(false);
   const session = useRef(new AgentSession());
   useEffect(() => { const current = session.current; return () => current.stop(); }, []);
@@ -87,11 +90,12 @@ export function AgentPanel({ objective, disabled, onStart, onEvent, onFinish }: 
     if (disabled || session.current.active || !objective.trim() || objective.trim().length > 2000) return;
     setEvents([]); setRunning(true); setStatus("Agent running…"); onStart();
     await session.current.run(objective, {
+      ...(importPayload ? { import: importPayload } : {}),
       onEvent(event) {
         setEvents(previous => [...previous, event].slice(-120));
         onEvent(event);
       },
-      onResult: done => setStatus(done.status === "complete" ? "Investigation complete. Review the proposal and uncertainty before approving." : `Run ${done.status}: ${done.reason ?? "no completed recommendation"}.`),
+      onResult: done => setStatus(done.status === "complete" ? (importPayload ? "Investigation complete. Simulate only: no PayPal action was prepared." : "Investigation complete. Review the proposal and uncertainty before approving.") : `Run ${done.status}: ${done.reason ?? "no completed recommendation"}.`),
       onError: setStatus,
       onFinish() { setRunning(false); onFinish(); },
     });
@@ -99,7 +103,7 @@ export function AgentPanel({ objective, disabled, onStart, onEvent, onFinish }: 
   const stop = () => {
     if (!session.current.active) return;
     session.current.stop();
-    setRunning(false); setStatus("Run cancelled. Any visible proposal still requires separate approval."); onFinish();
+    setRunning(false); setStatus(importPayload ? "Run cancelled. Simulate only: no PayPal action was prepared." : "Run cancelled. Any visible proposal still requires separate approval."); onFinish();
   };
   return (
     <div className="mt-5 border-t border-border pt-5" aria-label="Agent activity">

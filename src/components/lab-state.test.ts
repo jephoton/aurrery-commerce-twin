@@ -139,3 +139,11 @@ it("reads only annualEvidence from a status response and keeps the previous evid
   expect(liveAnnualFromStatus(null)).toBeNull();
   expect(liveAnnualFromStatus("x")).toBeNull();
 });
+it("selects a simulate-only recommendation from the current comparison without creating a proposal", () => {
+  const state = dashboardReducer({ ...emptyDashboard, comparison, comparisonSource: "agent", selectedId: "list-27" }, { type: "event", event: { type: "recommendation", strategy: STARTER_STRATEGIES[0], rationale: "r", tradeoffs: "t", simulateOnly: true } });
+  expect(state).toMatchObject({ selectedId: STARTER_STRATEGIES[0].id, proposal: null, proposalSource: null, confirmed: false });
+  const unknown = { ...STARTER_STRATEGIES[0], id: "not-compared" };
+  expect(dashboardReducer(state, { type: "event", event: { type: "recommendation", strategy: unknown, rationale: "r", tradeoffs: "t", simulateOnly: true } })).toBe(state);
+  const baseline = comparison.strategies.find(s => s.strategy.id === comparison.baselineId)!.strategy;
+  expect(dashboardReducer(state, { type: "event", event: { type: "recommendation", strategy: baseline, rationale: "r", tradeoffs: "t", simulateOnly: true } })).toBe(state);
+});

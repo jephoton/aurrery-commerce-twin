@@ -3,6 +3,7 @@ import { AgentSession } from "./agent-session";
 import { dashboardReducer, emptyDashboard } from "./lab-state";
 import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
 import type { AgentEvent } from "@/agent/contracts";
+import { samplePayload } from "@/test/import-fixture";
 
 const response = (message: string) => new Response(JSON.stringify({ runId: "r1", seq: 1, event: { type: "summary", message } }) + "\n" + JSON.stringify({ runId: "r1", seq: 2, event: { type: "done", status: "complete" } }) + "\n");
 it("ignores late events and completion from a stopped run after a new run starts", async () => {
@@ -47,4 +48,13 @@ it("cannot replace a new run's observed snapshot with a stopped generation's lat
   oldResponse(stream(snapshot(.1)));
   await old;
   expect(state.observedSnapshot).toEqual(snapshot(.5));
+});
+it("sends the import with the objective only when one is active", async () => {
+  const fetcher = vi.fn<typeof fetch>(async () => response("ok"));
+  const callbacks = { fetch: fetcher, onEvent: vi.fn(), onResult: vi.fn(), onError: vi.fn(), onFinish: vi.fn() };
+  await new AgentSession().run("Explore", callbacks);
+  expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toEqual({ objective: "Explore" });
+  const payload = samplePayload();
+  await new AgentSession().run("Explore", { ...callbacks, import: payload });
+  expect(JSON.parse(String(fetcher.mock.calls[1][1]?.body))).toEqual({ objective: "Explore", import: payload });
 });

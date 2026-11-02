@@ -1,8 +1,11 @@
 import type { AgentEvent } from "@/agent/contracts";
 import { requestAgent } from "@/agent/stream";
+import type { ImportPayload } from "@/import/import-payload";
 
 interface SessionCallbacks {
   fetch?: typeof fetch;
+  /** Imported merchant (M6): sent with the objective; omitted for Ridgeline. */
+  import?: ImportPayload;
   onEvent(event: AgentEvent): void;
   onResult(result: Awaited<ReturnType<typeof requestAgent>>): void;
   onError(message: string): void;
@@ -23,7 +26,7 @@ export class AgentSession {
     const controller = new AbortController(), current = ++this.generation;
     this.controller = controller;
     try {
-      const result = await requestAgent(objective, { fetch: callbacks.fetch, signal: controller.signal, onEvent: event => {
+      const result = await requestAgent(objective, { fetch: callbacks.fetch, ...(callbacks.import ? { import: callbacks.import } : {}), signal: controller.signal, onEvent: event => {
         if (this.generation === current && !controller.signal.aborted) callbacks.onEvent(event);
       } });
       if (this.generation === current) callbacks.onResult(result);

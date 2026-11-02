@@ -53,6 +53,8 @@ export function dashboardReducer(state: DashboardState, action: Action): Dashboa
       if (event.type === "comparison") return dashboardReducer(state, { type: "comparison", comparison: event.comparison, source: "agent" });
       if (event.type === "stress" && state.comparisonSource === "agent" && event.stress.base.strategy.id === event.strategyId && event.stress.stressed.strategy.id === event.strategyId && state.comparison?.strategies.some(s => s.strategy.id === event.strategyId && s.strategy.id !== state.comparison?.baselineId)) return { ...state, stress: event };
       if (event.type === "proposal" && event.proposal.strategy && state.comparison?.strategies.some(s => s.strategy.id === event.proposal.strategy?.id)) return { ...state, ...clearReview, selectedId: event.proposal.strategy.id, proposal: event.proposal, proposalSource: "agent" };
+      // Imported merchants (M6): a simulate-only recommendation selects the strategy and never creates a proposal.
+      if (event.type === "recommendation" && state.comparison?.strategies.some(s => s.strategy.id === event.strategy.id && s.strategy.id !== state.comparison?.baselineId)) return { ...state, ...clearReview, selectedId: event.strategy.id };
       return state;
     }
   }

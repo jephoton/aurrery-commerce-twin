@@ -3,6 +3,7 @@ import type { AgentEvent } from "./contracts";
 import { StrategySchema } from "@/twin/interventions";
 import { METRIC_KEYS, SEGMENTS, type TwinParams } from "@/twin/types";
 import { ObservedSnapshotSchema } from "@/merchant/observed-snapshot";
+import type { ImportPayload } from "@/import/import-payload";
 
 export const MAX_FRAME_BYTES = 512 * 1024;
 export interface AgentFrame { runId: string; seq: number; event: AgentEvent }
@@ -90,9 +91,9 @@ export async function readAgentStream(response: Response, options: StreamOptions
   }
 }
 
-export async function requestAgent(objective: string, options: StreamOptions & { fetch?: typeof fetch }): Promise<Done> {
+export async function requestAgent(objective: string, options: StreamOptions & { fetch?: typeof fetch; import?: ImportPayload }): Promise<Done> {
   let response: Response;
-  try { response = await (options.fetch ?? fetch)("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ objective }), signal: options.signal }); }
+  try { response = await (options.fetch ?? fetch)("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(options.import ? { objective, import: options.import } : { objective }), signal: options.signal }); }
   catch { if (options.signal?.aborted) throw abortError(); throw new Error("Agent connection unavailable. Run incomplete."); }
   if (!response.ok) {
     void response.body?.cancel().catch(() => {});
