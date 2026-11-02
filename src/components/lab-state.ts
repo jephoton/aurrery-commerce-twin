@@ -3,6 +3,8 @@ import { chooseHeadline } from "./headline";
 import type { ExecutionReport } from "@/execution/execute";
 import type { Proposal } from "@/ledger/proposals";
 import type { ComparisonResult } from "@/twin/simulate";
+import type { ImportPayload } from "@/import/import-payload";
+import type { Strategy } from "@/twin/interventions";
 import { AnnualEvidenceSchema, type AnnualEvidence, type ObservedSnapshot } from "@/merchant/observed-snapshot";
 
 export interface DashboardState {
@@ -68,3 +70,13 @@ export function liveAnnualFromStatus(body: unknown): LiveAnnual | null {
   const parsed = AnnualEvidenceSchema.safeParse((body as { annualEvidence?: unknown }).annualEvidence);
   return parsed.success ? { annual: parsed.data } : null;
 }
+
+/**
+ * The React key of the workspace (M6): one per merchant and import session, so switching merchants remounts it and drops
+ * the comparison, selection, proposal, evidence and any running agent session of the previous twin.
+ */
+export const workspaceKey = (imported: { id: number } | null) => (imported ? `import-${imported.id}` : "demo");
+
+/** A manual simulation's body. An imported twin is rebuilt server-side from the payload; Ridgeline's body is unchanged. */
+export const simulateRequestBody = (strategies: Strategy[], importPayload: ImportPayload | null) =>
+  importPayload ? { strategies, import: importPayload } : { strategies };

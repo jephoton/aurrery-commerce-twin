@@ -1,6 +1,7 @@
 import type { ComparisonResult } from "@/twin/simulate";
 import { expect, it } from "vitest";
-import { dashboardReducer, emptyDashboard, liveAnnualFromStatus } from "./lab-state";
+import { dashboardReducer, emptyDashboard, liveAnnualFromStatus, simulateRequestBody, workspaceKey } from "./lab-state";
+import { samplePayload } from "@/test/import-fixture";
 import { compareStrategies } from "@/twin/simulate";
 import { buildDemoTwin } from "@/merchant/demo";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
@@ -153,4 +154,15 @@ it("ignores a recommendation unless the displayed comparison came from the agent
     const state = { ...emptyDashboard, comparison, comparisonSource, selectedId: "list-27" };
     expect(dashboardReducer(state, { type: "event", event })).toBe(state);
   }
+});
+
+it("keys the workspace on the merchant, so each import session gets a fresh one", () => {
+  expect(workspaceKey(null)).toBe("demo");
+  expect(workspaceKey({ id: 3 })).toBe("import-3");
+  expect(workspaceKey({ id: 4 })).not.toBe(workspaceKey({ id: 3 }));
+});
+it("sends the import payload with a manual simulation only while imported", () => {
+  const payload = samplePayload();
+  expect(simulateRequestBody(STARTER_STRATEGIES, null)).toEqual({ strategies: STARTER_STRATEGIES });
+  expect(simulateRequestBody(STARTER_STRATEGIES, payload)).toEqual({ strategies: STARTER_STRATEGIES, import: payload });
 });

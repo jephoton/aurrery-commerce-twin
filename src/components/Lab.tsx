@@ -11,7 +11,7 @@ import type { MerchantSummary } from "@/merchant/summary";
 import { FanChart } from "./FanChart";
 import { ScenarioGrid, toRows } from "./ScenarioGrid";
 import { AgentPanel } from "./AgentPanel";
-import { dashboardReducer, emptyDashboard, liveAnnualFromStatus, type LiveAnnual } from "./lab-state";
+import { dashboardReducer, emptyDashboard, liveAnnualFromStatus, simulateRequestBody, workspaceKey, type LiveAnnual } from "./lab-state";
 import { DecisionSummary } from "./DecisionSummary";
 import { EvidencePanel } from "./EvidencePanel";
 import { MerchantOverview } from "./MerchantOverview";
@@ -23,6 +23,8 @@ import { chooseHeadline, isExecutableIntervention } from "./headline";
 import { AnnualOfferCard } from "./AnnualOfferCard";
 import { AnnualOffersPanel } from "./AnnualOffersPanel";
 import { clampOfferWindowDays, DEFAULT_OFFER_WINDOW_DAYS, outcomeCells, proposalBody, reportColumns } from "./annual-offers-view";
+import { DemoOnlyNotice, ImportedBanner, ImportPanel } from "./ImportPanel";
+import type { ImportSession } from "./import-flow";
 
 export type { MerchantSummary } from "@/merchant/summary";
 
@@ -52,7 +54,34 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+/**
+ * Holds this tab's CSV import (M6). Each merchant and import session gets a freshly mounted workspace (React `key`), so no
+ * comparison, selection, proposal, evidence or agent run crosses twins. Reloading the page drops the import and returns to Ridgeline.
+ */
 export function Lab({ summary, starterStrategies, simulationRuns }: { summary: MerchantSummary; starterStrategies: Strategy[]; simulationRuns: number }) {
+  const [imported, setImported] = useState<ImportSession | null>(null);
+  return (
+    <Workspace
+      key={workspaceKey(imported)}
+      summary={imported?.summary ?? summary}
+      starterStrategies={imported?.starterStrategies ?? starterStrategies}
+      simulationRuns={simulationRuns}
+      imported={imported}
+      onImported={setImported}
+      onBackToDemo={() => setImported(null)}
+    />
+  );
+}
+
+/** One merchant's workspace. Imported mode is simulate only: no PayPal, annual offer, recovery or administrator reads or actions. */
+export function Workspace({ summary, starterStrategies, simulationRuns, imported, onImported, onBackToDemo }: {
+  summary: MerchantSummary; starterStrategies: Strategy[]; simulationRuns: number;
+  /** Set for an imported merchant: simulate only. */
+  imported: ImportSession | null;
+  onImported(session: ImportSession): void;
+  onBackToDemo(): void;
+}) {
+  const simulateOnly = !!imported;
   const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
   const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress, observedSnapshot }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
@@ -66,6 +95,9 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
   const [offerWindowInput, setOfferWindowInput] = useState(String(DEFAULT_OFFER_WINDOW_DAYS));
   const [busy, setBusy] = useState<"simulate" | "propose" | "execute" | "reject" | "agent" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // True while the import panel builds or loads the sample: simulate, the agent and merchant switching wait for it.
+  const [importing, setImporting] = useState(false);
+  const locked = busy !== null || importing;
   const setConfirmed = (value: boolean) => dispatch({ type: "confirmed", value });
   const startAgent = useCallback(() => { setBusy("agent"); setError(null); dispatch({ type: "reset" }); }, []);
   const agentEvent = useCallback((event: AgentEvent) => dispatch({ type: "event", event }), []);
@@ -83,17 +115,19 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
       })
       .catch((e) => { setError(e.message); setStatusRead((read) => ({ ...read, unavailable: true })); return false; });
   }, []);
-  useEffect(() => { void refreshPayPal(); }, [refreshPayPal]);
-  useEffect(() => { api<AccessState>("/api/admin/session").then(setAccess).catch(() => setError("Administrator access unavailable.")); }, []);
+  // Imported mode never reads PayPal status, annual offers or the administrator session.
+  useEffect(() => { if (!simulateOnly) void refreshPayPal(); }, [refreshPayPal, simulateOnly]);
+  useEffect(() => { if (!simulateOnly) api<AccessState>("/api/admin/session").then(setAccess).catch(() => setError("Administrator access unavailable.")); }, [simulateOnly]);
 
   const simulate = async () => {
-    if (busy) return;
+    if (busy || importing) return;
     setBusy("simulate");
     setError(null);
     dispatch({ type: "reset" });
     try {
-      const { observedSnapshot, ...comparison } = await api<ObservedComparison>("/api/simulate", { method: "POST", body: JSON.stringify({ strategies: starterStrategies }) });
-      dispatch({ type: "comparison", comparison, source: "manual", observedSnapshot: ObservedSnapshotSchema.parse(observedSnapshot) });
+      // An imported twin is rebuilt server-side from the payload on every request and has no observed snapshot.
+      const { observedSnapshot, ...comparison } = await api<ObservedComparison>("/api/simulate", { method: "POST", body: JSON.stringify(simulateRequestBody(starterStrategies, imported?.payload ?? null)) });
+      dispatch({ type: "comparison", comparison, source: "manual", observedSnapshot: imported ? undefined : ObservedSnapshotSchema.parse(observedSnapshot) });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -102,13 +136,13 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
   };
 
   const selected = comparison?.strategies.find((s) => s.strategy.id === selectedId) ?? null;
-  const headline = comparison ? chooseHeadline(comparison, (comparisonSource === "agent" ? rules : null) ?? DEFAULT_DECISION_RULES) : null;
+  const headline = comparison ? chooseHeadline(comparison, (comparisonSource === "agent" ? rules : null) ?? DEFAULT_DECISION_RULES, { simulateOnly }) : null;
   const isHeadlinePick = !!headline && headline.selectedId === selectedId;
   const baseline = comparison?.strategies.find((s) => s.strategy.id === comparison.baselineId) ?? null;
-  const rows = useMemo(() => (comparison ? toRows(comparison.strategies, comparison.baselineId) : []), [comparison]);
+  const rows = useMemo(() => (comparison ? toRows(comparison.strategies, comparison.baselineId, { simulateOnly }) : []), [comparison, simulateOnly]);
 
   const propose = async () => {
-    if (!selected || busy) return;
+    if (!selected || busy || simulateOnly) return;
     setBusy("propose");
     setError(null);
     dispatch({ type: "clear-review" });
@@ -155,7 +189,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
     finally { setBusy(null); }
   };
 
-  const executable = !!selected && isExecutableIntervention(selected.strategy.intervention);
+  const executable = !!selected && isExecutableIntervention(selected.strategy.intervention, { simulateOnly });
   const annualReport = report?.proposal.action.type === "annual_plan_offer";
 
   return (
@@ -165,20 +199,20 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
           <span className="brand-mark" aria-hidden="true"><span /></span>
           <div className="min-w-0">
             <p className="text-xl font-semibold tracking-tight text-foreground">Aurrery <span className="ml-2 align-middle text-[10px] font-medium uppercase tracking-[.2em] text-brand-accent">Decision lab</span></p>
-            <p className="text-sm text-muted">{summary.name} · {summary.planName} · synthetic demo</p>
+            <p className="break-words text-sm text-muted">{summary.name} · {summary.planName} · {imported ? "imported CSV · simulate only" : "synthetic demo"}</p>
           </div>
         </div>
-        <span
-          className={`source-badge ${paypal?.configured ? "text-positive" : "text-muted"}`}
-        >
-          PayPal Sandbox: {paypal ? (paypal.configured ? "connected" : "not configured") : "checking…"}
-        </span>
+        {imported ? <span className="source-badge text-muted">PayPal actions: demo merchant only</span> : (
+          <span className={`source-badge ${paypal?.configured ? "text-positive" : "text-muted"}`}>
+            PayPal Sandbox: {paypal ? (paypal.configured ? "connected" : "not configured") : "checking…"}
+          </span>
+        )}
       </header>
 
       {error && <div role="alert" className="mb-4 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">{error}</div>}
-      <AdminAccess state={access} onChange={(value) => { setAccess(value); setAccessEpoch((epoch) => epoch + 1); setConfirmed(false); }} />
+      {imported ? <ImportedBanner session={imported} disabled={locked} onBack={onBackToDemo} /> : <AdminAccess state={access} onChange={(value) => { setAccess(value); setAccessEpoch((epoch) => epoch + 1); setConfirmed(false); }} />}
 
-      <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} recommended={isHeadlinePick && headline.recommended} noQualifyingAction={isHeadlinePick && !headline.recommended} biggerLevers={isHeadlinePick ? headline.biggerLevers : []} alsoExecutable={isHeadlinePick ? headline.alsoExecutable : []} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
+      <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} recommended={isHeadlinePick && headline.recommended} noQualifyingAction={isHeadlinePick && !headline.recommended} biggerLevers={isHeadlinePick ? headline.biggerLevers : []} alsoExecutable={isHeadlinePick ? headline.alsoExecutable : []} simulateOnly={simulateOnly} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
 
       <section className="mb-6 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="objective-title">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -189,7 +223,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
         <textarea
           id="objective"
           value={objective}
-          disabled={busy !== null}
+          disabled={locked}
           maxLength={2000}
           onChange={(e) => {
             setObjective(e.target.value);
@@ -201,17 +235,19 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             onClick={simulate}
-            disabled={busy !== null}
+            disabled={locked}
             className="min-h-10 rounded-lg border border-border px-4 py-2 font-medium text-foreground hover:border-brand-accent disabled:opacity-50"
           >
             {busy === "simulate" ? `Simulating ${simulationRuns.toLocaleString("en-US")} futures…` : "Simulate strategies"}
           </button>
           <span className="text-sm text-muted">{starterStrategies.length} candidates · {simulationRuns.toLocaleString("en-US")} futures each · 12-month horizon</span>
         </div>
-        <AgentPanel objective={objective} disabled={busy !== null} onStart={startAgent} onEvent={agentEvent} onFinish={finishAgent} />
+        <AgentPanel objective={objective} disabled={locked} importPayload={imported?.payload ?? null} onStart={startAgent} onEvent={agentEvent} onFinish={finishAgent} />
       </section>
 
       <div className="mb-6"><MerchantOverview summary={summary} /></div>
+      {/* Stays available while an import is active, so a broken upload can be shown to leave the imported twin unchanged. */}
+      <div className="mb-6"><ImportPanel disabled={busy !== null} onImported={onImported} onBusyChange={setImporting} /></div>
 
       {comparison && (
         <section className="mb-6 min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
@@ -219,7 +255,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
             <h2 className="text-lg font-semibold">Scenario comparison</h2>
             <span className="source-badge">Simulated, not observed</span>
           </div>
-          <ScenarioGrid rows={rows} selectedId={selectedId} disabled={busy !== null} horizonMonths={comparison.options.horizonMonths} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
+          <ScenarioGrid rows={rows} selectedId={selectedId} disabled={busy !== null} horizonMonths={comparison.options.horizonMonths} simulateOnly={simulateOnly} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
           <p className="mt-2 text-xs text-muted">
             Value = {comparison.options.horizonMonths}-month gross profit + discounted margin of the subscribers remaining at month {comparison.options.horizonMonths} (next 24 months, 1%/mo). Differences are paired
             against the baseline under common random numbers.
@@ -241,11 +277,11 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
               ]}
             />
           </div>
-          <div className="min-w-0 lg:col-span-2"><EvidencePanel summary={summary} evidence={evidence} source={comparisonSource} snapshot={observedSnapshot} liveAnnual={liveAnnual} /></div>
+          <div className="min-w-0 lg:col-span-2"><EvidencePanel summary={summary} evidence={evidence} source={comparisonSource} snapshot={simulateOnly ? null : observedSnapshot} liveAnnual={simulateOnly ? null : liveAnnual} /></div>
         </section>
       )}
 
-      {selected && selected.strategy.id !== comparison?.baselineId && (
+      {!imported && selected && selected.strategy.id !== comparison?.baselineId && (
         <section id="approval" aria-labelledby="approval-title" className="mb-6 min-w-0 scroll-mt-5 rounded-2xl border border-brand/50 bg-surface p-5 sm:p-6">
           <p className="eyebrow mb-2">Merchant confirmation boundary</p>
           <h2 id="approval-title" className="mb-1 text-xl font-semibold">Approval · review exact action</h2>
@@ -292,7 +328,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
         </section>
       )}
 
-      {report && (
+      {!imported && report && (
         <section className="mb-6 min-w-0 rounded-2xl border border-observed/40 bg-surface p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold">PayPal execution: {report.proposal.status.replace("_", " ")}</h2>
@@ -329,6 +365,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
         </section>
       )}
 
+      {imported ? <DemoOnlyNotice /> : (<>
       <AnnualOffersPanel
         offers={paypal?.annualOffers ?? []}
         labels={Object.fromEntries(paypal?.subscriptions.map((s) => [s.subscriptionId, s.label]) ?? [])}
@@ -381,6 +418,7 @@ export function Lab({ summary, starterStrategies, simulationRuns }: { summary: M
           </table></div>
         )}
       </section>
+      </>)}
     </main>
   );
 }
