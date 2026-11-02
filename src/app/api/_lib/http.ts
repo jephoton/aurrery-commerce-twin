@@ -2,7 +2,6 @@ import { ZodError } from "zod";
 import { ProposalError } from "@/ledger/proposals";
 import { ExecutionReconciliationRequired } from "@/execution/execute";
 import { WorkerTaskError } from "@/twin/worker-client";
-import { capErrors, type RowError } from "@/import/row-error";
 import { DEMO_ONLY_MESSAGE, REASON_UNAVAILABLE_MESSAGE } from "@/import/messages";
 
 const MAX_JSON_BYTES = 64 * 1024;
@@ -69,10 +68,8 @@ export function errorResponse(error: unknown): Response {
   return Response.json({ error: "INTERNAL", message: "Request unavailable." }, { status: 500 });
 }
 
-/** Per-row import errors (M6). Nothing was stored, so the browser's current twin stays as it was. */
-export function invalidImportResponse(errors: RowError[]): Response {
-  return Response.json({ error: "INVALID_IMPORT", message: "The import has errors. Nothing was changed.", errors: capErrors(errors) }, { status: 400 });
-}
+/** Per-row import errors (M6); shared with the agent endpoint. */
+export { invalidImportResponse } from "@/import/responses";
 
 /** A price-reason strategy for an import without classified feedback (decision 8). */
 export function reasonUnavailableResponse(): Response {

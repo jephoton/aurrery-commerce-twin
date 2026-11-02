@@ -8,7 +8,7 @@ import { MAX_FRAME_BYTES, type AgentFrame } from "./stream";
 import { admitHostedRequest } from "@/hosting/guard";
 import { ImportPayloadSchema, payloadIssues } from "@/import/import-payload";
 import { buildImportedTwin } from "@/import/imported-twin";
-import { invalidImportResponse } from "@/app/api/_lib/http";
+import { invalidImportResponse } from "@/import/responses";
 
 /**
  * `import` is an imported merchant (M6), parsed separately so its errors name rows and columns only, never

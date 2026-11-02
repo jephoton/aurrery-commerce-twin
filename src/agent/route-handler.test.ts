@@ -16,9 +16,9 @@ it.each([{}, { objective: " " }, { objective: "x".repeat(2001) }, { objective: "
 });
 it("bounds body bytes and rejects malformed JSON", async () => {
   const run = vi.fn(runner);
-  for (const body of ["x".repeat(20000), "{"]) {
+  for (const [body, status] of [["x".repeat(70_000), 413], ["{", 400]] as const) {
     const response = await createAgentHandler({ run })(new Request("http://localhost", { method: "POST", body }));
-    expect([400, 413]).toContain(response.status);
+    expect(response.status).toBe(status);
   }
   expect(run).not.toHaveBeenCalled();
 });
