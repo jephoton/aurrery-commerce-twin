@@ -175,7 +175,7 @@ export function ImportPanel({ disabled, onImported, onBusyChange }: {
         ))}
       </fieldset>
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={build} {...softDisabled(locked || !history)} className="min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background hover:bg-brand-accent aria-disabled:opacity-50">{busyKind === "build" ? "Checking…" : "Build twin"}</button>
+        <button type="button" onClick={build} {...softDisabled(locked || !history)} className="min-h-10 rounded-lg btn-gold px-4 py-2 font-semibold aria-disabled:opacity-50">{busyKind === "build" ? "Checking…" : "Build twin"}</button>
         <button type="button" onClick={loadSample} {...softDisabled(locked)} className="min-h-10 rounded-lg border border-border px-4 py-2 hover:border-brand-accent aria-disabled:opacity-50">{busyKind === "sample" ? "Loading…" : "Load sample merchant"}</button>
       </div>
       <p role="status" className="sr-only">{busyKind ? STATUS[busyKind] : reading > 0 ? "Reading the file…" : ""}</p>

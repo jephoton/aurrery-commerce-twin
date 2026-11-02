@@ -1,17 +1,24 @@
 @import "tailwindcss";
 
-/* Star-chart theme (M8): deep cobalt ground, white engraved line work, gold as the brass accent.
+/* Star-chart theme (M8): midnight-navy ground, warm-ivory engraved line work, burnished gold as the brass accent.
    Text tokens are tuned for WCAG AA (≥ 4.5:1) on --surface, --background and --raised. */
 :root {
-  --background: #0b1f4a;
-  --surface: #102a5c;
-  --raised: #16346d;
+  --background: #06102b;
+  --surface: #0a1a40;
+  --raised: #11245a;
   --foreground: #eef2fb;
-  --muted: #bccae8;
-  --border: #ffffff5e;
-  --engrave: #ffffff2e;
-  --brand: #e0b65e;
-  --brand-accent: #efcf8a;
+  --muted: #b8c4e0;
+  --border: #f3e6c86b;
+  --engrave: #f3e6c82e;
+  --brand: #c99a3b;
+  --brand-accent: #e2bd6a;
+  --brand-metal: linear-gradient(180deg, var(--brand-accent), var(--brand));
+  --glow-top: #0f2352;
+  --glow-corner: #0b1c47;
+  --glow-panel: #122a62;
+  --grid-line: #f3e6c83d;
+  --row-hover: #102552;
+  --row-selected: #18336f;
   --positive: #8fe0b6;
   --negative: #ffa596;
   --sim: #d6c3ff;
@@ -38,8 +45,8 @@
 
 body {
   background:
-    radial-gradient(ellipse 80% 34rem at 50% -10rem, #1a3f86 0, transparent 75%),
-    radial-gradient(ellipse 60% 40rem at 100% 110%, #10306a 0, transparent 70%),
+    radial-gradient(ellipse 80% 34rem at 50% -10rem, var(--glow-top) 0, transparent 75%),
+    radial-gradient(ellipse 60% 40rem at 100% 110%, var(--glow-corner) 0, transparent 70%),
     var(--background);
   background-attachment: fixed;
   color: var(--foreground);
@@ -76,23 +83,27 @@ h2 { font-size: 1.5rem; line-height: 1.2; }
 .corner-ticks > span:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 1.5px; border-left-width: 1.5px; border-bottom-left-radius: .45rem; }
 .corner-ticks > span:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 1.5px; border-right-width: 1.5px; border-bottom-right-radius: .45rem; }
 
-.decision-panel { position: relative; overflow: hidden; background: radial-gradient(circle at 88% 0%, #1d3d7c 0, transparent 42%), var(--surface); }
+.decision-panel { position: relative; overflow: hidden; background: radial-gradient(circle at 88% 0%, var(--glow-panel) 0, transparent 42%), var(--surface); }
 /* An engraved planisphere arc rising from the panel's top-right corner: a gold rim and a dotted inner ring. */
-.decision-panel::after { content: ""; position: absolute; width: 18rem; height: 18rem; top: -11rem; right: -6rem; border: 1px solid #e0b65e47; border-radius: 50%; pointer-events: none; }
-.decision-panel::before { content: ""; position: absolute; width: 14rem; height: 14rem; top: -9rem; right: -4rem; border: 1.5px dotted #ffffff38; border-radius: 50%; pointer-events: none; }
+.decision-panel::after { content: ""; position: absolute; width: 18rem; height: 18rem; top: -11rem; right: -6rem; border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent); border-radius: 50%; pointer-events: none; }
+.decision-panel::before { content: ""; position: absolute; width: 14rem; height: 14rem; top: -9rem; right: -4rem; border: 1.5px dotted var(--engrave); border-radius: 50%; pointer-events: none; }
+
+/* ——— Metallic gold, used sparingly: primary buttons (dark text stays >= 7:1 across the whole gradient) ——— */
+.btn-gold { background: var(--brand-metal); color: var(--background); }
+.btn-gold:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--brand-accent); }
 
 /* ——— Brand mark, divider, planisphere ——— */
-.brand-mark { display: block; width: 2.9rem; height: 2.9rem; flex: none; filter: drop-shadow(0 0 10px #e0b65e33); }
-.celestial-divider { display: flex; align-items: center; gap: .75rem; color: #ffffff8c; pointer-events: none; }
+.brand-mark { display: block; width: 2.9rem; height: 2.9rem; flex: none; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--brand) 22%, transparent)); }
+.celestial-divider { display: flex; align-items: center; gap: .75rem; color: #f3e6c88c; pointer-events: none; }
 .celestial-divider svg { flex: none; }
-.celestial-divider-line { height: 1px; flex: 1; background: linear-gradient(90deg, transparent, #ffffff52); }
-.celestial-divider-line-end { background: linear-gradient(90deg, #ffffff52, transparent); }
+.celestial-divider-line { height: 1px; flex: 1; background: linear-gradient(90deg, transparent, #f3e6c852); }
+.celestial-divider-line-end { background: linear-gradient(90deg, #f3e6c852, transparent); }
 .planisphere { display: block; width: 100%; height: auto; overflow: visible; }
 .planisphere-total { font-family: var(--font-display); font-size: 30px; font-weight: 600; }
 
 /* ——— Backdrop art: behind all content, never interactive ——— */
 .starfield { position: fixed; inset: 0; z-index: -2; width: 100%; height: 100%; pointer-events: none; }
-.page-frame { position: absolute; inset: 0 0 auto 0; z-index: -1; height: 0; color: #ffffff; pointer-events: none; }
+.page-frame { position: absolute; inset: 0 0 auto 0; z-index: -1; height: 0; color: #f3e6c8; pointer-events: none; }
 .page-frame svg { pointer-events: none; }
 .page-frame-band { position: absolute; top: .25rem; left: 50%; width: min(34rem, 44vw); transform: translateX(-50%); opacity: .3; }
 .page-frame-corner { position: fixed; width: clamp(9rem, 16vw, 16rem); height: auto; aspect-ratio: 1; opacity: .3; }

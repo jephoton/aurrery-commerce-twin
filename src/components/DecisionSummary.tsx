@@ -105,7 +105,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
           </ul>
         </div>
       )}
-      {!simulateOnly && currentProposal?.status === "proposed" && <a href="#approval" className="mt-5 inline-flex min-h-10 items-center rounded-lg bg-brand px-5 py-2 font-semibold text-background hover:bg-brand-accent">Review exact action <span aria-hidden="true" className="ml-2">↗</span></a>}
+      {!simulateOnly && currentProposal?.status === "proposed" && <a href="#approval" className="mt-5 inline-flex min-h-10 items-center rounded-lg btn-gold px-5 py-2 font-semibold">Review exact action <span aria-hidden="true" className="ml-2">↗</span></a>}
       {status && status !== "proposed" && <p className="mt-3 text-sm text-muted">This action is {status.replaceAll("_", " ")}; it is not a new recommendation.</p>}
     </section>
   );

@@ -14,7 +14,7 @@ export function BrandMark() {
         <circle cx="24" cy="24" r="22.5" stroke="var(--brand)" strokeWidth="1.2" />
         <path d={TICKS} stroke="var(--brand)" strokeWidth="0.8" opacity="0.8" />
         <ellipse cx="24" cy="24" rx="15.5" ry="6.4" transform="rotate(-26 24 24)" stroke="var(--brand-accent)" strokeWidth="0.9" opacity="0.85" />
-        <ellipse cx="24" cy="24" rx="15.5" ry="6.4" transform="rotate(-26 24 24)" stroke="#ffffff" strokeWidth="0.5" strokeDasharray="0 2.4" opacity="0.5" />
+        <ellipse cx="24" cy="24" rx="15.5" ry="6.4" transform="rotate(-26 24 24)" stroke="#f3e6c8" strokeWidth="0.5" strokeDasharray="0 2.4" opacity="0.5" />
       </g>
       <circle cx="24" cy="24" r="3.6" fill="var(--brand)" />
       <circle cx="24" cy="24" r="5.6" fill="none" stroke="var(--brand)" strokeWidth="0.6" opacity="0.6" />

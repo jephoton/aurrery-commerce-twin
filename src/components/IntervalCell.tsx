@@ -9,9 +9,9 @@ export function IntervalCell({ p10, p50, p90, domain }: { p10: number; p50: numb
   return (
     <span className="flex min-w-[220px] flex-col justify-center gap-0.5 py-1" role="img" aria-label={label}>
       <svg viewBox="0 0 140 16" width="140" height="16" aria-hidden="true" focusable="false">
-        <line x1={x(zero)} x2={x(zero)} y1="1" y2="15" stroke="#bccae8" strokeWidth="1" strokeDasharray="2 2" />
-        <line x1={x(start)} x2={x(end)} y1="8" y2="8" stroke="#e0b65e" strokeWidth="5" strokeLinecap="round" />
-        <circle cx={x(median)} cy="8" r="4" fill="#eef2fb" stroke="#e0b65e" strokeWidth="2" />
+        <line x1={x(zero)} x2={x(zero)} y1="1" y2="15" stroke="var(--muted)" strokeWidth="1" strokeDasharray="2 2" />
+        <line x1={x(start)} x2={x(end)} y1="8" y2="8" stroke="var(--brand)" strokeWidth="5" strokeLinecap="round" />
+        <circle cx={x(median)} cy="8" r="4" fill="var(--foreground)" stroke="var(--brand)" strokeWidth="2" />
       </svg>
       <span className="text-[11px] leading-none text-muted" aria-hidden="true">{signedUsd(p10)} … {signedUsd(p90)}</span>
     </span>

@@ -108,7 +108,7 @@ export function AgentPanel({ objective, disabled, importPayload = null, onStart,
   return (
     <div className="mt-5 border-t border-border pt-5" aria-label="Agent activity">
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={start} disabled={disabled || running || !objective.trim() || objective.trim().length > 2000} className="min-h-10 rounded-lg bg-brand px-5 py-2 font-semibold text-background hover:bg-brand-accent disabled:opacity-50">Run agent <span aria-hidden="true" className="ml-1">↗</span></button>
+        <button type="button" onClick={start} disabled={disabled || running || !objective.trim() || objective.trim().length > 2000} className="min-h-10 rounded-lg btn-gold px-5 py-2 font-semibold disabled:opacity-50">Run agent <span aria-hidden="true" className="ml-1">↗</span></button>
         {running && <button type="button" onClick={stop} className="min-h-10 rounded-lg border border-border px-4 py-2 font-medium hover:bg-background">Stop agent</button>}
         <p role="status" className="min-w-0 text-sm text-muted">{status}</p>
       </div>

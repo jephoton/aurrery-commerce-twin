@@ -12,14 +12,14 @@ import { responsiveColumnState } from "./responsive-columns";
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const theme = themeQuartz.withParams({
-  accentColor: "#e0b65e",
-  backgroundColor: "#102a5c",
-  foregroundColor: "#eef2fb",
-  headerBackgroundColor: "#16346d",
-  headerTextColor: "#bccae8",
-  borderColor: "#ffffff3d",
-  rowHoverColor: "#18397a",
-  selectedRowBackgroundColor: "#22457f",
+  accentColor: "var(--brand)",
+  backgroundColor: "var(--surface)",
+  foregroundColor: "var(--foreground)",
+  headerBackgroundColor: "var(--raised)",
+  headerTextColor: "var(--muted)",
+  borderColor: "var(--grid-line)",
+  rowHoverColor: "var(--row-hover)",
+  selectedRowBackgroundColor: "var(--row-selected)",
   fontSize: 13,
   rowHeight: 58,
   wrapperBorderRadius: 10,

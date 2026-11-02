@@ -40,7 +40,7 @@ export function AdminAccess({ state, onChange, disabled = false }: { state: Acce
       <p className="mt-1 text-muted">Visitors can explore this synthetic demo. Merchant approval and rejection require sign-in.</p>
       <form onSubmit={submit} className="mt-3 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">Administrator password<input name="password" type="password" autoComplete="current-password" required maxLength={1024} className="min-h-10 rounded border border-border bg-background px-3" /></label>
-        <button disabled={busy} className="min-h-10 rounded bg-brand px-4 font-semibold text-background disabled:opacity-50">Sign in</button>
+        <button disabled={busy} className="min-h-10 rounded btn-gold px-4 font-semibold disabled:opacity-50">Sign in</button>
       </form>
     </>}
     {error && <p role="alert" className="mt-2 text-negative">{error}</p>}

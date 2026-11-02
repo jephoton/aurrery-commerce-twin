@@ -216,7 +216,7 @@ export function DiscountResumeReview({ proposal, confirmed, canReview, paypalCon
       <p className="mt-2 text-muted">The prior approval remains recorded. This separate merchant request checks the exact hash and current state before any PayPal call.</p>
       <label className="mt-3 flex min-h-10 items-center gap-3"><input type="checkbox" checked={confirmed} disabled={busy || !canReview} onChange={(event) => onConfirm(event.target.checked)} className="h-5 w-5 shrink-0 accent-brand" />
         I confirm executing this already approved {noun} for {ids.length} PayPal Sandbox subscription(s).</label>
-      <button type="button" disabled={!confirmed || busy || !canReview || !paypalConfigured} onClick={onResume} className="mt-2 min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background disabled:opacity-50">Execute approved {noun}</button>
+      <button type="button" disabled={!confirmed || busy || !canReview || !paypalConfigured} onClick={onResume} className="mt-2 min-h-10 rounded-lg btn-gold px-4 py-2 font-semibold disabled:opacity-50">Execute approved {noun}</button>
     </> : <p className="mt-2 text-negative">Execution outcome requires ledger and PayPal reconciliation. Do not retry the PayPal action.</p>}
   </div>;
 }
@@ -238,7 +238,7 @@ export function RecoveryReview({ proposal, confirmed, canReview, paypalConfigure
       <label className="mt-3 flex min-h-10 items-center gap-3"><input type="checkbox" checked={confirmed} disabled={busy || !canReview} onChange={(event) => onConfirm(event.target.checked)} className="h-5 w-5 shrink-0 accent-brand" />
         I confirm {reset ? "resetting" : "restoring"} these {action.targets.length} PayPal Sandbox subscription price(s).</label>
       <div className="mt-2 flex gap-3">
-        <button type="button" disabled={!confirmed || busy || !canReview || !paypalConfigured} onClick={proposal.status === "approved" ? onResume : onApprove} className="min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background disabled:opacity-50">
+        <button type="button" disabled={!confirmed || busy || !canReview || !paypalConfigured} onClick={proposal.status === "approved" ? onResume : onApprove} className="min-h-10 rounded-lg btn-gold px-4 py-2 font-semibold disabled:opacity-50">
           {reset ? proposal.status === "approved" ? "Execute approved reset" : "Confirm & reset" : proposal.status === "approved" ? "Execute approved restoration" : "Approve & restore"}</button>
         {proposal.status === "proposed" && <button type="button" disabled={busy || !canReview} onClick={onReject} className="min-h-10 rounded-lg border border-border px-4">Reject</button>}
       </div>

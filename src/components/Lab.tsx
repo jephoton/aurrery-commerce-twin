@@ -290,8 +290,8 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
               title="Active subscribers"
               format={(v) => Math.round(v).toLocaleString()}
               series={[
-                { label: "Do nothing", band: baseline.activeBand, color: "#bccae8", baseline: true },
-                { label: selected.strategy.name, band: selected.activeBand, color: "#e0b65e" },
+                { label: "Do nothing", band: baseline.activeBand, color: "var(--muted)", baseline: true },
+                { label: selected.strategy.name, band: selected.activeBand, color: "var(--brand)" },
               ]}
             />
           </div>
@@ -497,7 +497,7 @@ function ProposalCard({
             <button
               onClick={onApprove}
               disabled={!confirmed || busy || !paypal?.configured || !canReview}
-              className="min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background hover:bg-brand-accent disabled:opacity-50"
+              className="min-h-10 rounded-lg btn-gold px-4 py-2 font-semibold disabled:opacity-50"
             >
               {busy ? "Working…" : "Approve & execute"}
             </button>

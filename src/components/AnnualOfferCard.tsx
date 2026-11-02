@@ -41,7 +41,7 @@ export function AnnualOfferCard({ proposal, action, confirmed, setConfirmed, bus
             I approve offering these {action.targets.length} PayPal Sandbox subscriber(s) a switch to the yearly plan.
           </label>
           <div className="flex flex-wrap gap-3">
-            <button onClick={onApprove} disabled={!confirmed || busy || !paypalConfigured || !canReview} className="min-h-10 rounded-lg bg-brand px-4 py-2 font-semibold text-background hover:bg-brand-accent disabled:opacity-50">
+            <button onClick={onApprove} disabled={!confirmed || busy || !paypalConfigured || !canReview} className="min-h-10 rounded-lg btn-gold px-4 py-2 font-semibold disabled:opacity-50">
               {busy ? "Working…" : "Approve & issue offers"}
             </button>
             <button onClick={onReject} disabled={busy || !canReview} className="min-h-10 rounded-lg border border-border px-4 py-2 hover:bg-background disabled:opacity-50">Reject</button>
