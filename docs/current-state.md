@@ -59,7 +59,7 @@ Also available: `twin:inspect`, `signals:evaluate`, `signals:import-cache`, `sta
 
 ## Sandbox state
 
-- Pilots A-D: ACTIVE subscriptions at $24 per month on the monthly plan, unchanged by M5. Pilot D has an annual offer pending (not approved by the buyer); it resolves as declined only after its 7-day window plus six hours and a confirming read.
+- Pilots A-D: ACTIVE subscriptions at $24 per month on the monthly plan, unchanged by M5: A `I-91S3L62FLPRH` and B `I-RSN1JH6WP5C0` (cancel intent, price), C `I-4NYUGXLB9CYN` (cancel intent, other), D `I-YTK64HUF985K` (core; shows `plan_overridden=true` from the M0-3 check). Pilot D has an annual offer pending (not approved by the buyer); it resolves as declined only after its 7-day window plus six hours and a confirming read.
 - Pilot E ("loyal, 9 months", core): `I-0MVRKCE1RUF4`, switched to the annual plan at $244.80 per year (read-back verified).
 - Disposable test subscriptions `I-4UFG7A89M5YV` (webhook probe) and `I-PDK7VBGHPPRX` (annual check) are CANCELLED, verified by PayPal GET.
 - Local-only: one *proposed* save-offer proposal from the agent measurement run exists in a local ledger; it was never approved and has no PayPal action.
