@@ -17,7 +17,7 @@ _Last material update: 2026-11-02. Milestone-by-milestone history is archived in
 Per the M8 section of [docs/superpowers/plans/2026-10-22-aurrery-roadmap.md](superpowers/plans/2026-10-22-aurrery-roadmap.md):
 
 1. UI theme pass: a deliberate, stylised identity (celestial star-chart / planisphere look with brass-gold accents; reference notes are in the roadmap).
-2. Review tidy-ups: this rewrite, GitHub homepage URL and topics, flaky-test fixes.
+2. Review tidy-ups: done on 2026-11-02 (merged branches deleted, decision 0007 duplicate renumbered to 0010 and statuses refreshed, this rewrite, GitHub homepage and topics, flaky-test fixes, README hosting line).
 3. Judge-facing README with the hosted URL and local setup; warn about the cold start or keep the instance warm during judging.
 4. Devpost text, video script and recording (under 3:00, public on YouTube).
 5. Final QA on the hosted build and submit with margin before 2026-11-13 04:00 SGT.
@@ -82,7 +82,7 @@ All records are in [docs/decisions/](decisions/).
 
 ## Known issues and risks
 
-- **Flaky tests under load:** timeouts in `src/agent/run.test.ts` (deadline and BUSY tests) and `src/hosting/guard.test.ts`; they pass alone and on re-run. Use `--maxWorkers=2`.
+- **Test timing:** the former load timeouts are fixed (`run.test.ts` simulates 100 futures; `guard.test.ts` uses an in-memory store). The two `src/ledger/import.test.ts` tests that spawn `tsx` child processes have a 30 s timeout as a precaution; the reported WAL timeout never reproduced. 1320 tests pass with `--maxWorkers=2`.
 - **libsql test-driver contention bug:** affects tests only (`src/ledger/import.test.ts` WAL snapshot test times out under parallel workers); production is unaffected.
 - **Cold start:** about 35-50 s on Render Free after idle. Warn in the README and video, or keep the service warm during judging.
 - **Price response is an assumption:** the price-rise result is the largest simulated lever but is simulate-only and not recommended; the annual plan is the executable headline.
