@@ -147,3 +147,10 @@ it("selects a simulate-only recommendation from the current comparison without c
   const baseline = comparison.strategies.find(s => s.strategy.id === comparison.baselineId)!.strategy;
   expect(dashboardReducer(state, { type: "event", event: { type: "recommendation", strategy: baseline, rationale: "r", tradeoffs: "t", simulateOnly: true } })).toBe(state);
 });
+it("ignores a recommendation unless the displayed comparison came from the agent", () => {
+  const event = { type: "recommendation" as const, strategy: STARTER_STRATEGIES[0], rationale: "r", tradeoffs: "t", simulateOnly: true as const };
+  for (const comparisonSource of ["manual", null] as const) {
+    const state = { ...emptyDashboard, comparison, comparisonSource, selectedId: "list-27" };
+    expect(dashboardReducer(state, { type: "event", event })).toBe(state);
+  }
+});
