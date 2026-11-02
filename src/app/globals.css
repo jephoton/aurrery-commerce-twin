@@ -20,6 +20,7 @@
   --grid-line: #f3e6c83d;
   --row-hover: #102552;
   --row-selected: #18336f;
+  --row-selected-gold: #232c45;
   --positive: #8fe0b6;
   --negative: #ffa596;
   --sim: #d6c3ff;
@@ -109,6 +110,8 @@ body {
 .celestial-divider svg { flex: none; }
 .celestial-divider-line { height: 1px; flex: 1; background: linear-gradient(90deg, transparent, #f3e6c852); }
 .celestial-divider-line-end { background: linear-gradient(90deg, #f3e6c852, transparent); }
+/* Scenario grid: the selected strategy gets a gold bar on its name cell (the row background is gold-tinted via the grid theme). */
+.scenario-grid .ag-row-selected .ag-cell[col-id="name"] { box-shadow: inset 3px 0 0 var(--brand); }
 .planisphere { display: block; width: 100%; height: auto; overflow: visible; }
 .planisphere-total { font-family: var(--font-display); font-size: 30px; font-weight: 600; }
 

@@ -19,7 +19,11 @@ const theme = themeQuartz.withParams({
   headerTextColor: "var(--muted)",
   borderColor: "var(--grid-line)",
   rowHoverColor: "var(--row-hover)",
-  selectedRowBackgroundColor: "var(--row-selected)",
+  selectedRowBackgroundColor: "var(--row-selected-gold)",
+  fontFamily: "inherit",
+  headerFontFamily: "inherit",
+  headerRowBorder: { color: "var(--brand)", width: 1 },
+  cellHorizontalPadding: 14,
   fontSize: 13,
   rowHeight: 58,
   wrapperBorderRadius: 10,
@@ -148,10 +152,11 @@ export function ScenarioGrid({
         {(["All", ...families] as const).map((value) => <button key={value} type="button" disabled={disabled} aria-pressed={family === value} onClick={() => setFamily(value)} className={`min-h-10 rounded-lg border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${family === value ? "border-brand-accent bg-brand/15 text-brand-accent" : "border-border text-muted hover:text-foreground"}`}>{value}</button>)}
       </div>
       {selectedOffFilter && <p className="mb-2 text-sm text-muted" role="status">Selected scenario is outside this family filter. Its details and proposal remain selected.</p>}
-      <div aria-disabled={disabled} inert={disabled} className="max-w-full overflow-x-auto rounded-lg" aria-label="Scenario comparison table">
-      <div className="min-w-[1040px]" style={{ height: 52 + Math.max(1, displayed.length) * 58 + (baseline ? 58 : 0) + 4 }}>
+      {/* The grid scrolls itself horizontally and grows to fit its rows, so there is one scrollbar and no inner vertical one. */}
+      <div aria-disabled={disabled} inert={disabled} className="scenario-grid min-w-0 rounded-lg" aria-label="Scenario comparison table">
       <AgGridReact<ScenarioRow>
         theme={theme}
+        domLayout="autoHeight"
         rowData={displayed}
         pinnedBottomRowData={baseline ? [baseline] : []}
         columnDefs={columns}
@@ -162,7 +167,6 @@ export function ScenarioGrid({
         onRowSelected={onRowSelected}
         onFirstDataRendered={(e) => selectedId && displayed.some((row) => row.id === selectedId) && e.api.getRowNode(selectedId)?.setSelected(true)}
       />
-      </div>
       </div>
     </div>
   );
