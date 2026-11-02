@@ -17,3 +17,10 @@ it("renders hosted sign-in status without passing a credential as a prop", () =>
   expect(html).toContain("Merchant approval and rejection require sign-in.");
   expect(html).not.toContain("value=\"password\"");
 });
+
+it("locks sign-in and sign-out while other work (an import build) holds the page", () => {
+  const signedOut = renderToStaticMarkup(createElement(AdminAccess, { state: { hosted: true, configured: true, authenticated: false, canReview: false }, disabled: true, onChange() {} }));
+  expect(signedOut).toMatch(/<button disabled=""[^>]*>Sign in/);
+  const signedIn = renderToStaticMarkup(createElement(AdminAccess, { state: { hosted: true, configured: true, authenticated: true, canReview: true }, disabled: true, onChange() {} }));
+  expect(signedIn).toMatch(/disabled=""[^>]*>Sign out/);
+});

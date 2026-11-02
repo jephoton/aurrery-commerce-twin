@@ -4,8 +4,10 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import type { AccessState } from "./admin-access";
 
-export function AdminAccess({ state, onChange }: { state: AccessState | null; onChange: (state: AccessState) => void }) {
-  const [busy, setBusy] = useState(false);
+/** `disabled`: other page work (an import build) holds the page, so sign-in and sign-out wait for it. */
+export function AdminAccess({ state, onChange, disabled = false }: { state: AccessState | null; onChange: (state: AccessState) => void; disabled?: boolean }) {
+  const [working, setBusy] = useState(false);
+  const busy = working || disabled;
   const [error, setError] = useState<string | null>(null);
   if (state && !state.hosted) return null;
   const submit = async (event: FormEvent<HTMLFormElement>) => {

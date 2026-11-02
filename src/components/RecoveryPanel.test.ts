@@ -145,3 +145,8 @@ it("counts annual refusals by their marker, not their wording, in a recovery rep
   expect(reportSummary({ proposal, outcomes: [{ ...outcome, error: "On an annual plan by customer choice; the price was not changed." }] }))
     .toBe("Recovery failed: 0 of 1 target(s) verified · 0 already at list price. Current PayPal prices can be checked below; the run's simulation snapshot remains historical.");
 });
+
+it("locks recovery actions while other work (an import build) holds the page", () => {
+  const html = renderToStaticMarkup(createElement(RecoveryPanel, { canReview: true, paypalConfigured: true, disabled: true, onObservedChange: vi.fn() }));
+  expect(html).toMatch(/disabled=""[^>]*>Preview demo reset/);
+});

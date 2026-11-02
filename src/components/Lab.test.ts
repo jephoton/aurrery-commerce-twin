@@ -23,12 +23,16 @@ it("renders Ridgeline with its PayPal panels and the import panel", () => {
   expect(html).toContain("Ridgeline Roasters · Roaster&#x27;s Choice (monthly) · synthetic demo");
   for (const shown of [...PAYPAL_PANELS, "Use your own data"]) expect(html).toContain(shown);
   for (const hidden of ["Back to Ridgeline", "· simulate only", "demo merchant only. Go back"]) expect(html).not.toContain(hidden);
+  // The merchant-switch announcer lives outside the keyed workspace and starts empty; the header line can take focus.
+  expect(html).toMatch(/<p role="status" aria-live="polite" class="sr-only"><\/p><main/);
+  expect(html).toMatch(/<p tabindex="-1"[^>]*>Ridgeline Roasters · /);
 });
 
 it("renders an imported merchant simulate-only, with no PayPal panels", () => {
   const html = renderToStaticMarkup(createElement(Workspace, { summary: importedSummary, starterStrategies: session.starterStrategies, simulationRuns: 400, imported: session, onImported() {}, onBackToDemo() {} }));
   expect(html).toContain("Imported: Hollowbrook Treat Box · simulate only");
   expect(html).toContain("Back to Ridgeline");
+  expect(html).toMatch(/<section aria-label="Imported merchant" tabindex="-1"/);
   expect(html).toContain("Hollowbrook Treat Box · Treat Box (monthly) · imported CSV · simulate only");
   expect(html).toContain("PayPal actions: demo merchant only");
   expect(html).toContain("PayPal actions are available for the demo merchant only. Go back to Ridgeline");

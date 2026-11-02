@@ -193,9 +193,10 @@ export function ImportErrors({ errors, ref }: { errors: ImportError[]; ref?: Ref
   );
 }
 
-export function ImportedBanner({ session, disabled, onBack }: { session: ImportSession; disabled: boolean; onBack(): void }) {
+/** `ref` lets the page move focus here after a merchant switch (`tabIndex -1`: focusable, not in the tab order). */
+export function ImportedBanner({ session, disabled, onBack, ref }: { session: ImportSession; disabled: boolean; onBack(): void; ref?: Ref<HTMLElement> }) {
   return (
-    <section aria-label="Imported merchant" className="mb-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/50 bg-surface p-4 text-sm">
+    <section ref={ref} aria-label="Imported merchant" tabIndex={-1} className="mb-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/50 bg-surface p-4 text-sm">
       <div className="min-w-0 break-words">
         <p className="font-semibold">Imported: {session.summary.name} · simulate only</p>
         <p className="text-muted">Built from your CSV in this browser tab. Nothing was stored; reloading the page also returns to Ridgeline.</p>

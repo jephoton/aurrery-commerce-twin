@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { AgentEvent } from "@/agent/contracts";
 import type { ExecutionReport } from "@/execution/execute";
 import type { Proposal } from "@/ledger/proposals";
@@ -60,28 +60,42 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
  */
 export function Lab({ summary, starterStrategies, simulationRuns }: { summary: MerchantSummary; starterStrategies: Strategy[]; simulationRuns: number }) {
   const [imported, setImported] = useState<ImportSession | null>(null);
+  // Announced politely after a merchant switch; empty on page load. It lives outside the keyed workspace so it survives the remount.
+  const [announcement, setAnnouncement] = useState("");
+  const switchTo = (session: ImportSession | null) => {
+    setImported(session);
+    setAnnouncement(session ? `Now showing ${session.summary.name}, simulate only` : `Back to ${summary.name}`);
+  };
   return (
-    <Workspace
-      key={workspaceKey(imported)}
-      summary={imported?.summary ?? summary}
-      starterStrategies={imported?.starterStrategies ?? starterStrategies}
-      simulationRuns={simulationRuns}
-      imported={imported}
-      onImported={setImported}
-      onBackToDemo={() => setImported(null)}
-    />
+    <>
+      <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
+      <Workspace
+        key={workspaceKey(imported)}
+        summary={imported?.summary ?? summary}
+        starterStrategies={imported?.starterStrategies ?? starterStrategies}
+        simulationRuns={simulationRuns}
+        imported={imported}
+        focusOnMount={announcement !== ""}
+        onImported={switchTo}
+        onBackToDemo={() => switchTo(null)}
+      />
+    </>
   );
 }
 
 /** One merchant's workspace. Imported mode is simulate only: no PayPal, annual offer, recovery or administrator reads or actions. */
-export function Workspace({ summary, starterStrategies, simulationRuns, imported, onImported, onBackToDemo }: {
+export function Workspace({ summary, starterStrategies, simulationRuns, imported, focusOnMount = false, onImported, onBackToDemo }: {
   summary: MerchantSummary; starterStrategies: Strategy[]; simulationRuns: number;
   /** Set for an imported merchant: simulate only. */
   imported: ImportSession | null;
+  /** After a merchant switch: move focus to the imported banner or the header line, so keyboard and screen reader users land on the new merchant. */
+  focusOnMount?: boolean;
   onImported(session: ImportSession): void;
   onBackToDemo(): void;
 }) {
   const simulateOnly = !!imported;
+  const focusTarget = useRef<HTMLElement | null>(null);
+  useEffect(() => { if (focusOnMount) focusTarget.current?.focus(); }, [focusOnMount]);
   const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
   const [{ comparison, selectedId, proposal, proposalSource, report, confirmed, evidence, comparisonSource, rules, stress, observedSnapshot }, dispatch] = useReducer(dashboardReducer, emptyDashboard);
   const [paypal, setPayPal] = useState<PayPalStatus | null>(null);
@@ -100,7 +114,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
   const locked = busy !== null || importing;
   const setConfirmed = (value: boolean) => dispatch({ type: "confirmed", value });
   const startAgent = useCallback(() => { setBusy("agent"); setError(null); dispatch({ type: "reset" }); }, []);
-  const agentEvent = useCallback((event: AgentEvent) => dispatch({ type: "event", event }), []);
+  const agentEvent = useCallback((event: AgentEvent) => dispatch({ type: "event", event, simulateOnly }), [simulateOnly]);
   const finishAgent = useCallback(() => setBusy(null), []);
 
   const refreshPayPal = useCallback(() => {
@@ -142,7 +156,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
   const rows = useMemo(() => (comparison ? toRows(comparison.strategies, comparison.baselineId, { simulateOnly }) : []), [comparison, simulateOnly]);
 
   const propose = async () => {
-    if (!selected || busy || simulateOnly) return;
+    if (!selected || locked || simulateOnly) return;
     setBusy("propose");
     setError(null);
     dispatch({ type: "clear-review" });
@@ -162,7 +176,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
   };
 
   const approve = async () => {
-    if (!proposal || busy || !confirmed || !canReviewAccess(access)) return;
+    if (!proposal || locked || !confirmed || !canReviewAccess(access)) return;
     setBusy("execute");
     setError(null);
     try {
@@ -180,7 +194,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
   };
 
   const reject = async () => {
-    if (!proposal || busy || !canReviewAccess(access)) return;
+    if (!proposal || locked || !canReviewAccess(access)) return;
     setBusy("reject"); setError(null);
     try {
       const { proposal: p } = await api<{ proposal: Proposal }>(`/api/proposals/${proposal.id}/reject`, { method: "POST", body: "{}" });
@@ -199,7 +213,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
           <span className="brand-mark" aria-hidden="true"><span /></span>
           <div className="min-w-0">
             <p className="text-xl font-semibold tracking-tight text-foreground">Aurrery <span className="ml-2 align-middle text-[10px] font-medium uppercase tracking-[.2em] text-brand-accent">Decision lab</span></p>
-            <p className="break-words text-sm text-muted">{summary.name} · {summary.planName} · {imported ? "imported CSV · simulate only" : "synthetic demo"}</p>
+            <p ref={(node) => { if (!imported) focusTarget.current = node; }} tabIndex={-1} className="break-words text-sm text-muted">{summary.name} · {summary.planName} · {imported ? "imported CSV · simulate only" : "synthetic demo"}</p>
           </div>
         </div>
         {imported ? <span className="source-badge text-muted">PayPal actions: demo merchant only</span> : (
@@ -210,7 +224,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
       </header>
 
       {error && <div role="alert" className="mb-4 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">{error}</div>}
-      {imported ? <ImportedBanner session={imported} disabled={locked} onBack={onBackToDemo} /> : <AdminAccess state={access} onChange={(value) => { setAccess(value); setAccessEpoch((epoch) => epoch + 1); setConfirmed(false); }} />}
+      {imported ? <ImportedBanner ref={focusTarget} session={imported} disabled={locked} onBack={onBackToDemo} /> : <AdminAccess state={access} disabled={importing} onChange={(value) => { setAccess(value); setAccessEpoch((epoch) => epoch + 1); setConfirmed(false); }} />}
 
       <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} recommended={isHeadlinePick && headline.recommended} noQualifyingAction={isHeadlinePick && !headline.recommended} biggerLevers={isHeadlinePick ? headline.biggerLevers : []} alsoExecutable={isHeadlinePick ? headline.alsoExecutable : []} simulateOnly={simulateOnly} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
 
@@ -297,7 +311,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
                 <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
                   <label className="flex items-center gap-3">
                     Offer window (days, 1–30)
-                    <input type="number" min={1} max={30} step={1} value={offerWindowInput} disabled={busy !== null} aria-describedby="offer-window-help"
+                    <input type="number" min={1} max={30} step={1} value={offerWindowInput} disabled={locked} aria-describedby="offer-window-help"
                       onChange={(e) => setOfferWindowInput(e.target.value)}
                       onBlur={(e) => setOfferWindowInput(String(clampOfferWindowDays(e.target.value)))}
                       className="min-h-10 w-20 rounded-lg border border-border bg-background px-3" />
@@ -307,7 +321,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
               )}
               <button
                 onClick={propose}
-                disabled={busy !== null}
+                disabled={locked}
                 className="min-h-10 rounded-lg border border-brand px-4 py-2 font-medium text-brand hover:bg-brand/10 disabled:opacity-50"
               >
                 {busy === "propose" ? "Preparing…" : "Prepare PayPal action"}
@@ -319,7 +333,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
               paypal={paypal}
               confirmed={confirmed}
               setConfirmed={setConfirmed}
-              busy={busy !== null}
+              busy={locked}
               canReview={canReviewAccess(access)}
               onApprove={approve}
               onReject={reject}
@@ -375,7 +389,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
         accessEpoch={accessEpoch}
       />
 
-      <RecoveryPanel canReview={canReviewAccess(access)} paypalConfigured={!!paypal?.configured} onObservedChange={refreshPayPal} />
+      <RecoveryPanel canReview={canReviewAccess(access)} paypalConfigured={!!paypal?.configured} disabled={importing} onObservedChange={refreshPayPal} />
 
       <section className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

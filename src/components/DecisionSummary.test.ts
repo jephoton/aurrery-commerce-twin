@@ -145,3 +145,9 @@ it("labels bigger levers for an imported pick without repeating that nothing is 
   expect(imported).not.toContain("not executable here");
   expect(render({ ...baseProps, recommended: true, biggerLevers: [rise] })).toContain("simulate only, not executable here");
 });
+
+it("never links to the approval section for a simulate-only merchant", () => {
+  const proposal = { id: "p", status: "proposed", strategy: selected.strategy } as unknown as Proposal;
+  expect(render({ ...baseProps, proposal, proposalSource: "agent" })).toContain("Review exact action");
+  expect(render({ ...baseProps, proposal, proposalSource: "agent", simulateOnly: true })).not.toContain("Review exact action");
+});

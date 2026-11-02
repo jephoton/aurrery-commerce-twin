@@ -166,3 +166,10 @@ it("sends the import payload with a manual simulation only while imported", () =
   expect(simulateRequestBody(STARTER_STRATEGIES, null)).toEqual({ strategies: STARTER_STRATEGIES });
   expect(simulateRequestBody(STARTER_STRATEGIES, payload)).toEqual({ strategies: STARTER_STRATEGIES, import: payload });
 });
+
+it("ignores agent proposal events for a simulate-only (imported) workspace", () => {
+  const state = { ...emptyDashboard, comparison, comparisonSource: "agent" as const };
+  const event = { type: "proposal", proposal, rationale: "r", tradeoffs: "t" } as AgentEvent;
+  expect(dashboardReducer(state, { type: "event", event, simulateOnly: true })).toBe(state);
+  expect(dashboardReducer(state, { type: "event", event })).toMatchObject({ proposal, proposalSource: "agent" });
+});

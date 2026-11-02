@@ -8,7 +8,7 @@ import type { ResetPreview } from "@/execution/reset";
 
 type Listed = Proposal & { executions: { ok: boolean; verified: boolean }[] };
 type OutstandingPage = { proposals: Proposal[]; nextCursor: string | null };
-type Props = { canReview: boolean; paypalConfigured: boolean; onObservedChange: () => Promise<boolean> };
+type Props = { canReview: boolean; paypalConfigured: boolean; onObservedChange: () => Promise<boolean>; disabled?: boolean };
 
 /** Why a pilot is left out of a reset; an annual switch is the customer's choice, not a failure. */
 export const RESET_SKIP_TEXT: Record<ResetPreview["skipped"][number]["reason"], string> = {
@@ -67,7 +67,7 @@ async function json<T>(url: string, body?: unknown): Promise<T> {
   return data as T;
 }
 
-export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange }: Props) {
+export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange, disabled = false }: Props) {
   const [sources, setSources] = useState<Listed[]>([]);
   const [pending, setPending] = useState<Proposal[]>([]);
   const [outstandingCursor, setOutstandingCursor] = useState<string | null>(null);
@@ -75,7 +75,9 @@ export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange }:
   const [report, setReport] = useState<ExecutionReport | null>(null);
   const [currentEvidence, setCurrentEvidence] = useState<DiscountEvidence | null>(null);
   const [confirmed, setConfirmed] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [working, setBusy] = useState(false);
+  // Other page work (an import build) locks every recovery action, so none can finish behind a merchant switch.
+  const busy = working || disabled;
   const [error, setError] = useState<string | null>(null);
   const [resetSkipped, setResetSkipped] = useState<ResetPreview["skipped"] | null>(null);
   const reload = useCallback(async (selectedId?: string) => {
