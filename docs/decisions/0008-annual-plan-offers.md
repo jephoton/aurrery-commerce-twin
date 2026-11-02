@@ -1,6 +1,6 @@
 # 0008: Annual-plan offers through PayPal `revise`
 
-**Status:** accepted. **GO** for M7 Phase 2: the live Sandbox check passed on 2026-10-31.
+**Status:** accepted and live. **GO** for M7 Phase 2: the live Sandbox check passed on 2026-10-31; M7 hosted acceptance passed on 2026-11-01 (Pilot E switched to the annual plan, verified by PayPal read-back).
 
 ## Context
 

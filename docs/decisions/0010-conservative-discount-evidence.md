@@ -1,8 +1,10 @@
-# 0007: Qualify measured discount evidence conservatively
+# 0010: Qualify measured discount evidence conservatively
+
+_Renumbered from 0007 on 2026-11-02: two records shared that number; [0007](0007-authoritative-ledger-export.md) keeps it._
 
 <!-- Generated handoff: M5 measured outcome policy. -->
 
-Status: accepted; independent spec and quality reviews passed at a4a936b.
+Status: accepted; independent spec and quality reviews passed at a4a936b. Implemented and live since M5.
 
 Record an episode only alongside a successful price-verified execution and its read-back, snapshotting the registered pilot's assessed segment and reason at that time. Never reconstruct historical reasons. One subscriber-month is 30 elapsed days; the approved duration, current time and the next verified episode bound each interval. Matched-price ACTIVE read-backs extend exposure; an override alone contributes zero. Repeated readings and delivery order cannot create additional elapsed time.
 

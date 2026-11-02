@@ -1,6 +1,6 @@
 # 0003: Evaluate Gemini, then Groq, before selecting the AI provider
 
-**Status:** accepted (2026-10-22); Gemini-then-Groq evaluation completed; **Groq `openai/gpt-oss-120b` selected** for M2/M3.
+**Status:** superseded by [0004](0004-gemini-flash-lite-primary.md) (Gemini primary). Originally accepted (2026-10-22); Gemini-then-Groq evaluation completed; **Groq `openai/gpt-oss-120b` selected** for M2/M3. Groq remains a configurable fallback provider.
 
 **Follow-up:** [0004](0004-gemini-flash-lite-primary.md) updates the M3 primary-provider selection to Gemini 3.5 Flash-Lite after the user's requested reevaluation. The evaluation process and no-automatic-fallback boundary below remain accepted; the original measured selection is retained as history.
 

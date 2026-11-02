@@ -1,6 +1,6 @@
 # 0004: Select Gemini Flash-Lite as M3 primary after reevaluation
 
-**Status:** accepted (2026-10-25); integration and complete agent-flow acceptance pending.
+**Status:** accepted (2026-10-25); implemented and live. Hosted Gemini agent runs passed M5 acceptance, and the hosted demo runs `gemini-3.5-flash-lite` (a measured agent run on 2026-11-02 used 7 requests).
 
 ## Context
 

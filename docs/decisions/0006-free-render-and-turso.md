@@ -1,6 +1,6 @@
 # 0006: Render Free with an authoritative Turso libSQL ledger
 
-**Status:** accepted platform choice by the user on 2026-10-27; implementation and deployment acceptance pending.
+**Status:** accepted platform choice by the user on 2026-10-27; implemented and live since M5 at https://aurrery.onrender.com (Render Free, Singapore; authoritative Turso storage; manual deploys from `main`).
 
 The user requires free hosting and selected Render Free plus Turso after reviewing Vercel/serverless and Oracle VM alternatives. This supersedes M5's paid Render persistent-disk assumption. Further visual iteration stays in M8.
 

@@ -1,6 +1,6 @@
 # 0007: Consistent authoritative ledger export and bounded readiness
 
-**Status:** accepted offline implementation; live Turso and Render acceptance pending.
+**Status:** accepted; live Turso and Render acceptance passed in M5, and the export was used for the private pre-release backup before M7's Pilot E setup (2026-11-01).
 
 Render Free's ephemeral files cannot serve as payment authority. A backup must capture current primary approvals, execution claims and observations together. Turso's basic CLI export warns about stale snapshots, and independently reading tables can mix before/after states.
 
