@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AgentEvent } from "@/agent/contracts";
+import { DEMO_ONLY_MESSAGE } from "@/import/messages";
 import { AgentSession } from "./agent-session";
 
 const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.round(Math.abs(n)).toLocaleString()}`;
@@ -56,6 +57,14 @@ export function AgentActivity({ event }: { event: AgentEvent }) {
         <p>{event.rationale}</p>
         <p className="text-muted">Tradeoffs: {event.tradeoffs}</p>
         <p>Review the exact action in Approval below. Merchant confirmation is required.</p>
+      </div>
+    );
+    case "recommendation": return (
+      <div>
+        <p className="font-medium">Recommended (simulate only): {event.strategy.name}</p>
+        <p>{event.rationale}</p>
+        <p className="text-muted">Tradeoffs: {event.tradeoffs}</p>
+        <p>{DEMO_ONLY_MESSAGE}</p>
       </div>
     );
     case "error": return <p role="alert" className="text-negative">{event.message} ({event.code})</p>;

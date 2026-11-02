@@ -79,3 +79,12 @@ it("reports malformed frames promptly even if source cleanup never resolves", as
   const settled = await Promise.race([pending.catch(error => error.message), new Promise<string>(resolve => setTimeout(() => resolve("stalled"), 20))]);
   expect(settled).toMatch(/stream/);
 });
+it("decodes a simulate-only recommendation and rejects one that claims an action or carries extra fields", async () => {
+  const recommendation: AgentEvent = { type: "recommendation", strategy: STARTER_STRATEGIES[0], rationale: "Fast-churning at-risk subscribers mostly cite price.", tradeoffs: "About $890 of discounts.", simulateOnly: true };
+  const events: AgentEvent[] = [];
+  await readAgentStream(response(frame(1, recommendation) + frame(2, { type: "done", status: "complete" })), { onEvent: e => events.push(e) });
+  expect(events[0]).toEqual(recommendation);
+  for (const bad of [{ ...recommendation, simulateOnly: false }, { ...recommendation, simulateOnly: undefined }, { ...recommendation, approvalUrl: "https://www.paypal.com/x" }, { ...recommendation, strategy: { ...STARTER_STRATEGIES[0], intervention: { kind: "unknown" } } }]) {
+    await expect(readAgentStream(response(frame(1, bad as unknown as AgentEvent) + frame(2, { type: "done", status: "complete" })), { onEvent() {} })).rejects.toThrow();
+  }
+});

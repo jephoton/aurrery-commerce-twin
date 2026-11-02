@@ -5,6 +5,7 @@ import type { ComparisonResult } from "@/twin/simulate";
 import type { StressResult } from "@/twin/stress";
 import type { EvidenceSummary } from "@/signals/evidence";
 import type { ObservedSnapshot } from "@/merchant/observed-snapshot";
+import type { Strategy } from "@/twin/interventions";
 
 export const DecisionRulesSchema = z.strictObject({
   discountBudget: z.number().finite().min(0).max(100000),
@@ -33,6 +34,8 @@ export type AgentEvent =
   | { type: "stress"; strategyId: string; stress: StressResult }
   | { type: "draft"; strategyId: string; message: string; displayOnly: true }
   | { type: "proposal"; proposal: Proposal; rationale: string; tradeoffs: string }
+  /** Imported merchants (M6): the agent's pick, simulate only. Never a proposal, offer or PayPal action. */
+  | { type: "recommendation"; strategy: Strategy; rationale: string; tradeoffs: string; simulateOnly: true }
   | { type: "summary"; message: string }
   | { type: "done"; proposalId?: string; status?: "complete" | "incomplete" | "cancelled"; reason?: string }
   | { type: "error"; code: string; message: string };

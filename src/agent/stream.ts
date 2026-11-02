@@ -32,6 +32,7 @@ const eventSchema: z.ZodType<AgentEvent> = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("stress"), strategyId: text, stress: z.object({ base: strategyResult, stressed: strategyResult, shifted: z.array(text).max(100), stressedParams: z.custom<TwinParams>(v => typeof v === "object" && v !== null) }) }),
   z.strictObject({ type: z.literal("draft"), strategyId: text, message: text, displayOnly: z.literal(true) }),
   z.strictObject({ type: z.literal("proposal"), proposal, rationale: text, tradeoffs: text }),
+  z.strictObject({ type: z.literal("recommendation"), strategy: StrategySchema, rationale: text, tradeoffs: text, simulateOnly: z.literal(true) }),
   z.strictObject({ type: z.literal("summary"), message: text }),
   z.strictObject({ type: z.literal("error"), code: text, message: text }),
   z.strictObject({ type: z.literal("done"), status: z.enum(["complete", "incomplete", "cancelled"]), reason: text.optional(), proposalId: text.optional() }),

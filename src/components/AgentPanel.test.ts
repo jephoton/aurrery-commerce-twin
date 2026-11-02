@@ -15,3 +15,11 @@ it("renders customer drafts as escaped display-only text", () => {
   expect(html).toContain("&lt;script&gt;");
   expect(html).not.toContain("<script>");
 });
+it("shows a simulate-only recommendation with the demo-only notice", () => {
+  const html = renderToStaticMarkup(createElement(AgentActivity, { event: { type: "recommendation", strategy: { id: "at-risk-20-3m", name: "At-risk: 20% off", intervention: { kind: "targeted_discount", segment: "at_risk", reason: "any", discountPct: 20, months: 3, campaignMonths: 6 } }, rationale: "Price-driven leavers", tradeoffs: "Discount cost", simulateOnly: true } }));
+  expect(html).toContain("Recommended (simulate only): At-risk: 20% off");
+  expect(html).toContain("Price-driven leavers");
+  expect(html).toContain("Tradeoffs: Discount cost");
+  expect(html).toContain("PayPal actions are available for the demo merchant only.");
+  expect(html).not.toContain("Approval below");
+});
