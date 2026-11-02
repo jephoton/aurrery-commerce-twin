@@ -7,13 +7,14 @@
 | Module | Path | Responsibility | Depends on |
 | --- | --- | --- | --- |
 | Twin | `src/twin/` | Pure model: types, seeded RNG, interventions + guardrails (Zod), Monte Carlo simulation, Bayesian calibration and assumptions-only stress testing. `worker-entry.ts` runs only this pure model; `worker-client.ts` is the server-side process boundary. | nothing for pure model; Node worker threads for client |
-| Merchant | `src/merchant/` | Builds the twin for the current merchant (today: synthetic Ridgeline Roasters history → estimated parameters + labelled priors). | twin |
+| Merchant | `src/merchant/` | Builds the twin for the current merchant (today: synthetic Ridgeline Roasters history → estimated parameters + labelled priors) through the shared builder in `src/twin/build-twin.ts`; `summary.ts` builds the overview for Ridgeline and for imports. | twin |
+| Import | `src/import/` | Pure CSV import (M6): minimal CSV reader, history and feedback parsers with per-row errors, economics schema, strict size-capped payload, imported twin builder and the synthetic Hollowbrook sample. No server-only imports. | twin, merchant (candidates) |
 | Ledger | `src/ledger/` | Async server-only connection boundary for Node SQLite and Turso libSQL. Proposal, execution, observation, hosted and classifier cache state use it. An explicit read-only SQLite snapshot import writes only to an empty remote ledger. | twin types |
 | Hosted access | `src/hosting/` | Runtime configuration, server-validated administrator sessions and atomic durable request admission through the authoritative ledger connection. | ledger |
 | PayPal | `src/paypal/` | Sandbox-only SDK client, typed subscription wrappers and bounded webhook verification postback. | SDK, fixed Sandbox HTTPS |
 | Execution | `src/execution/` | Runs an approved proposal: atomic per-target claim → current subscription read/observation → guarded PATCH → GET read-back → record → finish. | ledger, paypal |
 | Signals | `src/signals/` | Frozen synthetic feedback, isolated Gemini/Groq transport, validated classification/cache, pure reason evidence, runtime pilot mapping and provider scoring. Includes the evaluation CLI and read-only tool smoke. | twin types, ledger |
-| Agent | `src/agent/` | Bounded explicitly selected Gemini/Groq runner, public events and seven strict tools: isolated run state, classified evidence, explicit rules, cumulative simulation, stress, display-only drafts and one proposed action; abortable NDJSON endpoint/decoder. **No execute tool.** | signals, merchant, twin, ledger |
+| Agent | `src/agent/` | Bounded explicitly selected Gemini/Groq runner, public events and seven strict tools: isolated run state, classified evidence, explicit rules, cumulative simulation, stress, display-only drafts and one proposed action; abortable NDJSON endpoint/decoder. **No execute tool.** Imported merchants run simulate-only: no observed evidence, no registry reads, and recommend emits a recommendation instead of a proposal. | signals, merchant, twin, ledger |
 | API | `src/app/api/` | Thin route handlers with Zod validation. | all above |
 | UI | `src/app/page.tsx`, `src/components/` | Navy/gold decision workspace: merchant snapshot and decorative orbit, objective, agent Run/Stop and public activity, typed selected-decision summary, AG Grid comparison, fan chart, separate subscriber/feedback evidence, exact action approval, execution report and pilot cohort. | API |
 
@@ -61,6 +62,16 @@ Gemini `gemini-3.5-flash-lite` is selected for M3 after the user's conditional r
 `src/ledger/discount-outcomes.ts` derives elapsed evidence from immutable `discount_episodes` and allowlisted observation facts. Execution, initial read-back, episode snapshot and audit commit atomically. Episodes reference unique execution/start-observation IDs and snapshot the assessed segment/reason and approved end, with no legacy backfill. The importer accepts missing legacy episode tables as empty and validates episode links/values plus the strict target schema.
 
 `currentMerchant()` returns canonical copies. The async `src/merchant/observed.ts` reads one authoritative fact snapshot and calibrates once against that baseline. Agent runs, manual/proposal computation, `/api/twin` and the dashboard use the observed view; classification preserves measured effects. Runtime dashboard work lives behind `connection()` inside a Suspense boundary. Stream provenance accepts finite nonnegative fractional exposure while actual feedback/run counters remain integers. Manual comparison responses and the initial agent observed_snapshot event carry an aggregate snapshot of the exact measured evidence, parameter changes and provenance used for that run. A shared browser-safe schema strips per-episode rows. The dashboard reducer keeps counts/changes coherent through classifier/rules revisions and clears prior agent evidence for a replacement manual comparison; stopped generations cannot replace a later run snapshot. The evidence panel distinguishes factual exposure/cancellations, calibration exposure, exclusions and parameter changes from that run, never stale page-load assumptions. [Decision 0007](decisions/0007-conservative-discount-evidence.md) defines conservative qualification, overlap and cancellation censoring; current PayPal facts cannot qualify a voluntary cancellation for the posterior.
+
+## CSV import (M6)
+
+Decision: `docs/decisions/0009-csv-import.md`.
+
+1. The browser parses the history (and optional feedback) CSV and the economics form locally for instant per-row errors (`src/components/import-flow.ts`).
+2. Feedback rows go to `POST /api/import/classify` (its own `classify` admission limit, the agent lease, a 300 s budget, memory-only cache) and come back as per-segment `{ price, other }` counts and notes. Text is never stored and cache hits are not reported.
+3. `POST /api/import/validate` (preparation limit) re-validates the payload `{ rows, economics, reasonCounts? }`, builds the twin and returns a `MerchantSummary` with `imported` details.
+4. `Lab` remounts a `Workspace` for the imported merchant. Simulate and agent requests carry the payload; the server rebuilds the twin per request and never reads Ridgeline's observed evidence or creates proposals (`POST /api/proposals` refuses any `import` field). Approval, annual offers, recovery, pilots and administrator sign-in are not mounted; one notice says "PayPal actions are available for the demo merchant only."
+5. "Back to Ridgeline" or a reload returns to the demo merchant.
 
 ## Agent run and timeline (M3)
 
