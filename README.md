@@ -76,7 +76,7 @@ npm run agent:check   # explicit live CLI; proposed-only; Ctrl+C stops it
 npm test -- src/agent/replay.test.ts --maxWorkers=1 # offline recorded replay
 ```
 
-The CLI saves a unique public transcript artifact under ignored `data/`. The agent can only propose: inspect the exact target list, price, duration and hash in the existing approval card, then separately check its confirmation before approving. It cannot approve, execute or send customer messages. Annual plans remain simulation-only until M7. Manual **Run simulations** and **Prepare selected action** remain available with canonical merchant estimates; the agent comparison labels its classified evidence separately.
+The CLI saves a unique public transcript artifact under ignored `data/`. The agent can only propose: inspect the exact target list, price, duration and hash in the existing approval card, then separately check its confirmation before approving. It cannot approve, execute or send customer messages. Since M7 it may also propose an annual-plan offer, which each customer must accept in PayPal; for an imported merchant it only recommends (simulate only). Manual **Run simulations** and **Prepare selected action** remain available with canonical merchant estimates; the agent comparison labels its classified evidence separately.
 
 One complete historical Groq CLI run and its offline replay are documented in the [M3 validation report](docs/research/m3-agent-validation.md). Gemini adapter/wiring passed independent spec and quality reviews. Its opt-in rate-profile follow-up has fake HTTP coverage; follow-up reviews and real default-objective dashboard acceptance remain pending, so M3 is not yet complete.
 
