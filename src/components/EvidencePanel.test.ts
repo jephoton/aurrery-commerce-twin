@@ -138,3 +138,21 @@ it("labels live annual evidence, mentions the run snapshot only when a run is di
   const loaded = renderToStaticMarkup(createElement(EvidencePanel, { summary: { ...summary, annualEvidence: annualFixture(0) }, evidence: null, source: null }));
   expect(loaded).not.toContain("Current ledger, updated by the latest PayPal check.");
 });
+
+it("shows an imported twin's own provenance and feedback, never Ridgeline's measured or annual evidence", () => {
+  const zero = { price: 0, other: 0 };
+  const annualEvidence = { offers: [{ segment: "core" as const, accepted: 1, declined: 0, unresolved: 1 }], changes: [], limitation: "Annual limitation." };
+  const imported = {
+    ...summary, observedEvidence: initialSnapshot.evidence, annualEvidence,
+    provenance: { monthlyChurn: { source: "estimated", note: "Beta posterior per segment, estimated from your CSV (12 months)." } },
+    imported: { months: 12, firstMonth: "2025-10", lastMonth: "2026-09", feedbackRows: 5, reasonCounts: { new: zero, core: zero, price_sensitive: zero, at_risk: zero, cancel_intent: { price: 4, other: 1 } } },
+  } as unknown as MerchantSummary;
+  const html = renderToStaticMarkup(createElement(EvidencePanel, { summary: imported, evidence: null, source: "manual", snapshot: null, liveAnnual: { annual: annualEvidence } }));
+  expect(html).toContain("Imported CSV history · 2025-10 to 2026-09 (12 months)");
+  expect(html).toContain("AI-classified from 5 uploaded feedback rows");
+  expect(html).toMatch(/Cancel intent: 5 feedback rows · 4 price · 1 other/);
+  expect(html).toContain("estimated from your CSV (12 months)");
+  for (const absent of ["Measured sandbox outcomes", "annual-evidence-title", "snapshot unavailable", "Annual limitation.", "synthetic"]) expect(html).not.toContain(absent);
+  const noFeedback = renderToStaticMarkup(createElement(EvidencePanel, { summary: { ...imported, imported: { ...imported.imported!, feedbackRows: 0, reasonCounts: undefined } }, evidence: null, source: null, snapshot: null }));
+  expect(noFeedback).toContain("No feedback imported");
+});

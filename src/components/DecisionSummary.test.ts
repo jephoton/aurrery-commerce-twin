@@ -124,3 +124,15 @@ it("shows simulated discount cost beside other executable discount options only"
   expect(html).toContain("$78 discount cost");
   expect(html).not.toContain("$999 discount cost");
 });
+
+it("labels an imported pick simulate-only and never offers PayPal wording", () => {
+  const annualPick = { ...selected, strategy: STARTER_STRATEGIES[2] };
+  const html = render({ ...baseProps, selected: annualPick, recommended: true, simulateOnly: true });
+  expect(html).toContain("Best within your rules · simulated, not observed · simulate only");
+  expect(html).toContain("Simulate only: PayPal actions are available for the demo merchant only.");
+  expect(html).not.toContain("Recommended now");
+  expect(html).not.toContain("Can be sent as an offer");
+  const none = render({ ...baseProps, noQualifyingAction: true, simulateOnly: true });
+  expect(none).toContain("No strategy meets the decision rules");
+  expect(none).not.toContain("No executable strategy");
+});

@@ -4,7 +4,7 @@ import type { Intervention } from "@/twin/interventions";
 import { compareStrategies, type ComparisonResult, type StrategyResult } from "@/twin/simulate";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { buildDemoTwin } from "@/merchant/demo";
-import { chooseHeadline, isExecutableIntervention, whyNotExecutable } from "./headline";
+import { chooseHeadline, isExecutableIntervention, isRecommendableIntervention, whyNotExecutable } from "./headline";
 
 const saveOffer: Intervention = { kind: "targeted_discount", segment: "cancel_intent", reason: "price", discountPct: 25, months: 3, campaignMonths: 6 };
 const priceRise: Intervention = { kind: "list_price_change", newPrice: 27 };
@@ -52,7 +52,7 @@ describe("headline choice", () => {
 
   it("falls back to the highest simulated value without recommending it when nothing executable qualifies", () => {
     const headline = chooseHeadline(comparison(result("rise", priceRise, 61_792, .003), result("broad", saveOffer, -1_283, .738)));
-    expect(headline).toEqual({ selectedId: "rise", recommended: false, biggerLevers: [], alsoExecutable: [] });
+    expect(headline).toEqual({ selectedId: "rise", recommended: false, simulateOnly: false, biggerLevers: [], alsoExecutable: [] });
   });
 
   it("explains why the list price change is not executable and treats annual plans as executable", () => {
@@ -61,5 +61,17 @@ describe("headline choice", () => {
     expect(whyNotExecutable(saveOffer)).toBeNull();
     expect(isExecutableIntervention(annual)).toBe(true);
     expect(isExecutableIntervention(priceRise)).toBe(false);
+  });
+
+  it("treats an imported merchant as simulate-only: same pick, nothing executable", () => {
+    const c = comparison(result("rise", priceRise, 61_792, .003), result("annual", annual, 10_268, 0, 8_866), result("save", saveOffer, 147, .385, 570));
+    const imported = chooseHeadline(c, DEFAULT_DECISION_RULES, { simulateOnly: true });
+    expect(imported).toMatchObject({ selectedId: "annual", recommended: true, simulateOnly: true, alsoExecutable: [] });
+    expect(imported.biggerLevers.map((r) => r.strategy.id)).toEqual(["rise"]);
+    expect(chooseHeadline(c)).toMatchObject({ selectedId: "annual", simulateOnly: false });
+    expect(chooseHeadline(c).alsoExecutable.map((r) => r.strategy.id)).toEqual(["save"]);
+    expect(isExecutableIntervention(annual, { simulateOnly: true })).toBe(false);
+    expect(isExecutableIntervention(saveOffer, { simulateOnly: true })).toBe(false);
+    expect(isRecommendableIntervention(saveOffer) && isRecommendableIntervention(annual) && !isRecommendableIntervention(priceRise)).toBe(true);
   });
 });

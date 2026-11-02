@@ -4,6 +4,7 @@ import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type Grid
 import { AgGridReact } from "ag-grid-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StrategyResult } from "@/twin/simulate";
+import type { HeadlineOptions } from "./headline";
 import { comparisonRows, formatRisk, intervalDomain, shouldSelectRow, type Family, type ScenarioRow } from "./comparison-model";
 import { IntervalCell, signedUsd } from "./IntervalCell";
 import { responsiveColumnState } from "./responsive-columns";
@@ -26,8 +27,9 @@ const theme = themeQuartz.withParams({
 
 export type { ScenarioRow } from "./comparison-model";
 
-export function toRows(results: StrategyResult[], baselineId: string): ScenarioRow[] {
-  const { candidates, baseline } = comparisonRows(results, baselineId);
+/** A simulate-only (imported) merchant shows "Simulate only" in the Executable column on every row. */
+export function toRows(results: StrategyResult[], baselineId: string, options: HeadlineOptions = {}): ScenarioRow[] {
+  const { candidates, baseline } = comparisonRows(results, baselineId, options);
   return baseline ? [...candidates, baseline] : candidates;
 }
 

@@ -2,6 +2,7 @@ import type { AgentEvent } from "@/agent/contracts";
 import type { MerchantSummary } from "./Lab";
 import type { LiveAnnual } from "./lab-state";
 import type { AnnualEvidence, ObservedSnapshot } from "@/merchant/observed-snapshot";
+import type { ImportedDetails } from "@/merchant/summary";
 
 interface Props {
   summary: MerchantSummary;
@@ -14,10 +15,12 @@ interface Props {
 
 export function EvidencePanel({ summary, evidence, source, snapshot, liveAnnual }: Props) {
   const classified = source === "agent" ? evidence : null;
-  const provenance = snapshot?.provenance ?? (source ? {} : summary.provenance);
-  const measured = snapshot?.evidence ?? (source ? undefined : summary.observedEvidence);
-  const changes = snapshot?.changes ?? (source ? undefined : summary.parameterChanges);
-  const annual = liveAnnual?.annual ?? (snapshot ? snapshot.annual : source ? undefined : summary.annualEvidence);
+  // An imported twin (M6) has its own provenance and never shows Ridgeline's measured or annual evidence.
+  const imported = summary.imported;
+  const provenance = imported ? summary.provenance : snapshot?.provenance ?? (source ? {} : summary.provenance);
+  const measured = imported ? undefined : snapshot?.evidence ?? (source ? undefined : summary.observedEvidence);
+  const changes = imported ? undefined : snapshot?.changes ?? (source ? undefined : summary.parameterChanges);
+  const annual = imported ? undefined : liveAnnual?.annual ?? (snapshot ? snapshot.annual : source ? undefined : summary.annualEvidence);
   return (
     <aside className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="evidence-title">
       <p className="eyebrow">Evidence record</p>
@@ -25,12 +28,12 @@ export function EvidencePanel({ summary, evidence, source, snapshot, liveAnnual 
       <div className="grid min-w-0 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">
         <div className="min-w-0 rounded-lg border border-border bg-background p-4">
           <h4 className="font-medium">Active subscriber population</h4>
-          <p className="mt-1 text-muted">Synthetic demo history · {summary.asOfMonth}</p>
+          <p className="mt-1 text-muted">{imported ? `Imported CSV history · ${imported.firstMonth} to ${imported.lastMonth} (${imported.months} months)` : `Synthetic demo history · ${summary.asOfMonth}`}</p>
           <ul className="mt-2 space-y-1">{summary.segments.map(segment => <li key={segment.id}>{segment.label}: {segment.active.toLocaleString()} active · estimated {((segment.churn) * 100).toFixed(1)}% monthly churn</li>)}</ul>
         </div>
         <div className="min-w-0 rounded-lg border border-border bg-background p-4">
           <h4 className="font-medium">Classified feedback sample</h4>
-          {classified ? <>
+          {imported ? <ImportedFeedback imported={imported} segments={summary.segments} /> : classified ? <>
             <p className="mt-1 text-muted">{classified.summary.source} · {classified.summary.provider} / {classified.summary.model}</p>
             <p className="mt-1">{classified.summary.accepted.toLocaleString()} accepted of {classified.summary.total.toLocaleString()} feedback records</p>
             <ul className="mt-2 space-y-1">{summary.segments.map(segment => {
@@ -51,8 +54,8 @@ export function EvidencePanel({ summary, evidence, source, snapshot, liveAnnual 
         <p className="mt-2 text-muted">{measured.limitation}</p>
       </div>}
       {annual && <AnnualOfferEvidence annual={annual} segments={summary.segments} live={!!liveAnnual} runDisplayed={!!snapshot} />}
-      {source && !snapshot && <p className="mt-3 text-sm text-muted">Measured evidence snapshot unavailable for this run.</p>}
-      <p className="mt-3 text-sm text-muted">{source === "manual" ? "Canonical synthetic twin estimates with separately measured sandbox effects and registered pilots." : classified ? "Classified synthetic feedback updates reason estimates; measured effects, historical estimates and intervention assumptions remain distinct." : "Current synthetic history, measured sandbox effects and model assumptions."}</p>
+      {!imported && source && !snapshot && <p className="mt-3 text-sm text-muted">Measured evidence snapshot unavailable for this run.</p>}
+      <p className="mt-3 text-sm text-muted">{imported ? "Estimated from your CSV with merchant-entered economics; price sensitivity, annual uptake and discount effects stay assumptions. Simulate only." : source === "manual" ? "Canonical synthetic twin estimates with separately measured sandbox effects and registered pilots." : classified ? "Classified synthetic feedback updates reason estimates; measured effects, historical estimates and intervention assumptions remain distinct." : "Current synthetic history, measured sandbox effects and model assumptions."}</p>
       <details className="mt-4 border-t border-border pt-3 text-sm">
         <summary className="min-h-10 cursor-pointer pt-2 font-medium text-brand-accent">Sources and assumptions</summary>
         <ul className="mt-2 space-y-2">{Object.entries(provenance).map(([key, item]) => (
@@ -80,4 +83,17 @@ function AnnualOfferEvidence({ annual, segments, live, runDisplayed }: { annual:
       <p className="mt-2 text-muted">{annual.limitation}</p>
     </section>
   );
+}
+
+function ImportedFeedback({ imported, segments }: { imported: ImportedDetails; segments: MerchantSummary["segments"] }) {
+  const counts = imported.reasonCounts;
+  if (!counts || imported.feedbackRows === 0) return <p className="mt-1 text-muted">No feedback imported, so leaving reasons are unknown: price-reason targeting is unavailable and reason shares stay prior assumptions.</p>;
+  return <>
+    <p className="mt-1 text-muted">AI-classified from {imported.feedbackRows} uploaded feedback rows, before simulation</p>
+    <ul className="mt-2 space-y-1">{segments.map((segment) => {
+      const c = counts[segment.id];
+      return <li key={segment.id}>{segment.label}: {c.price + c.other} feedback rows · {c.price} price · {c.other} other</li>;
+    })}</ul>
+    <p className="mt-2 text-muted">Feedback rows are a separate sample, not a share of the active population or proof that an offer caused retention.</p>
+  </>;
 }

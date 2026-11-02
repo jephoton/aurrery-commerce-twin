@@ -1,6 +1,6 @@
 import type { StrategyResult } from "@/twin/simulate";
 import type { Intervention } from "@/twin/interventions";
-import { isExecutable } from "./headline";
+import { isExecutable, type HeadlineOptions } from "./headline";
 
 export type Family = "Retention" | "Annual" | "Pricing" | "Baseline";
 
@@ -30,7 +30,7 @@ const familyFor = (kind: Intervention["kind"]): Family => {
   }
 };
 
-export function comparisonRows(results: StrategyResult[], baselineId: string): { candidates: ScenarioRow[]; baseline: ScenarioRow | null } {
+export function comparisonRows(results: StrategyResult[], baselineId: string, options: HeadlineOptions = {}): { candidates: ScenarioRow[]; baseline: ScenarioRow | null } {
   const rows = results.map((r): ScenarioRow => ({
     id: r.strategy.id,
     name: r.strategy.name,
@@ -44,7 +44,7 @@ export function comparisonRows(results: StrategyResult[], baselineId: string): {
     endingActiveP50: r.metrics.endingActive.p50,
     deltaEndingActive: r.vsBaseline.endingActive.mean,
     discountCost: r.metrics.discountCost.mean,
-    executable: isExecutable(r),
+    executable: isExecutable(r, options),
     paypalAction: r.paypalAction,
   }));
   const baselines = rows.filter((row) => row.family === "Baseline" || row.isBaseline);

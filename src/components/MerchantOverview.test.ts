@@ -23,3 +23,10 @@ it("pairs decorative orbits with real labelled subscriber and estimated churn va
   expect(html).toContain('aria-hidden="true"');
   expect(html).toContain("decorative, not a risk scale");
 });
+
+it("labels an imported merchant's history as its own CSV", () => {
+  const html = renderToStaticMarkup(createElement(MerchantOverview, { summary: { ...summary, imported: { months: 12, firstMonth: "2025-10", lastMonth: "2026-09", feedbackRows: 0 } } }));
+  expect(html).toContain("Imported CSV · 2025-10 to 2026-09");
+  expect(html).toContain("estimates from your CSV");
+  expect(html).not.toContain("Synthetic demo history");
+});

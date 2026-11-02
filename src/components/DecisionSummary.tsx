@@ -1,6 +1,7 @@
 import type { AgentEvent, DecisionRules } from "@/agent/contracts";
 import type { Proposal } from "@/ledger/proposals";
 import type { StrategyResult } from "@/twin/simulate";
+import { DEMO_ONLY_MESSAGE } from "@/import/messages";
 import { isExecutableIntervention, whyNotExecutable } from "./headline";
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
   biggerLevers?: StrategyResult[];
   /** Other executable strategies that also meet the decision rules. */
   alsoExecutable?: StrategyResult[];
+  /** An imported merchant (M6): nothing is executable; the pick is simulate only. */
+  simulateOnly?: boolean;
   onSelect?: (id: string) => void;
 }
 
@@ -26,7 +29,7 @@ const signedMoney = (value: number) => `${value < 0 ? "−" : "+"}$${Math.round(
 const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
-export function DecisionSummary({ selected, proposal, proposalSource, rules, stress, horizonMonths, source, busy, recommended = false, noQualifyingAction = false, biggerLevers = [], alsoExecutable = [], onSelect }: Props) {
+export function DecisionSummary({ selected, proposal, proposalSource, rules, stress, horizonMonths, source, busy, recommended = false, noQualifyingAction = false, biggerLevers = [], alsoExecutable = [], simulateOnly = false, onSelect }: Props) {
   const currentProposal = selected && proposal?.strategy?.id === selected.strategy.id ? proposal : null;
   const matchingStress = selected && stress?.strategyId === selected.strategy.id ? stress : null;
   const manualActionAfterAgentComparison = !!currentProposal && proposalSource === "manual" && source === "agent";
@@ -43,10 +46,10 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
   const status = currentProposal?.status;
   const label = manualActionAfterAgentComparison ? "Selected scenario" : currentProposal
     ? status === "proposed" ? proposalSource === "agent" ? "Agent proposal" : "Prepared action" : `Action ${status?.replaceAll("_", " ")}`
-    : recommended ? "Recommended now" : source === "manual" ? "Manual scenario" : "Selected scenario";
+    : recommended ? (simulateOnly ? "Best within your rules" : "Recommended now") : source === "manual" ? "Manual scenario" : "Selected scenario";
   return (
     <section aria-labelledby="decision-title" className="decision-panel mb-6 min-w-0 rounded-2xl border border-border bg-surface p-6 sm:p-8">
-      <p className="eyebrow">{label} · simulated, not observed</p>
+      <p className="eyebrow">{label} · simulated, not observed{simulateOnly ? " · simulate only" : ""}</p>
       <h1 id="decision-title" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{selected.strategy.name}</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted">{horizonMonths}-month value = gross profit over the horizon plus discounted margin of the subscribers remaining at month {horizonMonths}. Changes are paired against do nothing.</p>
       <dl className="mt-6 grid gap-4 border-t border-border pt-5 text-sm sm:grid-cols-2 lg:grid-cols-5">
@@ -64,9 +67,9 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
           {matchingStress.stress.stressed.vsBaseline.totalValue.p50 < matchingStress.stress.base.vsBaseline.totalValue.p50 && " Worse than the base case."}
         </p>
       )}
-      {noQualifyingAction && <p className="mt-3 text-sm text-muted">No executable strategy meets the decision rules, so nothing is recommended. This is the highest simulated value, shown for context.</p>}
-      {!isExecutableIntervention(selected.strategy.intervention) && <p className="mt-3 text-sm text-muted">Simulate only: {whyNotExecutable(selected.strategy.intervention) ?? "this strategy has no executable PayPal action in this build."}</p>}
-      {selected.strategy.intervention.kind === "annual_plan" && <p className="mt-3 text-sm text-muted">Can be sent as an offer: each customer must agree in PayPal, and the yearly price is charged from their next renewal date. The prepay discount is netted in value and does not count against the retention discount budget.</p>}
+      {noQualifyingAction && <p className="mt-3 text-sm text-muted">{simulateOnly ? "No strategy meets the decision rules, so nothing is recommended." : "No executable strategy meets the decision rules, so nothing is recommended."} This is the highest simulated value, shown for context.</p>}
+      {!isExecutableIntervention(selected.strategy.intervention, { simulateOnly }) && <p className="mt-3 text-sm text-muted">Simulate only: {[simulateOnly ? DEMO_ONLY_MESSAGE : null, whyNotExecutable(selected.strategy.intervention)].filter(Boolean).join(" ") || "this strategy has no executable PayPal action in this build."}</p>}
+      {!simulateOnly && selected.strategy.intervention.kind === "annual_plan" && <p className="mt-3 text-sm text-muted">Can be sent as an offer: each customer must agree in PayPal, and the yearly price is charged from their next renewal date. The prepay discount is netted in value and does not count against the retention discount budget.</p>}
       {recommended && alsoExecutable.length > 0 && (
         <div className="mt-5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
           <p className="font-semibold">Also executable within your rules</p>

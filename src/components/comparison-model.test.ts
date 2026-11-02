@@ -50,3 +50,9 @@ it("exposes numeric p10, median and p90 values with the shared interval graphic"
 it("shows the actual chance worse to the same precision as the decision headline", () => {
   expect([0.001, 0.407, 0, 1].map(formatRisk)).toEqual(["0.1%", "40.7%", "0.0%", "100.0%"]);
 });
+
+it("marks nothing executable for a simulate-only (imported) merchant", () => {
+  const data = [result("b", "baseline"), result("x", "targeted_discount"), result("a", "annual_plan")];
+  expect(comparisonRows(data, "b").candidates.map((r) => r.executable)).toEqual([true, true]);
+  expect(comparisonRows(data, "b", { simulateOnly: true }).candidates.map((r) => r.executable)).toEqual([false, false]);
+});

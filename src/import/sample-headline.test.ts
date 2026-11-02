@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { DEFAULT_DECISION_RULES } from "@/agent/contracts";
-import { chooseHeadline, isExecutable } from "@/components/headline";
+import { chooseHeadline, isRecommendableIntervention } from "@/components/headline";
 import { STARTER_STRATEGIES } from "@/merchant/candidates";
 import { buildDemoTwin } from "@/merchant/demo";
 import { samplePayload } from "@/test/import-fixture";
@@ -21,7 +21,7 @@ const compare = (built: ReturnType<typeof build>) =>
   compareStrategies(built.twin, importedStarterStrategies(built), options);
 /** Retention discounts and annual plans, best median first (list-price changes are never the pick). */
 const recommendable = (c: ComparisonResult) =>
-  c.strategies.filter((s) => s.strategy.id !== c.baselineId && isExecutable(s)).sort((a, b) => b.vsBaseline.totalValue.p50 - a.vsBaseline.totalValue.p50);
+  c.strategies.filter((s) => s.strategy.id !== c.baselineId && isRecommendableIntervention(s.strategy.intervention)).sort((a, b) => b.vsBaseline.totalValue.p50 - a.vsBaseline.totalValue.p50);
 
 it("gives the sample merchant a different headline from Ridgeline on history alone, with clear margin", () => {
   const ridgeline = buildDemoTwin().twin;
@@ -29,7 +29,9 @@ it("gives the sample merchant a different headline from Ridgeline on history alo
   expect(built.reasonTargeting).toBe(false);
   const comparison = compare(built);
   expect(chooseHeadline(compareStrategies(ridgeline, STARTER_STRATEGIES, options))).toMatchObject({ selectedId: "annual-15", recommended: true });
-  expect(chooseHeadline(comparison)).toMatchObject({ selectedId: "at-risk-20-3m", recommended: true });
+  expect(chooseHeadline(comparison, DEFAULT_DECISION_RULES, { simulateOnly: true })).toMatchObject({ selectedId: "at-risk-20-3m", recommended: true, simulateOnly: true, alsoExecutable: [] });
+  // The pick rule is the same with or without simulate-only, so the comparison with Ridgeline is like-for-like.
+  expect(chooseHeadline(comparison).selectedId).toBe("at-risk-20-3m");
 
   const [pick, runnerUp] = recommendable(comparison);
   expect(runnerUp.strategy.id).toBe("annual-15");
@@ -52,6 +54,6 @@ it("keeps the same headline when its feedback is classified as labelled: at-risk
   // Almost nobody starts in cancel intent, so the price-driven cancel save would be an empty row.
   expect(built.twin.initialActive.cancel_intent).toBeLessThan(5);
   expect(importedStarterStrategies(built).map((s) => s.id)).not.toContain("cancel-price-25-3m");
-  expect(chooseHeadline(compare(built))).toMatchObject({ selectedId: "at-risk-20-3m", recommended: true });
+  expect(chooseHeadline(compare(built), DEFAULT_DECISION_RULES, { simulateOnly: true })).toMatchObject({ selectedId: "at-risk-20-3m", recommended: true, simulateOnly: true, alsoExecutable: [] });
   expect(betaMean(built.twin.params.segments.at_risk.priceReasonShare)).toBeGreaterThan(0.7);
 }, 120_000);

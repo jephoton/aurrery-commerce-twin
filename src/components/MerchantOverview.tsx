@@ -8,7 +8,7 @@ export function MerchantOverview({ summary }: { summary: MerchantSummary }) {
           <p className="eyebrow">Merchant snapshot</p>
           <h2 id="merchant-overview-title" className="mt-2 text-xl font-semibold tracking-tight">Subscribers in orbit</h2>
         </div>
-        <span className="source-badge">Synthetic demo history · {summary.asOfMonth}</span>
+        <span className="source-badge">{summary.imported ? `Imported CSV · ${summary.imported.firstMonth} to ${summary.imported.lastMonth}` : `Synthetic demo history · ${summary.asOfMonth}`}</span>
       </div>
       <div className="mt-5 grid min-w-0 items-center gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         <div className="orbit-map hidden h-52 items-center justify-center sm:flex" aria-hidden="true">
@@ -23,7 +23,7 @@ export function MerchantOverview({ summary }: { summary: MerchantSummary }) {
             <p><strong className="text-2xl font-semibold text-foreground">{summary.active.toLocaleString()}</strong> <span className="text-muted">active subscribers</span></p>
             <p><strong className="text-xl font-semibold text-foreground">${Math.round(summary.mrr).toLocaleString()}</strong> <span className="text-muted">monthly recurring revenue</span></p>
           </div>
-          <p className="mt-3 text-xs text-muted">Orbit positions are decorative, not a risk scale. Churn figures are estimates from synthetic history.</p>
+          <p className="mt-3 text-xs text-muted">Orbit positions are decorative, not a risk scale. Churn figures are estimates from {summary.imported ? "your CSV" : "synthetic history"}.</p>
           <ul className="mt-4 grid gap-2" aria-label="Subscriber segments and estimated churn">
             {summary.segments.map((segment) => (
               <li key={segment.id} className="flex min-w-0 flex-col gap-0.5 border-b border-border/70 py-1.5 text-sm last:border-0 lg:flex-row lg:justify-between lg:gap-3">
