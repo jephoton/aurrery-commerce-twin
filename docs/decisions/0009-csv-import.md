@@ -58,7 +58,8 @@ Classification never uses up agent runs. The daily totals should stay under abou
 ## Consequences
 
 - The client's row numbers are physical CSV lines (header is row 1). The server numbers payload rows as index + 2. They agree for files without blank lines or multi-line cells.
-- A classification on the hosted demo takes about a minute per 20 rows at the default Gemini rate profile.
+- Classification speed depends on the Gemini pacing settings. At the code defaults (8,000 tokens and 5 requests per minute) a batch of long rows can exceed the per-request token estimate and stop with partial counts, and the 300 s deadline caps a run at roughly 100 rows. The hosted service sets `GEMINI_AGENT_TPM=100000` and `GEMINI_AGENT_RPM=12`, which fits 200 rows of up to 1,000 characters (10 requests) in about a minute; keep those settings when redeploying.
+- Imported reason counts come from the client. An uploader could send counts that were not AI-classified, but they only affect that uploader's own stateless, simulate-only twin.
 - Saving, sharing or syncing imported merchants, PayPal actions for them, and estimating price sensitivity from a CSV remain out of scope.
 
 ## Maintaining the fixtures and tests
