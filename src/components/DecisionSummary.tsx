@@ -34,7 +34,7 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
   const matchingStress = selected && stress?.strategyId === selected.strategy.id ? stress : null;
   const manualActionAfterAgentComparison = !!currentProposal && proposalSource === "manual" && source === "agent";
   if (!selected) return (
-    <section aria-labelledby="decision-title" className="decision-panel mb-6 rounded-2xl border border-border bg-surface p-6 sm:p-8">
+    <section aria-labelledby="decision-title" className="decision-panel mb-6 engraved border border-border bg-surface p-6 sm:p-8">
       <p className="eyebrow">Decision workspace · no comparison yet</p>
       <h1 id="decision-title" className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">Simulate before you transact.</h1>
       <p className="mt-3 max-w-2xl text-muted">Run the agent or simulate strategies to compare possible outcomes for your business objective. Recommendations appear only after analysis.</p>
@@ -48,11 +48,11 @@ export function DecisionSummary({ selected, proposal, proposalSource, rules, str
     ? status === "proposed" ? proposalSource === "agent" ? "Agent proposal" : "Prepared action" : `Action ${status?.replaceAll("_", " ")}`
     : recommended ? (simulateOnly ? "Best within your rules" : "Recommended now") : source === "manual" ? "Manual scenario" : "Selected scenario";
   return (
-    <section aria-labelledby="decision-title" className="decision-panel mb-6 min-w-0 rounded-2xl border border-border bg-surface p-6 sm:p-8">
+    <section aria-labelledby="decision-title" className="decision-panel mb-6 min-w-0 engraved border border-border bg-surface p-6 sm:p-8">
       <p className="eyebrow">{label} · simulated, not observed{simulateOnly ? " · simulate only" : ""}</p>
       <h1 id="decision-title" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{selected.strategy.name}</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted">{horizonMonths}-month value = gross profit over the horizon plus discounted margin of the subscribers remaining at month {horizonMonths}. Changes are paired against do nothing.</p>
-      <dl className="mt-6 grid gap-4 border-t border-border pt-5 text-sm sm:grid-cols-2 lg:grid-cols-5">
+      <dl className="mt-6 grid gap-4 border-t border-dotted border-border pt-5 text-sm sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-1"><dt className="text-muted">Expected value change</dt><dd className="mt-1 text-3xl font-semibold tabular-nums text-brand-accent">{signedMoney(value.mean)}</dd><small className="text-muted">mean versus baseline</small></div>
         <div><dt className="text-muted">Median value change</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{signedMoney(value.p50)}</dd><small className="text-muted">p50 versus baseline</small></div>
         <div><dt className="text-muted">80% value interval</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{signedMoney(value.p10)} … {signedMoney(value.p90)}</dd><small className="text-muted">p10–p90 versus baseline</small></div>

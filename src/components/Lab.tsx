@@ -212,7 +212,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
         <div className="flex min-w-0 items-center gap-4">
           <span className="brand-mark" aria-hidden="true"><span /></span>
           <div className="min-w-0">
-            <p className="text-xl font-semibold tracking-tight text-foreground">Aurrery <span className="ml-2 align-middle text-[10px] font-medium uppercase tracking-[.2em] text-brand-accent">Decision lab</span></p>
+            <p className="brand-name text-foreground">Aurrery <span className="ml-2 align-middle font-sans text-[10px] font-medium uppercase tracking-[.2em] text-brand-accent">Decision lab</span></p>
             <p ref={(node) => { if (!imported) focusTarget.current = node; }} tabIndex={-1} className="break-words text-sm text-muted">{summary.name} · {summary.planName} · {imported ? "imported CSV · simulate only" : "synthetic demo"}</p>
           </div>
         </div>
@@ -228,7 +228,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
 
       <DecisionSummary selected={selected} proposal={proposal} proposalSource={proposalSource} rules={rules} stress={stress} horizonMonths={comparison?.options.horizonMonths ?? null} source={comparisonSource} busy={busy !== null} recommended={isHeadlinePick && headline.recommended} noQualifyingAction={isHeadlinePick && !headline.recommended} biggerLevers={isHeadlinePick ? headline.biggerLevers : []} alsoExecutable={isHeadlinePick ? headline.alsoExecutable : []} simulateOnly={simulateOnly} onSelect={(id) => { if (!busy) dispatch({ type: "select", id }); }} />
 
-      <section className="mb-6 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="objective-title">
+      <section className="mb-6 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="objective-title">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="objective-title" className="text-lg font-semibold">Set the objective</h2>
           <span className="text-xs text-muted">Agent investigation or manual comparison</span>
@@ -264,7 +264,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
       <div className="mb-6"><ImportPanel disabled={busy !== null} onImported={onImported} onBusyChange={setImporting} /></div>
 
       {comparison && (
-        <section className="mb-6 min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
+        <section className="mb-6 min-w-0 engraved border border-border bg-surface p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold">Scenario comparison</h2>
             <span className="source-badge">Simulated, not observed</span>
@@ -279,15 +279,15 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
 
       {selected && baseline && (
         <section className="mb-6 grid min-w-0 gap-6 lg:grid-cols-5">
-          <div className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6 lg:col-span-3">
+          <div className="min-w-0 engraved border border-border bg-surface p-5 sm:p-6 lg:col-span-3">
             <h2 className="mb-1 text-lg font-semibold">{selected.strategy.name}</h2>
             <p className="mb-4 text-muted">{selected.description}</p>
             <FanChart
               title="Active subscribers"
               format={(v) => Math.round(v).toLocaleString()}
               series={[
-                { label: "Do nothing", band: baseline.activeBand, color: "#abb8cb", baseline: true },
-                { label: selected.strategy.name, band: selected.activeBand, color: "#e6bd69" },
+                { label: "Do nothing", band: baseline.activeBand, color: "#bccae8", baseline: true },
+                { label: selected.strategy.name, band: selected.activeBand, color: "#e0b65e" },
               ]}
             />
           </div>
@@ -296,7 +296,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
       )}
 
       {!imported && selected && selected.strategy.id !== comparison?.baselineId && (
-        <section id="approval" aria-labelledby="approval-title" className="mb-6 min-w-0 scroll-mt-5 rounded-2xl border border-brand/50 bg-surface p-5 sm:p-6">
+        <section id="approval" aria-labelledby="approval-title" className="mb-6 min-w-0 scroll-mt-5 engraved border border-brand/50 bg-surface p-5 sm:p-6">
           <p className="eyebrow mb-2">Merchant confirmation boundary</p>
           <h2 id="approval-title" className="mb-1 text-xl font-semibold">Approval · review exact action</h2>
           {!executable ? (
@@ -343,7 +343,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
       )}
 
       {!imported && report && (
-        <section className="mb-6 min-w-0 rounded-2xl border border-observed/40 bg-surface p-5 sm:p-6">
+        <section className="mb-6 min-w-0 engraved border border-observed/40 bg-surface p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold">PayPal execution: {report.proposal.status.replace("_", " ")}</h2>
             <span className="source-badge text-observed">{annualReport ? "Observed from PayPal Sandbox responses" : "Observed from PayPal Sandbox read-back"}</span>
@@ -391,7 +391,7 @@ export function Workspace({ summary, starterStrategies, simulationRuns, imported
 
       <RecoveryPanel canReview={canReviewAccess(access)} paypalConfigured={!!paypal?.configured} disabled={importing} onObservedChange={refreshPayPal} />
 
-      <section className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
+      <section className="min-w-0 engraved border border-border bg-surface p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Pilot cohort in PayPal Sandbox</h2>
           <button onClick={() => void refreshPayPal()} className="min-h-10 rounded-lg px-3 text-sm text-brand-accent hover:bg-background hover:underline">

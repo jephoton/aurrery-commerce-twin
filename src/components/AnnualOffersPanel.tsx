@@ -71,7 +71,7 @@ export function AnnualOffersPanel({ offers, labels, canReview, unavailable = fal
     catch { setCopyError("Copy failed; select the message text instead."); }
   };
   return (
-    <section className="mb-6 min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="annual-offers-title">
+    <section className="mb-6 min-w-0 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="annual-offers-title">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="annual-offers-title" className="text-lg font-semibold">Annual offers</h2>
         <span className="source-badge text-observed">Status from PayPal Sandbox read-back</span>

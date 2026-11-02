@@ -22,9 +22,9 @@ export function EvidencePanel({ summary, evidence, source, snapshot, liveAnnual 
   const changes = imported ? undefined : snapshot?.changes ?? (source ? undefined : summary.parameterChanges);
   const annual = imported ? undefined : liveAnnual?.annual ?? (snapshot ? snapshot.annual : source ? undefined : summary.annualEvidence);
   return (
-    <aside className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="evidence-title">
+    <aside className="min-w-0 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="evidence-title">
       <p className="eyebrow">Evidence record</p>
-      <h3 id="evidence-title" className="mb-4 mt-2 text-lg font-semibold">What this rests on</h3>
+      <h3 id="evidence-title" className="display mb-4 mt-2 text-2xl font-semibold">What this rests on</h3>
       <div className="grid min-w-0 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">
         <div className="min-w-0 rounded-lg border border-border bg-background p-4">
           <h4 className="font-medium">Active subscriber population</h4>

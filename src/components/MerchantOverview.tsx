@@ -2,7 +2,7 @@ import type { MerchantSummary } from "./Lab";
 
 export function MerchantOverview({ summary }: { summary: MerchantSummary }) {
   return (
-    <section aria-labelledby="merchant-overview-title" className="overview-panel min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6">
+    <section aria-labelledby="merchant-overview-title" className="overview-panel engraved min-w-0 border border-border bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="eyebrow">Merchant snapshot</p>
