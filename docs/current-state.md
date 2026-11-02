@@ -9,14 +9,14 @@ _Last material update: 2026-11-02. Milestone-by-milestone history is archived in
 - M0-M7 are complete, including M6 (CSV import, simulate-only imported merchants) and M7 (consent-based annual-plan offers). All are merged on `main` and live at https://aurrery.onrender.com.
 - `main` is at the latest commit (application code last deployed at `5b8356f`; later commits are docs only). Hosted acceptance for M5, M6 and M7 passed.
 - Hosting: Render Free (Singapore) with an authoritative Turso libSQL ledger. Render tracks `main` with manual deploys only (`autoDeployTrigger: "off"`).
-- Active branch for M8 work: `chore/m8-tidy-ups`.
+- Active branch for M8 work: `feat/m8-star-chart-theme` (local, not pushed): the star-chart theme pass is implemented; browser screenshots, review and merge are pending.
 - Last full local gates: 1320 tests, typecheck, lint and build passed (M6 acceptance); Linux CI passed on the deployed commit.
 
 ## What's next (M8: Submission)
 
 Per the M8 section of [docs/superpowers/plans/2026-10-22-aurrery-roadmap.md](superpowers/plans/2026-10-22-aurrery-roadmap.md):
 
-1. UI theme pass: a deliberate, stylised identity (celestial star-chart / planisphere look with brass-gold accents; reference notes are in the roadmap).
+1. UI theme pass: implemented on `feat/m8-star-chart-theme` per [the M8 theme design](superpowers/specs/2026-11-02-m8-star-chart-theme-design.md): cobalt palette with gold accents and AA-checked text colours, Cormorant Garamond headings, engraved panels, inline-SVG line art in `src/components/art/` and a planisphere merchant overview (with a render test). Next: desktop and 375 px screenshots of Ridgeline and an imported merchant, then merge and a hosted check.
 2. Review tidy-ups: done on 2026-11-02 (merged branches deleted, decision 0007 duplicate renumbered to 0010 and statuses refreshed, this rewrite, GitHub homepage and topics, flaky-test fixes, README hosting line).
 3. Judge-facing README with the hosted URL and local setup; warn about the cold start or keep the instance warm during judging.
 4. Devpost text, video script and recording (under 3:00, public on YouTube).
