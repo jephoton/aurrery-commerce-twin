@@ -1,20 +1,18 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { createHostingStore } from "./store";
 import { createLocalConnection, initializeLedgerSchema } from "@/ledger/connection";
 import { guardHostedRequest, parseSessionCookie } from "./guard";
 import type { HostedConfig } from "./config";
 
 const config: HostedConfig = { hosted: true, origin: "https://example.test", adminPassword: "p".repeat(40), secret: "s".repeat(48) };
-const dir = mkdtempSync(join(tmpdir(), "aurrery-guard-"));
-const db = new DatabaseSync(join(dir, "db.sqlite"));
+// In-memory: the daily-cap test commits 1,200 single-row transactions, which on a file database costs an fsync each
+// (about 1.6 s alone, over the 5 s default under parallel load on Windows). The limiter logic is storage-independent.
+const db = new DatabaseSync(":memory:");
 const connection = createLocalConnection(db);
 const store = createHostingStore(connection, config.hosted ? config.secret : "");
 afterEach(async () => { await connection.executeMultiple("DELETE FROM hosted_limits; DELETE FROM hosted_sessions;"); });
-afterAll(() => { db.close(); rmSync(dir, { recursive: true, force: true }); });
+afterAll(() => { db.close(); });
 describe("hosted request guard", () => {
   it("applies a separate global webhook quota of 30 per minute and 1200 per day", async () => {
     await initializeLedgerSchema(connection);
