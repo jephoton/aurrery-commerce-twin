@@ -57,7 +57,7 @@ export function createAgentHandler(deps: { run?: typeof runAgent; acquire?: type
     }
     let lease: ReturnType<typeof acquireAgentLease>;
     try { lease = (deps.acquire ?? acquireAgentLease)(); }
-    catch (error) { return Response.json({ message: error instanceof RunLimitError && error.code === "BUSY" ? "Another agent run is active." : "Agent unavailable." }, { status: error instanceof RunLimitError && error.code === "BUSY" ? 409 : 503 }); }
+    catch (error) { return Response.json({ message: error instanceof RunLimitError && error.code === "BUSY" ? "An agent run or feedback classification is active." : "Agent unavailable." }, { status: error instanceof RunLimitError && error.code === "BUSY" ? 409 : 503 }); }
     const controller = new AbortController();
     const abort = () => controller.abort();
     request.signal.addEventListener("abort", abort, { once: true });

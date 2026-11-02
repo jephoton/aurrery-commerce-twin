@@ -97,7 +97,7 @@ export async function requestAgent(objective: string, options: StreamOptions & {
   catch { if (options.signal?.aborted) throw abortError(); throw new Error("Agent connection unavailable. Run incomplete."); }
   if (!response.ok) {
     void response.body?.cancel().catch(() => {});
-    throw new Error(response.status === 409 ? "Another agent run is active. Try again after it finishes." : `Agent request failed (${response.status}).`);
+    throw new Error(response.status === 409 ? "An agent run or feedback classification is active. Try again after it finishes." : `Agent request failed (${response.status}).`);
   }
   return readAgentStream(response, options);
 }
