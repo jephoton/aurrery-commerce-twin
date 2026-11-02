@@ -21,8 +21,11 @@ function fakeModel(sequence: [string, unknown][], summary = true) {
 async function toolOptions() {
   ledger().exec("DELETE FROM sandbox_subscribers; DELETE FROM proposals;");
   for (const [i, pilot] of PILOT_COHORT.entries()) await registerSandboxSubscriber({ ...pilot, subscriptionId: `I-RUN${i}` });
-  return { classify: async () => ({ accepted: feedbackCorpus.map((m) => ({ id: m.id, intent: "cancel" as const, reason: "price" as const, confidence: .9 })), total: 200, cacheHits: 200, unclassified: [], diagnostics: [], schemaValidCount: 200, batches: [], metrics: emptyMetrics(), stopped: false }) };
+  return { env: { SIMULATION_RUNS: "100" }, classify: async () => ({ accepted: feedbackCorpus.map((m) => ({ id: m.id, intent: "cancel" as const, reason: "price" as const, confidence: .9 })), total: 200, cacheHits: 200, unclassified: [], diagnostics: [], schemaValidCount: 200, batches: [], metrics: emptyMetrics(), stopped: false }) };
 }
+// The real worker still runs; 100 futures (the minimum SIMULATION_RUNS) instead of 1,000 keeps each simulating test
+// near 0.3 s so parallel load cannot push it past the 5 s default, and a timed-out run cannot hold the lease/worker
+// and cascade into the later tests. No assertion here depends on the number of futures.
 const base = async () => ({ env, window: createTokenWindow(), toolOptions: await toolOptions() });
 it("completes the real seven-tool flow, matches opaque IDs and forces a final public summary", async () => {
   const model = fakeModel(steps);
