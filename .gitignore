@@ -43,3 +43,6 @@ next-env.d.ts
 
 # local data
 /data
+
+# demo video captures
+/demo-capture/

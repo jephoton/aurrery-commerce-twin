@@ -20,7 +20,8 @@
     "ledger:export": "tsx --conditions=react-server scripts/export-ledger.ts",
     "agent:check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/check-agent.ts",
     "paypal:annual-check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/paypal-annual-check.ts",
-    "samples:generate": "tsx scripts/generate-sample-merchant.ts"
+    "samples:generate": "tsx scripts/generate-sample-merchant.ts",
+    "demo:capture": "tsx scripts/demo-capture.ts"
   },
   "engines": { "node": ">=24.0.0 <25.0.0" },
   "dependencies": {
@@ -44,6 +45,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
+    "playwright": "^1.58.2",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
