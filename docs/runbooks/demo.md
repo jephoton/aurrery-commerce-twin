@@ -82,6 +82,38 @@ To show a fresh annual offer live instead, see "Repeating the annual offer" belo
 | A or B not at $24 before the demo | **Administrator demo reset** → preview → confirm, then refresh. |
 | A proposal is stuck "executing" | See the "Annual offers: unresolved targets and links" section of `docs/runbooks/render-turso.md`; don't retry blindly. |
 
+## Automated capture
+
+`npm run demo:capture` ([scripts/demo-capture.ts](../../scripts/demo-capture.ts)) records the six scenes above in Chromium with Playwright at 1600×900. Narration to lay over it: [voiceover.md](voiceover.md).
+
+- **Cursor.** Playwright neither moves the real pointer nor records one, so the script draws its own arrow, glides it between targets and shows a gold ripple on each click. Scrolling is eased, so viewers can follow.
+- **Output.** `demo-capture/<timestamp>/` (git-ignored): `demo.webm`, `demo.mp4` (1920×1080 H.264, when ffmpeg is on `PATH`) and `marks.json` with each scene's start time in seconds. A take that fails part-way still saves its footage and marks.
+- **Admin sign-in stays off camera.** The script reads the password from `AURRERY_ADMIN_PASSWORD` and signs in from a separate, unrecorded browser context, then records with that session. Nothing prints the password. That first context also wakes a sleeping Render service.
+- **Safe by default.** Without `--execute` the take ticks the approval box and points at **Approve & execute**, but does not click it. Nothing changes in PayPal.
+
+Rehearsal (no PayPal change; the agent runs, about 7 Gemini requests):
+
+```bash
+npm run demo:capture
+```
+
+The real take (bash; type the password at the prompt so it stays out of your shell history):
+
+```bash
+read -rs AURRERY_ADMIN_PASSWORD && export AURRERY_ADMIN_PASSWORD && npm run demo:capture -- --execute --reset-after
+```
+
+`--execute` approves the save offer for Pilots A and B on camera. `--reset-after` then runs **Administrator demo reset** off camera to put them back at $24; afterwards, check the pilot table with **Refresh from PayPal**.
+
+Other options:
+- `--scenes 4,5` re-records particular scenes.
+- `--manual` uses **Simulate strategies** instead of the agent in scene 2 (no AI quota).
+- `--pace 1.2` lengthens every pause to fit the narration.
+- `--headed` shows the window, for recording with OBS instead; move the real mouse off the window.
+- `--url http://localhost:3001` rehearses against the dev server. Note that headings there fall back to Times, because the dev server cannot fetch Google Fonts.
+
+The agent wait in scene 2 (about 15–30 s hosted) is real time; trim it in the edit. Scene 5 shows the Annual offers panel only when the ledger has offers, as the hosted one does.
+
 ## Repeating the annual offer
 
 Options, in order of effort:

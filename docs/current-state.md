@@ -1,26 +1,25 @@
 # Current state (handoff)
 
-_Last material update: 2026-11-02. Milestone-by-milestone history is archived in [docs/history/current-state-log.md](history/current-state-log.md)._
+_Last material update: 2026-11-03. Milestone-by-milestone history is archived in [docs/history/current-state-log.md](history/current-state-log.md)._
 
 **Aurrery** is a digital twin plus AI agent for subscription merchants. It simulates retention and pricing strategies, then executes merchant-approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public, MIT). Hackathon deadline: 2026-11-13 04:00 SGT. Design: [docs/superpowers/specs/2026-10-22-aurrery-design.md](superpowers/specs/2026-10-22-aurrery-design.md).
 
 ## Status
 
 - M0-M7 are complete, including M6 (CSV import, simulate-only imported merchants) and M7 (consent-based annual-plan offers). All are merged on `main` and live at https://aurrery.onrender.com.
-- `main` is at the latest commit (application code last deployed at `5b8356f`; later commits are docs only). Hosted acceptance for M5, M6 and M7 passed.
+- `main` is at the latest commit (application code last deployed at `0983155`, the M8 theme; later commits are docs and tooling only). Hosted acceptance for M5, M6 and M7 passed.
 - Hosting: Render Free (Singapore) with an authoritative Turso libSQL ledger. Render tracks `main` with manual deploys only (`autoDeployTrigger: "off"`).
-- Active branch for M8 work: `feat/m8-star-chart-theme` (local, not pushed): the star-chart theme pass is implemented; browser screenshots, review and merge are pending.
 - Last full local gates: 1320 tests, typecheck, lint and build passed (M6 acceptance); Linux CI passed on the deployed commit.
 
 ## What's next (M8: Submission)
 
 Per the M8 section of [docs/superpowers/plans/2026-10-22-aurrery-roadmap.md](superpowers/plans/2026-10-22-aurrery-roadmap.md):
 
-1. UI theme pass: implemented on `feat/m8-star-chart-theme` per [the M8 theme design](superpowers/specs/2026-11-02-m8-star-chart-theme-design.md): cobalt palette with gold accents and AA-checked text colours, Cormorant Garamond headings, engraved panels, inline-SVG line art in `src/components/art/` and a planisphere merchant overview (with a render test). Next: desktop and 375 px screenshots of Ridgeline and an imported merchant, then merge and a hosted check.
+1. UI theme pass: done, merged and deployed, per [the M8 theme design](superpowers/specs/2026-11-02-m8-star-chart-theme-design.md): cobalt palette with gold accents and AA-checked text colours, Cormorant Garamond headings, engraved panels, inline-SVG line art in `src/components/art/` and a planisphere merchant overview (with a render test).
    - Palette retuned to darker navy and burnished gold (`1a4b0d7`), then the UI review fixes landed: layered element CSS so heading utilities apply, a single-scroll AG Grid with a visible gold selection, themed file inputs, engraved banner and access panels, tidier metrics and tables, the top frame corners kept clear of the brand mark, and larger planisphere labels.
 2. Review tidy-ups: done on 2026-11-02 (merged branches deleted, decision 0007 duplicate renumbered to 0010 and statuses refreshed, this rewrite, GitHub homepage and topics, flaky-test fixes, README hosting line).
 3. Judge-facing README with the hosted URL and local setup; warn about the cold start or keep the instance warm during judging.
-4. Devpost text, video script and recording (under 3:00, public on YouTube).
+4. Devpost text, video script and recording (under 3:00, public on YouTube). The demo runbook is [docs/runbooks/demo.md](runbooks/demo.md) and the timed narration is [docs/runbooks/voiceover.md](runbooks/voiceover.md). `npm run demo:capture` records the footage with a drawn cursor (rehearsed locally end to end with `--manual`; the real take is `--execute --reset-after` against the hosted site). Next: record the hosted take and the voiceover, then edit.
 5. Final QA on the hosted build and submit with margin before 2026-11-13 04:00 SGT.
 
 ## Commands
@@ -42,6 +41,7 @@ Node 24 is required (`engines`). Run from the repo root. All scripts below exist
 | Ledger backup / restore into an empty target | `npm run ledger:export`, `npm run ledger:import` |
 | Regenerate sample merchant files in `public/samples/` | `npm run samples:generate` |
 | Agent smoke check against the configured AI provider | `npm run agent:check` |
+| Record demo-video footage (Playwright; see the demo runbook) | `npm run demo:capture -- --help` |
 | Update the Ridgeline golden fixture on purpose | `UPDATE_RIDGELINE_GOLDEN=1 npm test -- src/merchant/ridgeline-golden.test.ts` |
 
 Also available: `twin:inspect`, `signals:evaluate`, `signals:import-cache`, `start`. The ledger scripts do not auto-load `.env.local`; set their environment privately (see the runbook).
@@ -90,7 +90,8 @@ All records are in [docs/decisions/](decisions/).
 - **Synthetic data:** Ridgeline and Hollowbrook histories are generated; observed evidence from the sandbox is tiny and carries a sandbox caveat.
 - **Annual offers:** offers cannot be withdrawn; PayPal gives no link expiry and the real token lifetime is untested; a late approval still counts.
 - **Webhook coverage:** webhook subscription UPDATED events are not subscribed, so annual switches are detected by read-back.
-- **Docs hygiene (M8):** the README is internal and stale and needs a judge-facing rewrite; the GitHub homepage URL and topics are empty.
+- **Docs hygiene (M8):** the README still needs a judge-facing rewrite.
+- **Local dev quirks (2026-11-03):** the local dev server cannot reach Google Fonts, so headings fall back to Times locally (the hosted build has Cormorant). A local agent run from the browser ended with `TOKEN_LIMIT`; hosted runs are configured separately (`GEMINI_AGENT_TPM`) and are not affected by that run, but check one hosted agent run before recording.
 
 ## Handoff pointers
 
@@ -98,5 +99,5 @@ All records are in [docs/decisions/](decisions/).
 - Roadmap: [docs/superpowers/plans/2026-10-22-aurrery-roadmap.md](superpowers/plans/2026-10-22-aurrery-roadmap.md)
 - Specs: [docs/superpowers/specs/](superpowers/specs/); plans: [docs/superpowers/plans/](superpowers/plans/)
 - Research and validation reports: [docs/research/](research/)
-- Runbook: [docs/runbooks/render-turso.md](runbooks/render-turso.md)
+- Runbooks: [docs/runbooks/render-turso.md](runbooks/render-turso.md), [docs/runbooks/demo.md](runbooks/demo.md), [docs/runbooks/voiceover.md](runbooks/voiceover.md)
 - Archived milestone log: [docs/history/current-state-log.md](history/current-state-log.md)
