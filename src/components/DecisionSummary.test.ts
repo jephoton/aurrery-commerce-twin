@@ -52,7 +52,7 @@ it("links only the currently selected proposed action to review without an appro
   expect(current).toContain("Review exact action");
   expect(current).not.toContain("Approve &amp; execute");
   expect(render({ ...baseProps, proposal, proposalSource: "manual" })).toContain("Prepared action");
-  expect(render({ ...baseProps, proposal: { ...proposal, strategy: STARTER_STRATEGIES[2] }, source: "agent" })).not.toContain('href="#approval"');
+  expect(render({ ...baseProps, proposal: { ...proposal, strategy: STARTER_STRATEGIES[2] }, source: "agent" })).not.toContain("Review exact action");
   expect(render({ ...baseProps, proposal: { ...proposal, status: "rejected" }, source: "agent" })).not.toContain('href="#approval"');
 });
 
