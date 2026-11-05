@@ -89,6 +89,7 @@ To show a fresh annual offer live instead, see "Repeating the annual offer" belo
 - **Cursor.** Playwright neither moves the real pointer nor records one, so the script draws its own arrow, glides it between targets and shows a gold ripple on each click. Scrolling is eased, so viewers can follow.
 - **Output.** `demo-capture/<timestamp>/` (git-ignored): `demo.webm`, `demo.mp4` (1920×1080 H.264, when ffmpeg is on `PATH`) and `marks.json` with each scene's start time in seconds. A take that fails part-way still saves its footage and marks.
 - **Admin sign-in stays off camera.** The script reads the password from `AURRERY_ADMIN_PASSWORD` and signs in from a separate, unrecorded browser context, then records with that session. Nothing prints the password. That first context also wakes a sleeping Render service.
+- **Private links stay out.** The take hides the admin-only draft messages, which contain customers' PayPal approval links, and stops if one is visible. Takes recorded before 2026-11-06 show Pilot D's link at about 2:02 and must not be published.
 - **Safe by default.** Without `--execute` the take ticks the approval box and points at **Approve & execute**, but does not click it. Nothing changes in PayPal.
 
 Rehearsal (no PayPal change; the agent runs, about 7 Gemini requests):

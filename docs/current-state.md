@@ -53,7 +53,7 @@ Also available: `twin:inspect`, `signals:evaluate`, `signals:import-cache`, `sta
 - **Ledger:** Turso libSQL is authoritative when hosted (`LEDGER_BACKEND=turso`); local runs use SQLite at `LEDGER_PATH`.
 - **Required environment variable names** (values live only in Render and local `.env.local`; never commit them): `LEDGER_BACKEND`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `ADMIN_PASSWORD`, `HOSTED_SECRET`, `HOSTED_DEMO`, `AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `APP_URL` (optional; `RENDER_EXTERNAL_URL` is the fallback), `SIMULATION_RUNS` (optional override). Full setup order: [docs/runbooks/render-turso.md](runbooks/render-turso.md).
 - **Hosted AI limits:** agent runs 10 per hour per client, 15 per hour global, 30 per day global; feedback classification 10 per hour per client, 15 per hour global, 15 per day global.
-- **AI budget:** a measured agent run took about 7 requests (7 model turns, about 27K tokens). 30 runs x 7 plus 15 classifications x up to 10 is about 360 requests per day, within Gemini's free quota of 500 per day.
+- **AI budget:** a measured agent run took about 7 requests (7-8 model turns, about 27K-36K accounted tokens; the run cap is 48K). 30 runs x 7 plus 15 classifications x up to 10 is about 360 requests per day, within Gemini's free quota of 500 per day.
 - **Simulation budget:** hosted comparisons use 400 futures (1,000 locally) because Render Free has about 0.1 CPU.
 - **PayPal polling:** refresh from PayPal sparingly; the global poll cap is 60 per hour.
 - **Backups:** take a consistent backup with `npm run ledger:export` before any risky change. Exports contain sensitive authority; keep them private and outside the repository.

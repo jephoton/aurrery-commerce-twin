@@ -80,6 +80,13 @@ function installCursor() {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount); else mount();
 }
 
+/** Runs in the page: hides the admin-only draft messages, which contain customers' private PayPal approval links. */
+function hideApprovalLinks() {
+  const style = document.createElement("style");
+  style.textContent = `section[aria-labelledby="annual-offers-title"] div:has(> h3), textarea[aria-label^="Draft message"] { display: none !important; }`;
+  document.documentElement.append(style);
+}
+
 /** Human-paced pointer and scrolling for one page. */
 class Director {
   private x = VIEWPORT.width / 2;
@@ -196,6 +203,7 @@ async function record(options: Options) {
     // tsx (esbuild keepNames) wraps named functions in __name(), which page-side code needs too.
     await context.addInitScript({ content: "globalThis.__name = (fn) => fn;" });
     await context.addInitScript(installCursor);
+    await context.addInitScript(hideApprovalLinks);
     const page = await context.newPage();
     const started = Date.now();
     const d = new Director(page, options.pace);
@@ -233,24 +241,27 @@ async function record(options: Options) {
         await d.hold(1500);
       });
 
-      await scene(3, "First instinct, then correction", async () => {
+      await scene(3, "The twin corrects the obvious move", async () => {
         await d.scrollTo(page.locator("#decision-title"));
-        await d.point(page.locator("#decision-title"), 3500);
-        const also = page.getByText("Also executable within your rules");
-        if (await exists(also)) await d.point(also, 4000);
-        const levers = page.getByText("Bigger simulated levers");
-        if (await exists(levers)) await d.point(levers, 4500);
+        const headline = await page.locator("#decision-title").textContent();
+        if (!/Price-driven cancel save/.test(headline ?? "")) console.log(`Check the narration: the agent's headline is "${headline}", and scene 3 describes the price-driven save.`);
+        await d.point(page.locator("#decision-title"), 3000);
+        await d.point(page.getByText(/^Likely value change/), 4000);
+        await d.point(page.getByText("Chance of doing worse"), 4000);
+        const stress = page.getByText(/^Adverse stress/);
+        if (await exists(stress)) await d.point(stress, 4000);
       });
 
       await scene(4, "Trade-offs", async () => {
         const grid = page.getByRole("heading", { name: "Scenario comparison" });
         await d.scrollTo(grid);
-        await d.point(page.locator(".ag-header-row").first(), 3000);
+        await d.point(page.locator(".ag-row", { hasText: /At-risk/ }).first(), 3000);
+        await d.point(page.locator(".ag-row", { hasText: /Annual prepay/ }).first(), 3500);
         await d.click(page.locator(".ag-row", { hasText: /Price-driven cancel save/ }).first());
-        await d.hold(1500);
+        await d.hold(1000);
         await d.scrollTo(page.locator('svg[role="img"][aria-label^="Active subscribers"]'), "center");
-        await d.point(page.locator('svg[role="img"][aria-label^="Active subscribers"]'), 3500);
-        await d.point(page.locator("#evidence-title"), 4000);
+        await d.point(page.locator('svg[role="img"][aria-label^="Active subscribers"]'), 3000);
+        await d.point(page.locator("#evidence-title"), 3500);
       });
 
       await scene(5, "Approval and PayPal", async () => {
@@ -282,6 +293,8 @@ async function record(options: Options) {
             console.log("Rehearsal: Approve & execute was not clicked (pass --execute for the real take).");
           }
         }
+        // A private approval link must never reach the footage: stop the take rather than record one.
+        if (await page.locator('textarea[aria-label^="Draft message"]').first().isVisible().catch(() => false)) throw new Error("A draft message with an approval link is visible; stopping the take.");
         // Shown only when the ledger has annual offers (the hosted demo does; a fresh local ledger does not).
         if (await exists(page.locator("#annual-offers-title"))) {
           await d.scrollTo(page.locator("#annual-offers-title"));
