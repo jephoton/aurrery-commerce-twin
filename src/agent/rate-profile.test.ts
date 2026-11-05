@@ -55,14 +55,14 @@ it("waits once until enough entries expire to satisfy both token and request lim
   budget.close();
 });
 
-it("raises only the configured rolling TPM rate, preserving the 32000 total cap and default 8000 rate", async () => {
+it("raises only the configured rolling TPM rate, preserving the 48000 total cap and default 8000 rate", async () => {
   const defaults = createRunBudget({ window: createTokenWindow() });
   await expect(defaults.reserve(8001)).rejects.toThrow("TOKEN_LIMIT");
   defaults.close();
   const budget = createRunBudget({ window: createTokenWindow(), maxTokens: 100000, rateProfile: profile });
-  await budget.reserve(20000);
+  await budget.reserve(36000);
   await expect(budget.reserve(12001)).rejects.toThrow("TOKEN_LIMIT");
-  expect(budget.counters()).toMatchObject({ accountedTokens: 20000, httpRequests: 1 });
+  expect(budget.counters()).toMatchObject({ accountedTokens: 36000, httpRequests: 1 });
   budget.close();
 });
 

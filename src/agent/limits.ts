@@ -44,13 +44,15 @@ export interface BudgetOptions {
   /** Internal pacing configuration. The runner derives its profile only from selected server settings. */
   rateProfile?: RateProfile;
 }
+// Measured runs used about 27K to 36K tokens; pre-call reservations are deliberately high, so a tighter cap can end a run just before its summary.
+const MAX_RUN_TOKENS = 48000;
 export function createRunBudget(options: BudgetOptions = {}) {
   const { tokensPerMinute, requestsPerMinute } = options.rateProfile ?? { tokensPerMinute: 8000 };
   if (!Number.isInteger(tokensPerMinute) || tokensPerMinute < 1 || tokensPerMinute > 250000 || (requestsPerMinute !== undefined && (!Number.isInteger(requestsPerMinute) || requestsPerMinute < 1 || requestsPerMinute > 15))) throw new Error("configuration");
   const now = options.now ?? Date.now;
   const started = now();
   const duration = Math.max(1, Math.min(600000, options.maxDurationMs ?? 600000));
-  const tokenLimit = Math.max(1, Math.min(32000, options.maxTokens ?? 32000));
+  const tokenLimit = Math.max(1, Math.min(MAX_RUN_TOKENS, options.maxTokens ?? MAX_RUN_TOKENS));
   const controller = new AbortController();
   const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
   const timer = setTimeout(() => controller.abort(), duration);

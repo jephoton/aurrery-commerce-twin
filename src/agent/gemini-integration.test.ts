@@ -144,7 +144,7 @@ it("cancels Gemini preflight pacing and stalled body reads without further reque
 
 it("stops before dispatch when Gemini total usage exceeds the unchanged total token cap", async () => {
   const dispatch = vi.fn();
-  const result = await runAgent({ objective: "Investigate", env, window: createTokenWindow(), fetch: async () => modelResponse([{ functionCall: { name: "get_merchant_state", args: {} } }], 33000), createTools: () => ({ definitions: [], state: {}, dispatch }) });
+  const result = await runAgent({ objective: "Investigate", env, window: createTokenWindow(), fetch: async () => modelResponse([{ functionCall: { name: "get_merchant_state", args: {} } }], 49000), createTools: () => ({ definitions: [], state: {}, dispatch }) });
   expect(result.reason).toBe("TOKEN_LIMIT");
   expect(dispatch).not.toHaveBeenCalled();
 });

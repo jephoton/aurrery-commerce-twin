@@ -175,7 +175,7 @@ it("honors cancellation before dispatching a recommendation returned after clari
   expect(result).toMatchObject({ reason: "CANCELLED", counters: { requestedTools: 4, modelTurns: 6 } });
   expect(await listProposals()).toEqual([]);
 });
-it.each([150, 33000])("charges clarification HTTP usage and respects the existing token cap: %i", async (secondUsage) => {
+it.each([150, 49000])("charges clarification HTTP usage and respects the existing token cap: %i", async (secondUsage) => {
   let requests = 0;
   const fetcher = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: "No action" } }], usage: { total_tokens: ++requests === 1 ? 150 : secondUsage } })));
   const result = await runAgent({ ...(await setup()), fetch: fetcher, createTools: () => ({ definitions: TOOL_DEFINITIONS, state: { classified: true, rulesExplicit: true, comparison: { baselineId: "baseline" } }, dispatch: vi.fn() }) });

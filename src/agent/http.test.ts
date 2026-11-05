@@ -68,7 +68,7 @@ it("cancels both fetch and stalled body reads without further outbound attempts"
 });
 it("stops tools when reported usage exceeds the total run limit", async () => {
   const dispatch = vi.fn();
-  const result = await runAgent({ ...base(), fetch: async () => response(call("a"), { total_tokens: 33000 }), createTools: () => ({ state: {}, definitions: [], dispatch }) });
+  const result = await runAgent({ ...base(), fetch: async () => response(call("a"), { total_tokens: 49000 }), createTools: () => ({ state: {}, definitions: [], dispatch }) });
   expect(result.reason).toBe("TOKEN_LIMIT");
   expect(dispatch).not.toHaveBeenCalled();
 });
