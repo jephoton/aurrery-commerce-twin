@@ -347,7 +347,11 @@ async function resetOffCamera(browser: Browser, url: string, storageState: Await
   try {
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "networkidle", timeout: 120_000 });
+    // The recovery panel is folded unless something is outstanding.
     const preview = page.getByRole("button", { name: "Preview demo reset" });
+    const fold = page.locator("summary", { has: page.locator("#recovery-title") });
+    await fold.waitFor({ timeout: 30_000 });
+    if (!await preview.isVisible()) await fold.click();
     await preview.waitFor({ timeout: 30_000 });
     await preview.click();
     const confirm = page.getByRole("checkbox", { name: /I confirm resetting/ });

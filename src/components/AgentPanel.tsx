@@ -113,14 +113,17 @@ export function AgentPanel({ objective, disabled, importPayload = null, onStart,
         <p role="status" className="min-w-0 text-sm text-muted">{status}</p>
       </div>
       {!!events.length && (
-        <div role="log" aria-label="Agent public activity" aria-live="polite" aria-relevant="additions" className="mt-5 max-h-[32rem] overflow-y-auto rounded-lg border border-border bg-background p-4 sm:p-5">
-          <p className="eyebrow mb-4">Live activity · public agent output</p>
-          <ol className="space-y-3 text-sm">
-            {events.map((event, i) => event.type !== "done" && (
-              <li key={i} className="border-b border-border pb-3 last:border-0 last:pb-0"><AgentActivity event={event} /></li>
-            ))}
-          </ol>
-        </div>
+        <details open={running || !status.startsWith("Investigation complete")} className="mt-4 text-sm">
+          <summary className="min-h-10 cursor-pointer pt-2 font-medium text-brand-accent">{running ? "Live activity" : "What the agent did"} · {events.filter((event) => event.type !== "done").length} steps</summary>
+          <div role="log" aria-label="Agent public activity" aria-live="polite" aria-relevant="additions" className="mt-2 max-h-[32rem] overflow-y-auto rounded-lg border border-border bg-background p-4 sm:p-5">
+            <p className="eyebrow mb-4">Live activity · public agent output</p>
+            <ol className="space-y-3 text-sm">
+              {events.map((event, i) => event.type !== "done" && (
+                <li key={i} className="border-b border-border pb-3 last:border-0 last:pb-0"><AgentActivity event={event} /></li>
+              ))}
+            </ol>
+          </div>
+        </details>
       )}
     </div>
   );

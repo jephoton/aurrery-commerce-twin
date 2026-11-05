@@ -165,7 +165,9 @@ export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange, d
   };
   return (
     <section className="mb-6 min-w-0 engraved border border-border bg-surface p-5 sm:p-6" aria-labelledby="recovery-title">
-      <h2 id="recovery-title" className="text-xl font-semibold sm:text-2xl">Restore a verified discount</h2>
+      {/* Occasional admin work: folded unless something is outstanding or in progress. */}
+      <details open={pending.length > 0 || !!proposal || !!report || !!error || !!resetSkipped}>
+      <summary className="min-h-10 cursor-pointer pt-1"><h2 id="recovery-title" className="inline text-xl font-semibold sm:text-2xl">Restore a verified discount</h2></summary>
       <p className="mt-1 text-sm text-muted">Prepare a separate proposed action from a completed discount. Its exact targets and original list prices need a fresh merchant approval.</p>
       {canReview && <div className="mt-4 border-t border-border pt-4">
         <h3 className="font-medium">Administrator demo reset</h3>
@@ -196,6 +198,7 @@ export function RecoveryPanel({ canReview, paypalConfigured, onObservedChange, d
       {report && <p className="mt-3 text-sm">{reportSummary(report)}</p>}
       {currentEvidence && <p className="mt-2 text-sm text-muted">Current ledger after the action attempt: {currentEvidence.episodes} verified discount episodes · {currentEvidence.subscriberMonths.toFixed(3)} observed discounted subscriber-months. Previous run evidence snapshots remain as recorded.</p>}
       {error && <p role="alert" className="mt-3 text-sm text-negative">{error}</p>}
+      </details>
     </section>
   );
 }

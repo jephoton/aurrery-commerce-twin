@@ -469,26 +469,35 @@ function ProposalCard({
   const d = proposal.prediction.vsBaseline.totalValue;
   return (
     <div>
+      <div className="mb-4">
+        <p className="text-sm text-muted">Price change</p>
+        <p className="mt-1 text-2xl font-semibold tabular-nums text-brand-accent sm:text-3xl">${a.listPrice} → ${a.newPrice}</p>
+        <p className="mt-1 text-sm">{a.discountPct}% off · {a.months} month(s) · {a.targets.length} PayPal Sandbox subscription(s)</p>
+      </div>
       <dl className="mb-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-        <Field label="Price change" value={`$${a.listPrice} → $${a.newPrice} (${a.discountPct}% off) for ${a.months} month(s)`} />
-        <Field label="Targeting" value={`${a.segment.replaceAll("_", " ")} · ${a.reason === "any" ? "any reason" : "price reason"}`} />
-        <Field label="Simulated campaign" value={a.campaignMonths === 0 ? "Today's cohort only (0-month campaign)" : `${a.campaignMonths}-month offer enrollment window; each offer lasts ${a.months} month(s)`} />
         <Field label="Targets" value={a.targets.map((t) => `${labels.get(t) ?? ""} ${t}`).join(", ")} />
         <Field label="Simulated Δ value (median, 80% interval)" value={`${money(d.p50)} (${money(d.p10)} … ${money(d.p90)})`} />
         <Field label="Status" value={proposal.status} />
         <Field label="Payload hash" value={proposal.actionHash} mono />
       </dl>
-      <details className="mb-4 rounded-lg border border-border bg-background px-4 py-3 text-sm"><summary className="font-medium text-brand-accent">PayPal operation details</summary><p className="mt-2 break-all font-mono text-xs">PATCH /v1/billing/subscriptions/&#123;id&#125; · regular-cycle fixed_price</p></details>
-      <p className="mb-3 text-sm text-muted">
-        Approval executes for today&apos;s matching pilots only. Later campaign entrants need their own proposals and approvals.
-        Campaign duration describes the simulated policy; it does not schedule future PayPal actions.
-      </p>
+      <details className="mb-4 text-sm">
+        <summary className="min-h-10 cursor-pointer pt-2 font-medium text-brand-accent">Targeting and PayPal details</summary>
+        <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+          <Field label="Targeting" value={`${a.segment.replaceAll("_", " ")} · ${a.reason === "any" ? "any reason" : "price reason"}`} />
+          <Field label="Simulated campaign" value={a.campaignMonths === 0 ? "Today's cohort only (0-month campaign)" : `${a.campaignMonths}-month offer enrollment window; each offer lasts ${a.months} month(s)`} />
+        </dl>
+        <p className="mt-2 break-all font-mono text-xs">PATCH /v1/billing/subscriptions/&#123;id&#125; · regular-cycle fixed_price</p>
+        <p className="mt-2 text-muted">
+          Approval executes for today&apos;s matching pilots only. Later campaign entrants need their own proposals and approvals.
+          Campaign duration describes the simulated policy; it does not schedule future PayPal actions.
+        </p>
+        <p className="mt-2 text-muted">
+          Billing within 10 days of a PayPal price change is unaffected. The discount is recorded with a revert date; reverting is a separate approved
+          action.
+        </p>
+      </details>
       {proposal.status === "proposed" && (
         <>
-          <p className="mb-3 text-sm text-muted">
-            Billing within 10 days of a PayPal price change is unaffected. The discount is recorded with a revert date; reverting is a separate approved
-            action.
-          </p>
           <label className="mb-3 flex min-h-10 items-center gap-3 text-sm">
             <input type="checkbox" checked={confirmed} disabled={busy || !canReview} onChange={(e) => setConfirmed(e.target.checked)} className="h-5 w-5 shrink-0 accent-brand" />
             I approve changing the price of these {a.targets.length} PayPal Sandbox subscription(s).
