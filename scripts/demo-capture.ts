@@ -15,6 +15,7 @@ const HELP = `Usage: npm run demo:capture -- [options]
   --scenes <list>    Scenes to record, e.g. 1,2,3 (default 1,2,3,4,5,6)
   --execute          Click "Approve & execute" in scene 5 (changes Pilots A and B in PayPal Sandbox)
   --manual           Scene 2 uses "Simulate strategies" instead of the agent (no AI quota)
+  --allow-incomplete Keep recording if the agent stops early but has made a comparison (previews only)
   --reset-after      After an executed take, run the administrator demo reset off camera
   --headed           Show the browser window (for recording with OBS instead of the built-in video)
   --pace <factor>    Multiply every pause (default 1; 1.2 gives the narration more room)
@@ -23,14 +24,14 @@ const HELP = `Usage: npm run demo:capture -- [options]
 The administrator password is read from AURRERY_ADMIN_PASSWORD and used only in an
 unrecorded browser context. Without it, a hosted site shows scene 5 signed out.`;
 
-type Options = { url: string; scenes: Set<number>; execute: boolean; manual: boolean; resetAfter: boolean; headed: boolean; pace: number; out: string };
+type Options = { url: string; scenes: Set<number>; execute: boolean; manual: boolean; allowIncomplete: boolean; resetAfter: boolean; headed: boolean; pace: number; out: string };
 type Mark = { scene: number; title: string; atSeconds: number };
 
 const VIEWPORT = { width: 1600, height: 900 };
 
 function parseArgs(argv: string[]): Options | null {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const options: Options = { url: "https://aurrery.onrender.com", scenes: new Set([1, 2, 3, 4, 5, 6]), execute: false, manual: false, resetAfter: false, headed: false, pace: 1, out: join("demo-capture", stamp) };
+  const options: Options = { url: "https://aurrery.onrender.com", scenes: new Set([1, 2, 3, 4, 5, 6]), execute: false, manual: false, allowIncomplete: false, resetAfter: false, headed: false, pace: 1, out: join("demo-capture", stamp) };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     const value = () => { const next = argv[++i]; if (next === undefined) throw new Error(`${arg} needs a value`); return next; };
@@ -39,6 +40,7 @@ function parseArgs(argv: string[]): Options | null {
     else if (arg === "--scenes") options.scenes = new Set(value().split(",").map(Number).filter((n) => n >= 1 && n <= 6));
     else if (arg === "--execute") options.execute = true;
     else if (arg === "--manual") options.manual = true;
+    else if (arg === "--allow-incomplete") options.allowIncomplete = true;
     else if (arg === "--reset-after") options.resetAfter = true;
     else if (arg === "--headed") options.headed = true;
     else if (arg === "--pace") options.pace = Math.max(0.3, Number(value()) || 1);
@@ -182,13 +184,15 @@ async function signInOffCamera(browser: Browser, url: string) {
   return state;
 }
 
-async function waitForAgent(page: Page) {
+async function waitForAgent(page: Page, allowIncomplete: boolean) {
   const agent = page.locator('[aria-label="Agent activity"]');
   const stop = page.getByRole("button", { name: "Stop agent" });
   await stop.waitFor({ state: "visible", timeout: 15_000 });
   await stop.waitFor({ state: "detached", timeout: 240_000 });
   const status = (await agent.first().getByRole("status").textContent())?.trim() ?? "";
-  if (!status.startsWith("Investigation complete")) throw new Error(`Agent run did not complete: ${status || "no status"}`);
+  if (status.startsWith("Investigation complete")) return;
+  if (!allowIncomplete || !await page.getByRole("heading", { name: "Scenario comparison" }).isVisible()) throw new Error(`Agent run did not complete: ${status || "no status"}`);
+  console.log(`Continuing after an incomplete agent run: ${status}`);
 }
 
 async function record(options: Options) {
@@ -236,7 +240,7 @@ async function record(options: Options) {
         } else {
           await d.click(page.getByRole("button", { name: /Run agent/ }));
           await d.point(page.getByRole("log", { name: "Agent public activity" }));
-          await waitForAgent(page);
+          await waitForAgent(page, options.allowIncomplete);
         }
         await d.hold(1500);
       });
