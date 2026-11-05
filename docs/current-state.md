@@ -1,6 +1,6 @@
 # Current state (handoff)
 
-_Last material update: 2026-11-03. Milestone-by-milestone history is archived in [docs/history/current-state-log.md](history/current-state-log.md)._
+_Last material update: 2026-11-05. Milestone-by-milestone history is archived in [docs/history/current-state-log.md](history/current-state-log.md)._
 
 **Aurrery** is a digital twin plus AI agent for subscription merchants. It simulates retention and pricing strategies, then executes merchant-approved actions through PayPal Sandbox. Repo: `jephoton/aurrery-commerce-twin` (public, MIT). Hackathon deadline: 2026-11-13 04:00 SGT. Design: [docs/superpowers/specs/2026-10-22-aurrery-design.md](superpowers/specs/2026-10-22-aurrery-design.md).
 
@@ -17,9 +17,10 @@ Per the M8 section of [docs/superpowers/plans/2026-10-22-aurrery-roadmap.md](sup
 
 1. UI theme pass: done, merged and deployed, per [the M8 theme design](superpowers/specs/2026-11-02-m8-star-chart-theme-design.md): cobalt palette with gold accents and AA-checked text colours, Cormorant Garamond headings, engraved panels, inline-SVG line art in `src/components/art/` and a planisphere merchant overview (with a render test).
    - Palette retuned to darker navy and burnished gold (`1a4b0d7`), then the UI review fixes landed: layered element CSS so heading utilities apply, a single-scroll AG Grid with a visible gold selection, themed file inputs, engraved banner and access panels, tidier metrics and tables, the top frame corners kept clear of the brand mark, and larger planisphere labels.
+   - UI declutter on `feat/m8-declutter` per [the declutter design](superpowers/specs/2026-11-05-m8-declutter-design.md): decision card tiles and bars, a visual evidence record, and folded detail. Not merged or deployed yet.
 2. Review tidy-ups: done on 2026-11-02 (merged branches deleted, decision 0007 duplicate renumbered to 0010 and statuses refreshed, this rewrite, GitHub homepage and topics, flaky-test fixes, README hosting line).
 3. Judge-facing README with the hosted URL and local setup; warn about the cold start or keep the instance warm during judging.
-4. Devpost text, video script and recording (under 3:00, public on YouTube). The demo runbook is [docs/runbooks/demo.md](runbooks/demo.md) and the timed narration is [docs/runbooks/voiceover.md](runbooks/voiceover.md). `npm run demo:capture` records the footage with a drawn cursor (rehearsed locally end to end with `--manual`; the real take is `--execute --reset-after` against the hosted site). Next: record the hosted take and the voiceover, then edit.
+4. Devpost text, video script and recording (under 3:00, public on YouTube). The demo runbook is [docs/runbooks/demo.md](runbooks/demo.md) and the timed narration is [docs/runbooks/voiceover.md](runbooks/voiceover.md). `npm run demo:capture` records the footage with a drawn cursor (rehearsed locally end to end with `--manual`; the real take is `--execute --reset-after` against the hosted site). The 2026-11-03 take predates the declutter, and its scene 3 ran short, so it needs re-recording. Next: deploy the declutter, record again, add the voiceover (Clipchamp has built-in text to speech if not using a real voice), then edit.
 5. Final QA on the hosted build and submit with margin before 2026-11-13 04:00 SGT.
 
 ## Commands
@@ -91,7 +92,7 @@ All records are in [docs/decisions/](decisions/).
 - **Annual offers:** offers cannot be withdrawn; PayPal gives no link expiry and the real token lifetime is untested; a late approval still counts.
 - **Webhook coverage:** webhook subscription UPDATED events are not subscribed, so annual switches are detected by read-back.
 - **Docs hygiene (M8):** the README still needs a judge-facing rewrite.
-- **Local dev quirks (2026-11-03):** the local dev server cannot reach Google Fonts, so headings fall back to Times locally (the hosted build has Cormorant). A local agent run from the browser ended with `TOKEN_LIMIT`; hosted runs are configured separately (`GEMINI_AGENT_TPM`) and are not affected by that run, but check one hosted agent run before recording.
+- **Local dev quirks (2026-11-03):** the dev server may fail to reach Google Fonts, and then headings fall back to Times locally (the hosted build has Cormorant). A local agent run ended with `TOKEN_LIMIT` on 2026-11-03; hosted runs are configured separately (`GEMINI_AGENT_TPM`) and are not affected by that run, but check one hosted agent run before recording.
 
 ## Handoff pointers
 
