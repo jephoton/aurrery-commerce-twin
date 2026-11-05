@@ -88,3 +88,18 @@ it("decodes a simulate-only recommendation and rejects one that claims an action
     await expect(readAgentStream(response(frame(1, bad as unknown as AgentEvent) + frame(2, { type: "done", status: "complete" })), { onEvent() {} })).rejects.toThrow();
   }
 });
+
+it("decodes an agent proposal for an annual-plan offer", async () => {
+  const twin = currentMerchant().twin;
+  const comparison = compareStrategies(twin, STARTER_STRATEGIES, { runs: 2, horizonMonths: 2 });
+  const annual = comparison.strategies.find((item) => item.strategy.intervention.kind === "annual_plan")!;
+  const proposal = {
+    id: "prop_1", createdAt: "2026-11-06T00:00:00Z", objective: "Keep subscribers", strategy: annual.strategy,
+    prediction: { metrics: annual.metrics, vsBaseline: annual.vsBaseline, probValueBelowBaseline: annual.probValueBelowBaseline },
+    action: { type: "annual_plan_offer", productId: "PROD-1", monthlyPlanId: "P-1", currency: "USD", listPrice: "24.00", discountPct: 15, annualPrice: "244.80", offerWindowDays: 7, segments: ["core", "price_sensitive"], targets: [{ subscriptionId: "I-1", registration: { label: "Pilot D", segment: "core", reason: "other", createdAt: "2026-10-22T05:32:39.596Z" } }] },
+    actionHash: "hash", status: "proposed", approvedAt: null, approvedBy: null, completedAt: null, revertAfter: null,
+  } as unknown as Extract<AgentEvent, { type: "proposal" }>["proposal"];
+  const seen: AgentEvent[] = [];
+  await readAgentStream(response(frame(1, { type: "proposal", proposal, rationale: "Bigger lever", tradeoffs: "Customers must opt in" }) + frame(2, { type: "done", status: "complete", proposalId: "prop_1" })), { onEvent: (event) => seen.push(event) });
+  expect(seen[0]).toMatchObject({ type: "proposal", proposal: { action: { type: "annual_plan_offer", annualPrice: "244.80" } } });
+});
