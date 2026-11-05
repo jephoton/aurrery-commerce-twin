@@ -18,7 +18,7 @@ Narration for the submission video, matched to the scenes in [demo.md](demo.md) 
 
 **On screen:** the proposal headline, the value and risk tiles, the stress line.
 
-> The obvious move is a broad discount for everyone at risk. / The twin says **no**: in about three of every four futures, that does worse than doing nothing. / So the agent proposes something narrower: twenty-five percent off for three months, only for subscribers cancelling over price. / And it's honest about the odds: a small likely gain, a real chance of doing worse, and under stress, **the gain disappears**.
+> The obvious move is a broad discount for everyone at risk. / The twin says **no**: in about three of every four futures, that does worse than doing nothing. / So the agent proposes something narrower: twenty-five percent off for three months, only for subscribers cancelling over price. / And it's honest about the odds: a small likely gain, a real chance of doing worse, and under stress, **the gain shrinks or disappears**.
 
 ## 4. Trade-offs
 
